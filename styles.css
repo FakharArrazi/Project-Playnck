@@ -1,0 +1,1528 @@
+/*
+  MY MUSIC PLAYER — STYLES
+  Part of a 3-file split: index.html, styles.css (this file), script.js
+  Keep all three in the same folder.
+*/
+
+
+  /* ================================================================
+                                                                          
+                                                                        ░██████    ░██████     ░██████   
+                                                                      ░██   ░██  ░██   ░██   ░██   ░██  
+                                                                      ░██        ░██         ░██         
+                                                                      ░██         ░████████   ░████████  
+                                                                      ░██                ░██         ░██ 
+                                                                      ░██   ░██  ░██   ░██   ░██   ░██  
+                                                                        ░██████    ░██████     ░██████   
+                                   
+                                                             
+     PART 1: CSS — STYLES (how the app looks)
+     ----------------------------------------------------------------
+     Read top to bottom in this order:
+       design tokens -> global resets -> app shell/layout
+       -> sidebar (brand, folder toolbar, tabs, list header, search,
+          the scrollable list itself, song rows, album cards,
+          artist/playlist/folder rows, context + sort menu)
+       -> player panel (cover art, lyrics, track text, controls,
+          the side menu, the info/edit modal)
+       -> mobile-only overrides at the very bottom.
+     ================================================================ */
+
+
+
+  /* ============================================================
+     DESIGN TOKENS
+     Every reusable value the rest of the stylesheet leans on —
+     colors, spacing, radius, gradients — lives here. Change a
+     value in this one spot and it updates everywhere it's used.
+     ============================================================ */
+  :root{
+    --bg:#0c0c11;                 /* page background, almost-black */
+    --panel:#131319;              /* sidebar background, one shade lighter than bg */
+    --elevated:#1c1c25;           /* cards, buttons, inputs sitting "above" the panel */
+    --elevated-hover:#24242f;     /* hover state for anything using --elevated */
+    --border:#232330;             /* hairline borders/dividers everywhere */
+    --text:#f2f2f6;               /* primary (brightest) text color */
+    --text-dim:#96969f;           /* secondary text, e.g. artist names, sub-labels */
+    --text-faint:#5c5c66;         /* tertiary text, e.g. placeholder icons, empty states */
+    --accent1:#5865f2;            /* primary brand/accent color (blurple) */
+    --accent1-rgb:88,101,242;     /* same as --accent1, as r,g,b for rgba() glows */
+    --accent2:#8a5cf6;            /* secondary accent, paired with accent1 in gradients */
+    --accent-grad:linear-gradient(135deg,var(--accent1),var(--accent2));
+    --heart:#ef4463;              /* color used only for the "loved" heart icon */
+    --radius:12px;                /* corner radius shared by cards/menus/modals */
+    --sidebar-w:40vw;            /* width of the left library panel (widened per request) */
+    --rail-w:42px;                 /* collapsed width of the far-left icon rail */
+    --rail-w-expanded:150px;       /* expanded width, once the rail's menu button is clicked */
+    --player-bg-blur:0px;          /* blur amount for the custom now-playing background image, Settings > Player */
+  }
+
+
+
+  /* ------------------------------------------------------------
+     GLOBAL RESET & BASE ELEMENT STYLES
+     Keeps every element's box-sizing predictable and sets the
+     base font/colors on <body> so we don't repeat them everywhere.
+     ------------------------------------------------------------ */
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    overflow:hidden;                 /* the app manages its own internal scroll areas */
+  }
+  button{font-family:inherit;}       /* buttons don't inherit fonts by default in some browsers */
+
+
+
+  /* ------------------------------------------------------------
+     SCROLLBAR STYLING
+     Thin, subtle scrollbars (WebKit/Blink only) so scrollable
+     areas like the song list don't look like a plain OS scrollbar.
+     ------------------------------------------------------------ */
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--elevated);border-radius:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+
+
+  /* ------------------------------------------------------------
+     APP SHELL
+     Two-column CSS Grid: the library sidebar on the left, the
+     now-playing panel filling the rest. Locked to the viewport
+     height so nothing on the page can grow taller than the
+     screen — that's what lets the panels scroll internally
+     instead of the whole page growing.
+     ------------------------------------------------------------ */
+  .app{
+    display:grid;
+    grid-template-columns:var(--rail-w) var(--sidebar-w) 1fr;
+    transition:grid-template-columns .22s ease;
+    height:100vh;
+    height:100dvh;                   /* dvh accounts for mobile browser chrome */
+  }
+  .app.rail-expanded{
+    grid-template-columns:var(--rail-w-expanded) var(--sidebar-w) 1fr;
+  }
+
+
+
+  /* ------------------------------------------------------------
+     SIDEBAR (LEFT LIBRARY PANEL)
+     A vertical flexbox: brand header, tabs, list header/search,
+     and finally the scrollable song/album/playlist list.
+
+     *** SCROLL BUG FIX ***
+     "min-height:0" below is what makes the song list scroll
+     instead of the whole sidebar growing forever. Flex/grid items
+     default to a minimum height equal to their CONTENT's height,
+     so without this line, adding more songs would keep growing
+     the sidebar past the screen edge (and getting clipped) rather
+     than staying locked to 100% height and scrolling internally.
+     ------------------------------------------------------------ */
+  .sidebar{
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    height:100%;
+    min-height:0;                    /* <- allows the sidebar to respect 100% height */
+  }
+
+
+
+  /* ------------------------------------------------------------
+     BRAND HEADER (static app title at the very top)
+     flex-shrink:0 pins this row at a fixed height no matter how
+     tall the song list below it gets. This used to also hold a
+     clickable logo-upload button and an editable name input —
+     both were removed in favor of one fixed, non-editable title.
+     ------------------------------------------------------------ */
+  .brand{
+    padding:18px 20px 4px;
+    flex-shrink:0;
+  }
+
+  /* PLAYNCK wordmark.
+     Michroma/Exo 2 don't ship with any OS, so the font-family
+     fallback list alone silently fell through to the system font —
+     they need to actually be loaded via @font-face, pointing at
+     real font files. Those files now live in vendor/fonts/ (see
+     THIRD-PARTY-NOTICES.txt for their license — both are SIL OFL,
+     free to bundle). If vendor/fonts/ isn't present for some reason,
+     these two @font-face rules just fail quietly and the stack below
+     drops to 'Segoe UI'/system-ui as before — nothing breaks either
+     way. */
+  @font-face{
+    font-family:'Michroma';
+    font-style:normal;
+    font-weight:400;
+    font-display:swap;
+    src:url('vendor/fonts/michroma-latin-400-normal.woff2') format('woff2');
+  }
+  @font-face{
+    font-family:'Exo 2';
+    font-style:normal;
+    font-weight:800;
+    font-display:swap;
+    src:url('vendor/fonts/exo-2-latin-800-normal.woff2') format('woff2');
+  }
+  .brand-title{
+    margin:0;
+    text-align:center;
+  }
+  /* --- SIZE of the whole wordmark: change font-size here. --- */
+  /* --- SPACING between letters: two knobs, both here —
+         letter-spacing (spacing WITHIN each letter's own box) and
+         gap (extra space added BETWEEN letter boxes on top of that).
+         Raise/lower either one independently to taste. --- */
+  .bt-word{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;                          /* <- space added BETWEEN letters */
+    font-family:'Michroma','Exo 2','Segoe UI',system-ui,sans-serif;
+    font-size:18px;                   /* <- overall size of the word */
+    font-weight:800;
+    letter-spacing:.7px;              /* <- space added inside/around each letter */
+    color:var(--text-dim);
+  }
+  .bt-letter{
+    display:inline-block;
+    border-radius:2px;                /* subtle, consistent with the rest of the UI's rounded corners */
+  }
+  /* Gradient color for the A and K only. Applied to plain text (not
+     an SVG/Unicode substitute), so it's still a normal letter —
+     just recolored the same way .bt-word's color is, via
+     background-clip:text. */
+  .bt-accent{
+    font-weight:900;
+    background:var(--accent-grad);    /* blue -> purple, same gradient used elsewhere in the UI */
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+
+
+
+  /* ------------------------------------------------------------
+     NAV RAIL (far-left collapsible icon column)
+     Replaces the old horizontal tab row + separate "☰" menu
+     button/dropdown. It's its own column in the .app grid (see
+     --rail-w / --rail-w-expanded above), always visible, with
+     three stacked pieces:
+       1) .rail-toggle   the "☰" button, expands/collapses the rail
+       2) .rail-section  Songs/Albums/Artists/Playlists/Folders —
+                          exactly the old .tabs buttons, just laid
+                          out vertically with an icon each
+       3) .rail-bottom   pinned to the bottom via margin-top:auto —
+                          Settings + About Us
+     Collapsed, only the icons show (rail-label is width:0 and
+     invisible). Toggling "rail-expanded" on #appRoot (done in
+     script.js) widens the grid column AND fades/slides each label
+     into view — the icons themselves never move, so nothing jumps.
+     ------------------------------------------------------------ */
+  .rail{
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    overflow:hidden;
+    height:100%;
+  }
+  .rail-toggle{
+    flex-shrink:0;
+    width:var(--rail-w);
+    height:52px;
+    display:flex;align-items:center;justify-content:center;
+    background:none;border:none;color:var(--text-dim);cursor:pointer;
+  }
+  .rail-toggle:hover{color:var(--text);}
+  .rail-section{
+    display:flex;
+    flex-direction:column;
+    padding:6px 0;
+  }
+  .rail-bottom{
+    margin-top:auto;
+    border-top:1px solid var(--border);
+    padding-top:6px;
+    padding-bottom:8px;
+  }
+  .rail-item{
+    display:flex;align-items:center;
+    width:100%;height:44px;flex-shrink:0;
+    padding-left:calc((var(--rail-w) - 19px) / 2);
+    gap:16px;
+    background:none;border:none;color:var(--text-dim);cursor:pointer;
+    position:relative;
+  }
+  .rail-item svg{flex-shrink:0;}
+  .rail-item:hover{color:var(--text);background:var(--elevated);}
+  .rail-item.active{color:var(--text);}
+  .rail-item.active::before{
+    content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;
+    border-radius:0 3px 3px 0;background:var(--accent-grad);
+  }
+  .rail-label{
+    font-size:13.5px;font-weight:600;white-space:nowrap;
+    opacity:0;transition:opacity .15s ease;
+  }
+  .app.rail-expanded .rail-label{opacity:1;}
+  .app.rail-expanded .rail-item{padding-left:24px;}
+
+
+
+  /* ------------------------------------------------------------
+     LIST HEADER
+     The row above the song list: current section title (or a
+     drilled-into folder/playlist name) on the left, search and
+     the new sort icon buttons on the right.
+     ------------------------------------------------------------ */
+  .list-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 20px 6px;gap:10px;flex-shrink:0;
+  }
+  .list-header .left{display:flex;align-items:center;gap:10px;min-width:0;}
+  .back-btn{
+    background:none;border:none;color:var(--text-dim);cursor:pointer;
+    display:flex;align-items:center;padding:2px;flex-shrink:0;
+  }
+  .list-title{
+    font-size:13px;color:var(--text-dim);font-weight:600;
+    text-transform:uppercase;letter-spacing:.5px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .header-icons{display:flex;gap:4px;flex-shrink:0;}
+  .icon-btn{
+    background:none;border:none;color:var(--text-dim);cursor:pointer;
+    padding:6px;border-radius:8px;display:flex;align-items:center;
+  }
+  .icon-btn:hover{background:var(--elevated);color:var(--text);}
+  .icon-btn.active{background:var(--accent-grad);color:#fff;}
+  .icon-btn.active:hover{color:#fff;}
+
+
+
+  /* ------------------------------------------------------------
+     SEARCH ROW
+     Hidden by default; toggled open by the search icon button.
+     ------------------------------------------------------------ */
+  .search-row{padding:0 20px 10px;flex-shrink:0;}
+  .search-row input{
+    width:100%;background:var(--elevated);border:1px solid var(--border);
+    border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;outline:none;
+  }
+  .search-row input:focus{border-color:var(--accent1);}
+
+
+
+  /* ------------------------------------------------------------
+     GENERIC "HIDDEN" UTILITY
+     Toggled via JS (classList) to show/hide elements without
+     removing them from the DOM. Used all over the app, including
+     by the new sort menu, side menu and info/edit modal.
+     ------------------------------------------------------------ */
+  .hidden{display:none !important;}
+
+
+
+  /* ------------------------------------------------------------
+     LIST CONTAINER (the actual scrolling area)
+     flex:1 makes it fill all remaining vertical space in the
+     sidebar; overflow-y:auto + min-height:0 is what makes IT
+     (and only it) scroll, while brand/tabs/header above stay
+     fixed in place. Extra bottom padding keeps the last song
+     from hiding behind the mobile mini-player bar.
+     ------------------------------------------------------------ */
+  .list-container{flex:1;overflow-y:auto;padding:4px 12px 90px;min-height:0;}
+  .empty-state{
+    padding:40px 20px;text-align:center;color:var(--text-faint);font-size:13px;
+  }
+
+
+
+  /* ------------------------------------------------------------
+     SONG ROW
+     One row per track in the Songs list (and inside album/artist/
+     playlist/folder detail views, which reuse this same markup).
+     ------------------------------------------------------------ */
+  .song-row{
+    display:flex;align-items:center;gap:12px;padding:8px;border-radius:10px;
+    cursor:pointer;position:relative;
+  }
+  .song-row:hover{background:var(--elevated);}
+  .song-row.playing{background:var(--accent-grad);}         /* highlights the track that's playing */
+  .song-row .thumb{
+    width:44px;height:44px;border-radius:7px;object-fit:cover;flex-shrink:0;
+    background:var(--elevated);
+  }
+  .song-row .info{min-width:0;flex:1;}
+  .song-row .title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .song-row .sub{font-size:12.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .song-row.playing .sub{color:rgba(255,255,255,.8);}
+  .song-row .dur{font-size:12px;color:var(--text-dim);flex-shrink:0;}
+  .song-row.playing .dur{color:rgba(255,255,255,.8);}
+  .song-row .menu-btn{
+    background:none;border:none;color:inherit;opacity:.7;cursor:pointer;
+    padding:4px;border-radius:6px;flex-shrink:0;
+  }
+  .song-row .menu-btn:hover{opacity:1;background:rgba(255,255,255,.12);}
+
+
+
+  /* ------------------------------------------------------------
+     MULTI-SELECT
+     A round checkbox appears at the start of each row once select
+     mode is on (toggled via the header's checklist icon). Checking
+     one or more items slides the bulk-action bar up from the
+     bottom of the sidebar. Shared by the Songs list (.song-row),
+     the Albums grid (.card), and the Artists/Playlists/Folders
+     rows (.list-line) — every selectable view uses the same round
+     checkbox and the same "selected" highlight.
+     ------------------------------------------------------------ */
+  .song-row.selectable .thumb{margin-left:0;}
+  .row-check{
+    width:20px;height:20px;border-radius:50%;flex-shrink:0;
+    border:2px solid var(--text-faint);position:relative;
+    transition:background .15s ease,border-color .15s ease;
+  }
+  .song-row.playing .row-check{border-color:rgba(255,255,255,.6);}
+  .song-row.selected .row-check,.list-line.selected .row-check,.card.selected .row-check{
+    background:var(--accent1);border-color:var(--accent1);
+  }
+  .row-check::after{
+    content:"";position:absolute;left:5px;top:1px;width:5px;height:9px;
+    border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);
+    opacity:0;
+  }
+  .song-row.selected .row-check::after,.list-line.selected .row-check::after,.card.selected .row-check::after{
+    opacity:1;
+  }
+
+  .selection-bar{
+    flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:12px 16px;background:var(--elevated);border-top:1px solid var(--border);
+  }
+  .sel-count{font-size:13px;font-weight:600;color:var(--text-dim);white-space:nowrap;}
+  .sel-actions{display:flex;align-items:center;gap:8px;}
+  .sel-btn{
+    background:var(--accent-grad);color:#fff;border:none;border-radius:8px;
+    padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+  }
+  .sel-btn.danger{background:var(--heart);}
+  .sel-cancel{
+    background:none;border:none;color:var(--text-dim);cursor:pointer;
+    font-size:20px;line-height:1;padding:4px 6px;border-radius:8px;flex-shrink:0;
+  }
+  .sel-cancel:hover{background:var(--elevated-hover);color:var(--text);}
+
+
+
+  /* ------------------------------------------------------------
+     ALBUM GRID (Albums tab)
+     A responsive grid of square cover-art cards.
+     ------------------------------------------------------------ */
+  /* ------------------------------------------------------------
+     HOME TAB
+     Three stat boxes (songs/albums/artists) side by side up top,
+     followed by "Recently Played" and "Top Songs" sections, each
+     reusing the same .song-row look the Songs tab uses. See
+     renderHomeTab() in script.js.
+     ------------------------------------------------------------ */
+  .home-view{padding:6px 8px 18px;}
+  .home-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;}
+  .home-stat-box{
+    background:var(--elevated);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px 8px;text-align:center;
+  }
+  .home-stat-value{font-size:22px;font-weight:800;color:var(--text);line-height:1.2;}
+  .home-stat-label{font-size:11.5px;color:var(--text-dim);margin-top:2px;text-transform:uppercase;letter-spacing:.04em;}
+  .home-section{margin-bottom:20px;}
+  .home-section-title{font-size:13.5px;font-weight:700;color:var(--text);margin:0 2px 8px;text-transform:uppercase;letter-spacing:.03em;}
+  .home-section .song-row .dur{white-space:nowrap;}
+
+  .grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;padding:6px 8px;}
+  .card{cursor:pointer;border-radius:10px;padding:8px;transition:background .15s;}
+  .card:hover{background:var(--elevated);}
+  .card-art-wrap{position:relative;margin-bottom:8px;}
+  .card img{width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;background:var(--elevated);display:block;}
+  .card .name{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .card .sub{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* Selected-state highlight shared by the Albums grid (.card) and
+     the Artists/Playlists/Folders rows (.list-line) — same accent
+     tint the Songs list uses for a selected .song-row. */
+  .card.selected,.list-line.selected{background:rgba(124,109,255,.14);}
+  /* The Albums grid's checkbox floats over the corner of the cover
+     art instead of sitting inline like the other tabs, since a card
+     is a vertical block rather than a row. */
+  .card-check{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.35);}
+  .card.selected .card-check{background:var(--accent1);border-color:var(--accent1);}
+
+
+
+  /* ------------------------------------------------------------
+     LIST LINE (Artists / Playlists / Folders rows)
+     A round-thumbnail row shared by the Artists, Playlists and
+     Folders tabs. Folders swap the round photo for a square
+     folder icon via the ".folder-line" modifier below.
+     ------------------------------------------------------------ */
+  .list-line{
+    display:flex;align-items:center;gap:12px;padding:10px 8px;border-radius:10px;cursor:pointer;
+  }
+  .list-line:hover{background:var(--elevated);}
+  .list-line img{width:46px;height:46px;border-radius:23px;object-fit:cover;background:var(--elevated);flex-shrink:0;}
+  .list-line.folder-line img,.list-line.folder-line .icon-wrap{
+    width:46px;height:46px;border-radius:10px;background:var(--elevated);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-dim);
+  }
+  .list-line .wrap{min-width:0;flex:1;}
+  .list-line .name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .list-line .sub{font-size:12.5px;color:var(--text-dim);}
+  /* Playlist row "⋮" menu button — same look/behavior as the
+     per-song menu button, just scoped to .list-line rows so it can
+     be reused for playlists (rename/delete) without affecting the
+     Artists/Folders rows that don't add one. */
+  .list-line .menu-btn{
+    background:none;border:none;color:inherit;opacity:.7;cursor:pointer;
+    padding:4px;border-radius:6px;flex-shrink:0;
+  }
+  .list-line .menu-btn:hover{opacity:1;background:rgba(255,255,255,.12);}
+
+
+
+  /* ------------------------------------------------------------
+     "NEW PLAYLIST" DASHED BUTTON
+     The big dashed call-to-action shown at the top of the
+     Playlists tab.
+     ------------------------------------------------------------ */
+  .new-playlist-btn{
+    display:flex;align-items:center;gap:10px;width:100%;background:none;
+    border:1px dashed var(--border);color:var(--text-dim);border-radius:10px;
+    padding:12px;cursor:pointer;font-size:13.5px;font-weight:600;margin:6px 8px 10px;
+  }
+  .new-playlist-btn:hover{border-color:var(--accent1);color:var(--text);}
+
+
+
+  /* ------------------------------------------------------------
+     FOLDER TAB TOOLBAR ("+ Add Songs" / "+ Add Folder")
+     These two buttons live inside the Folders tab (rather than
+     the sidebar header) since importing music is really a
+     "Folders" concern, and this tab already had its own
+     add-folder affordance — no reason to have it in two places.
+     ------------------------------------------------------------ */
+  .folder-toolbar{display:flex;gap:8px;margin:6px 4px 14px;}
+  .folder-toolbar button{
+    flex:1;padding:10px 10px;border-radius:9px;border:1px solid var(--border);
+    background:var(--elevated);color:var(--text);font-size:12.5px;font-weight:600;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:background .15s;
+  }
+  .folder-toolbar button:hover{background:var(--elevated-hover);}
+  .folder-toolbar button svg{width:14px;height:14px;flex-shrink:0;}
+
+
+
+  /* ------------------------------------------------------------
+     CONTEXT / DROPDOWN MENU
+     Shared floating-menu style used for TWO things: the per-song
+     "⋮" menu (favorite / add to playlist / remove) and the new
+     sort menu opened from the sort icon button. Only one of these
+     is ever open at a time (see the JS "openMenuEl" variable).
+     ------------------------------------------------------------ */
+  .ctx-menu{
+    position:fixed;background:var(--elevated);border:1px solid var(--border);
+    border-radius:10px;padding:6px;min-width:190px;z-index:200;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .ctx-menu button{
+    width:100%;text-align:left;background:none;border:none;color:var(--text);
+    padding:8px 10px;border-radius:7px;font-size:13px;cursor:pointer;
+    display:flex;align-items:center;gap:8px;
+  }
+  .ctx-menu button:hover{background:var(--elevated-hover);}
+  .ctx-menu button.selected{color:var(--accent1);font-weight:700;}   /* marks the active sort option */
+  .ctx-menu button.danger{color:var(--heart);}                       /* marks a destructive action, e.g. Delete */
+  .ctx-menu button.danger:hover{background:rgba(239,68,99,.12);}
+  .ctx-menu .divider{height:1px;background:var(--border);margin:5px 2px;}
+  .ctx-menu .submenu-label{color:var(--text-faint);font-size:11px;padding:6px 10px 2px;text-transform:uppercase;letter-spacing:.5px;}
+
+
+
+  /* ------------------------------------------------------------
+     PLAYER PANEL (RIGHT SIDE / "NOW PLAYING")
+     Cover art, track title, lyrics overlay, progress bar and
+     transport controls. position:relative lets us pin the
+     side-menu button + its dropdown to the top-right corner.
+     ------------------------------------------------------------ */
+  .player-panel{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:clamp(16px,4vh,40px) 40px clamp(14px,3vh,30px);
+    min-width:0;
+    min-height:0;                   /* <- same fix as .sidebar: lets this grid item
+                                         shrink below its content height instead of
+                                         overflowing the row when the window gets short */
+    overflow-y:auto;                /* safety net: if content still can't all fit at
+                                         very small heights, it scrolls instead of clipping */
+    position:relative;              /* anchors the side-menu button + dropdown below */
+    background:radial-gradient(circle at center, rgba(var(--accent1-rgb),.15) 0%, var(--bg) 60%);
+    background-size:160% 160%;
+    animation:panelGlowDrift 5s ease-in-out infinite alternate;
+  }
+  .player-panel .close-overlay{display:none;}
+
+  /* ------------------------------------------------------------
+     CUSTOM PLAYER BACKGROUND IMAGE (Settings > Player)
+     Sits behind every other child of .player-panel. z-index:-1
+     (rather than 0) is what actually does that: a negative
+     z-index paints *before* the panel's own non-positioned
+     children (like .now-playing-center), whereas 0 would paint
+     after them and cover the UI.
+
+     *** SCROLL BUG FIX ***
+     .player-bg itself is now the clipping frame: overflow:hidden,
+     sized exactly to the panel via inset:0, with no transform of
+     its own — so it can never expand .player-panel's scrollable
+     area. The actual oversized/blurred artwork lives on the
+     ::before pseudo-element instead. That's the layer carrying
+     transform:scale(1.12) (pushing blurred edges past the frame so
+     blur never reveals a sliver of un-blurred edge) and
+     filter:blur(...). Because ::before is a descendant of
+     .player-bg and .player-bg clips overflow, the scaled pixels get
+     cropped right at the frame instead of spilling into the panel
+     and triggering its overflow-y:auto scrollbar in every direction.
+     background-image is set by JS directly on #playerBg (the frame
+     element); background-image:inherit on ::before just picks that
+     same value up so the artwork paints on the clipped layer.
+     The dark scrim on top keeps text/controls readable over
+     arbitrary user photos in both the light and dark app themes.
+     ------------------------------------------------------------ */
+  .player-bg{
+    position:absolute;
+    inset:0;
+    z-index:-1;
+    overflow:hidden;
+    pointer-events:none;
+  }
+  .player-bg.hidden{display:none;}
+  .player-bg::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image:inherit;
+    background-size:cover;
+    background-position:center;
+    filter:blur(var(--player-bg-blur));
+    transform:scale(1.12);
+    transition:filter .15s ease;
+  }
+  .player-bg::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:var(--bg);
+    opacity:.45;
+  }
+
+  /* ------------------------------------------------------------
+     VISUALIZER
+     Subtle audio-reactive bars pinned to the very bottom edge of
+     the panel — the actual drawing (getByteFrequencyData -> bars)
+     is drawVisualizerFrame() in script.js; this only handles layout
+     and stacking. z-index:-1 (same trick as .player-bg above) keeps
+     it behind every real UI element no matter how short the window
+     gets, and pointer-events:none means it never intercepts clicks
+     even though it visually sits right under the transport controls.
+     ------------------------------------------------------------ */
+  .visualizer-canvas{
+    position:absolute;
+    left:0;right:0;bottom:0;
+    width:100%;
+    height:min(110px,14vh);
+    z-index:-1;
+    pointer-events:none;
+  }
+
+  /* Slowly drifts the radial gradient's center around within the
+     oversized (160%) background, so the glow behind the cover art
+     breathes/wanders instead of sitting perfectly still. Kept to a
+     small range (48%-52% / 45%-55%) so it reads as "alive", not as
+     an obvious back-and-forth swing. */
+  @keyframes panelGlowDrift{
+    0%  { background-position:45% 40%; }
+    50% { background-position:55% 60%; }
+    100%{ background-position:48% 45%; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .player-panel{animation:none;}
+  }
+
+
+
+  /* ------------------------------------------------------------
+     SIDE MENU BUTTON (top-right "☰" on the now-playing panel)
+     Opens a small dropdown with three entries: Info, Edit, and
+     Sync Lyrics. Both the button and its dropdown are positioned
+     absolutely against the .player-panel rule above (which is why
+     that rule needs position:relative).
+     ------------------------------------------------------------ */
+  .side-menu-btn{
+    position:absolute;
+    top:18px;
+    right:18px;
+    z-index:100;
+  }
+
+
+
+  /* ------------------------------------------------------------
+     NOW PLAYING CENTER
+     Wraps everything from the cover art down to the transport
+     controls. flex:1 lets it claim all the vertical space left
+     over below the "Now Playing" label, and its own
+     justify-content:center centers its children within JUST that
+     remaining space — not the whole panel — which is what keeps
+     the cover art/controls block visually centered under the
+     label instead of sitting too high.
+     ------------------------------------------------------------ */
+  .now-playing-center{
+    flex:1;
+    min-height:0;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+  }
+
+
+
+  /* ------------------------------------------------------------
+     SIDE MENU DROPDOWN (Info / Edit)
+     Same floating-panel look as the app menu dropdown near the
+     top of this file, just anchored to the opposite (right) side.
+     ------------------------------------------------------------ */
+  .side-dropdown{
+    position:absolute;
+    top:58px;
+    right:18px;
+    z-index:101;
+    background:var(--elevated);
+    border:1px solid var(--border);
+    border-radius:10px;
+    min-width:160px;
+    padding:6px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .side-dropdown button{
+    width:100%;text-align:left;background:none;border:none;color:var(--text);
+    padding:9px 10px;border-radius:7px;font-size:13.5px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;gap:9px;
+  }
+  .side-dropdown button:hover{background:var(--elevated-hover);}
+  .side-dropdown button svg{width:16px;height:16px;flex-shrink:0;}
+
+
+
+  /* ------------------------------------------------------------
+     VOLUME BUTTON + POPUP
+     Same absolute-positioning trick as .side-menu-btn/.side-dropdown
+     above, just stacked one row lower so it sits directly under the
+     "☰" button instead of overlapping it.
+     ------------------------------------------------------------ */
+  .volume-btn{
+    position:absolute;
+    top:60px;
+    right:18px;
+    z-index:100;
+  }
+  /* No card/box around this on purpose (was here originally, but
+     it looked heavy sitting right under a plain icon button) — just
+     the percentage label and the slider floating in place, centered
+     under volumeBtn the same way the button itself is positioned. */
+  .volume-popup{
+    position:absolute;
+    top:98px;
+    right:16px;
+    z-index:101;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+  }
+  .volume-pct{
+    font-size:11.5px;font-weight:600;color:var(--text-dim);
+    min-width:34px;text-align:center;
+  }
+  /* Fixed-size box the rotated slider sits centered inside — see
+     the #volumeSlider rule below for why the slider itself is
+     wider/shorter than this box looks. */
+  .volume-slider-wrap{
+    width:24px;height:110px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  /* A vertical slider is just a normal horizontal <input type=range>
+     rotated -90deg (counter-clockwise), sized to the *wrap's height*
+     via its own width (110px here == .volume-slider-wrap's height
+     above) — rotating a box doesn't change the space it occupies in
+     the page, only how it's painted, so the wrap's fixed size is
+     what actually reserves the vertical footprint. Rotating -90deg
+     (rather than +90) puts the slider's "max" end (its right side,
+     pre-rotation) at the top and its "min" end at the bottom, which
+     is the direction people expect a volume slider to fill — drag
+     up for louder, down for quieter. flex:none overrides the global
+     input[type=range]{flex:1} rule below, which would otherwise
+     stretch this to the wrap's 24px width instead of respecting the
+     110px set here.
+     Thumb size/color and the track's base color both come from the
+     global input[type=range] rule further down (same one the seek
+     bar uses) — only size/rotation are overridden here. The colored
+     "filled" portion of the track is repainted on top of that by
+     updateVolumeUI() in script.js, exactly the way #seek's fill is. */
+  #volumeSlider{
+    flex:none;
+    width:110px;
+    height:4px;
+    transform:rotate(-90deg);
+    margin:0;
+  }
+
+
+
+  /* ------------------------------------------------------------
+     COVER ART
+     Square artwork with a soft drop shadow. Falls back to a
+     placeholder icon (below) when a track has no embedded art.
+     ------------------------------------------------------------ */
+  .art-wrap{
+    /* The calc(100dvh - 300px) term is the important one for short
+       windows: 300px is a rough budget for everything else in this
+       panel (top/bottom padding, the label, track title/artist/album,
+       the lyrics/love buttons, the seek bar, and the transport
+       controls). Capping the art to "whatever's left after that"
+       means it shrinks itself out of the way instead of overflowing
+       and getting centered up over the label. */
+    width:min(360px,80%,42vh,calc(100dvh - 300px));
+    aspect-ratio:1;border-radius:16px;position:relative;
+    box-shadow:0 20px 60px rgba(var(--accent1-rgb),.22);flex-shrink:0;
+    animation:artGlowPulse 8s ease-in-out infinite alternate;
+  }
+  .art-wrap img{
+    width:100%;height:100%;border-radius:16px;object-fit:cover;background:var(--elevated);display:block;
+    transition:filter .35s ease;
+  }
+  /* Same slow, subtle idea as the panel's glow drift — just a gentle
+     breathe between a slightly smaller/dimmer and slightly
+     larger/brighter shadow, never both moving in exactly the same
+     rhythm so it doesn't look mechanically synced. */
+  @keyframes artGlowPulse{
+    0%  { box-shadow:0 18px 55px rgba(var(--accent1-rgb),.18); }
+    100%{ box-shadow:0 24px 68px rgba(var(--accent1-rgb),.26); }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .art-wrap{animation:none;}
+  }
+  .art-placeholder{
+    width:100%;height:100%;border-radius:16px;background:var(--elevated);
+    display:flex;align-items:center;justify-content:center;color:var(--text-faint);
+    transition:filter .35s ease;
+  }
+  /* When lyrics are open, the cover art dims + blurs a touch
+     behind them (JS toggles ".lyrics-active" on #artWrap). */
+  .art-wrap.lyrics-active img,
+  .art-wrap.lyrics-active .art-placeholder{
+    filter:brightness(.45) blur(6px);
+  }
+
+
+
+  /* ------------------------------------------------------------
+     LYRICS OVERLAY
+     Covers the cover-art area when the Lyrics button is toggled
+     on. Shows just ONE phrase at a time — whichever line is
+     playing right now — centered over the art, in the app's
+     accent color, so it reads like a live karaoke caption instead
+     of a scrolling transcript.
+     ------------------------------------------------------------ */
+  .lyrics-pane{
+    position:absolute;top:-2%;right:-2%;bottom:-2%;left:-2%;background:rgba(12,12,17,.6);border-radius:22px;
+    padding:24px;overflow-y:auto;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;
+  }
+  /* The single "now singing" phrase. Uses the app's accent1 blue
+     plus a soft glow in that same color. .swap is toggled by JS
+     for a brief moment on every line change to fade/lift the old
+     phrase out before the new text fades/lifts back in. */
+  .lyrics-pane .lyric-current{
+    color:var(--accent1);
+    font-size:clamp(22px,2.7vw,34px);
+    font-weight:800;
+    line-height:1.45;
+    max-width:92%;
+    text-shadow:0 0 28px rgba(var(--accent1-rgb),.5);
+    opacity:1;
+    transform:translateY(0) scale(1);
+    transition:opacity .22s ease, transform .22s ease;
+  }
+  .lyrics-pane .lyric-current.swap{
+    opacity:0;
+    transform:translateY(10px) scale(.96);
+  }
+  /* Fallback for lyrics that came back without per-line timestamps
+     (lrclib only had "plain" lyrics) — nothing to sync to a
+     playhead, so just show the full text instead of one phrase. */
+  .lyrics-pane .lyric-plain{color:var(--text-dim);font-size:14.5px;line-height:1.8;max-width:92%;white-space:pre-line;}
+  .lyrics-pane .lyric-status{color:var(--text-faint);font-size:15px;margin:auto;}
+
+
+
+  /* ------------------------------------------------------------
+     TRACK TITLE / ARTIST / ALBUM TEXT
+     ------------------------------------------------------------ */
+  .track-meta{text-align:center;margin-top:clamp(10px,3vh,24px);max-width:420px;}
+  .track-meta .t-title{font-size:20px;font-weight:700;margin:0 0 4px;}
+  .track-meta .t-artist{font-size:14px;color:var(--text-dim);margin:0;}
+  .track-meta .t-album{font-size:12.5px;color:var(--text-faint);margin:2px 0 0;}
+
+
+
+  /* ------------------------------------------------------------
+     LYRICS / LOVE PILL BUTTONS
+     ------------------------------------------------------------ */
+  .meta-actions{display:flex;gap:10px;margin-top:clamp(8px,2vh,16px);}
+  .meta-actions button{
+    display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;
+    border:1px solid var(--border);background:var(--elevated);color:var(--text-dim);
+    font-size:12.5px;font-weight:600;cursor:pointer;
+  }
+  .meta-actions button svg{width:15px;height:15px;}
+  .meta-actions button.active{color:var(--text);border-color:var(--accent1);}
+  .meta-actions #loveBtn.active{color:var(--heart);border-color:var(--heart);}
+  .meta-actions #loveBtn.active svg{fill:var(--heart);}
+
+
+
+  /* ------------------------------------------------------------
+     PROGRESS / SEEK BAR
+     ------------------------------------------------------------ */
+  .progress-row{display:flex;align-items:center;gap:10px;width:min(420px,100%);margin-top:clamp(10px,3vh,26px);}
+  .progress-row span{font-size:11.5px;color:var(--text-dim);width:34px;flex-shrink:0;}
+  .progress-row span:last-child{text-align:right;}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;
+    background:var(--elevated);outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#fff;
+    box-shadow:0 0 0 3px rgba(88,101,242,.35);cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#fff;border:none;}
+  #seek{background:linear-gradient(to right,var(--accent1) 0%,var(--accent1) 0%,var(--elevated) 0%);}
+
+
+
+  /* ------------------------------------------------------------
+     TRANSPORT CONTROLS (shuffle / prev / play / next / repeat)
+     ------------------------------------------------------------ */
+  .controls-row{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:clamp(10px,2.5vh,22px);}
+  .ctrl-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:8px;display:flex;}
+  .ctrl-btn:hover{color:var(--text);}
+  .ctrl-btn.active{color:var(--accent1);}
+  .ctrl-btn svg{width:20px;height:20px;}
+  /* ------------------------------------------------------------
+     LIQUID GLASS PLAY / PAUSE BUTTON
+     Hit-area-only button — no fill, no radius, no chrome behind it.
+     The glass only exists where the bars/triangle glyph is, clipped
+     to that exact outline (#glassClip below), so it morphs smoothly
+     between "pause" and "play" shapes instead of just swapping icons.
+
+     Every accent-facing value here (glass tint, rim gradient tail,
+     glow) reads rgba(var(--accent1-rgb), <low opacity>) rather than
+     a fixed color, so the button automatically tints itself to
+     match whatever accent color is picked in Settings — no JS
+     needed beyond what already updates --accent1-rgb.
+     ------------------------------------------------------------ */
+  #playBtn.morph-btn{
+    position:relative;
+    width:80px;height:80px;
+    border:none;background:none;
+    cursor:pointer;flex-shrink:0;
+    -webkit-tap-highlight-color:transparent;
+    /* Contains the squish animation's transient overshoot (it hits
+       scale(.87,1.15) mid-animation, i.e. the button is briefly
+       ~92px tall) so it can never bleed past this element and
+       inflate .player-panel's scrollable area — that phantom growth
+       was flipping the panel's scrollbar on/off on every play/pause
+       tap, nudging all the centered content sideways for an instant.
+       box-sizing:content-box + 8px padding gives the squish 8px of
+       slack on every side (96px total) without changing the
+       button's 80x80 footprint in controls-row — the negative
+       margin below cancels the extra size back out for layout
+       purposes — and overflow:hidden caps anything beyond that.
+       .glass-wrap is shifted from inset:0 to inset:8px to match,
+       so it still renders at its original 80x80 size inside here. */
+    box-sizing:content-box;
+    padding:8px;
+    margin:-8px;
+    overflow:hidden;
+  }
+  #playBtn.morph-btn:focus-visible{
+    outline:2px solid rgba(var(--accent1-rgb),.85);outline-offset:4px;
+  }
+
+  .glass-wrap{
+    position:absolute;inset:8px;
+    transform-origin:50% 50%;
+    /* soft depth shadow + a faint halo of the live accent color */
+    filter:drop-shadow(0 4px 10px rgba(0, 0, 0, 0.013)) drop-shadow(0 0 10px rgba(var(--accent1-rgb),.35));
+    animation:playBtnBreathe 3.6s ease-in-out infinite;
+  }
+  .glass-wrap.is-morphing{animation:playBtnSquish 640ms cubic-bezier(.4,0,.2,1) 1;}
+  #playBtn.morph-btn:active .glass-wrap{animation-duration:0s;}
+
+  /* the actual glass body: real backdrop refraction, clipped to the glyph */
+  .glass-shape{
+    position:absolute;inset:0;
+    background:linear-gradient(135deg, rgba(var(--accent1-rgb),.01), rgba(255,255,255,.001));
+    backdrop-filter:blur(6px) saturate(180%);
+    -webkit-backdrop-filter:blur(6px) saturate(180%);
+    clip-path:url(#glassClip);
+    transition:background .28s ease;
+  }
+  #playBtn.morph-btn:hover .glass-shape{background:linear-gradient(135deg, rgba(var(--accent1-rgb),.14), rgba(255,255,255,.04));}
+  #playBtn.morph-btn:active .glass-shape{background:linear-gradient(135deg, rgba(var(--accent1-rgb),.12), rgba(255,255,255,.02));}
+
+  /* soft directional sheen, upper-left light source, same clip as the glass */
+  .glass-highlight{
+    position:absolute;inset:0;
+    background:radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.179), transparent 40%);
+    mix-blend-mode:screen;opacity:.8;
+    clip-path:url(#glassClip);
+  }
+
+  /* crisp + glowing rim strokes, drawn on top so the glass edge catches light */
+  .icon-rim{position:absolute;inset:0;width:100%;height:100%;}
+  .icon-rim path{transition:d 640ms cubic-bezier(.65,0,.35,1);}
+  #glassClipPath{transition:d 640ms cubic-bezier(.65,0,.35,1);}
+  .rim-glow{fill:none;stroke:rgba(255,255,255,.65);stroke-width:2.4;filter:blur(1.5px);}
+  .rim-crisp{fill:none;stroke:url(#rimGrad);stroke-width:1;}
+  #rimGradStart{stop-color:rgba(255,255,255,.95);}
+  #rimGradEnd{stop-color:rgba(var(--accent1-rgb),.55);}
+
+  @keyframes playBtnSquish{
+    0%   { transform:scale(1,1); }
+    18%  { transform:scale(.87,1.15); }
+    38%  { transform:scale(1.09,.9); }
+    58%  { transform:scale(.96,1.06); }
+    78%  { transform:scale(1.02,.98); }
+    100% { transform:scale(1,1); }
+  }
+  @keyframes playBtnBreathe{
+    0%,100% { transform:scale(1); }
+    50%     { transform:scale(1.035); }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .glass-wrap,.glass-shape,.glass-highlight,.icon-rim path,#glassClipPath{
+      animation:none !important;transition-duration:1ms !important;
+    }
+  }
+
+
+
+  /* ------------------------------------------------------------
+     REPEAT MODE BADGE
+     A tiny pill on the corner of the repeat icon showing which
+     repeat mode is active: "A" for repeat-all, "1" for repeat-one.
+     Hidden completely when repeat is off. #repeatBtn needs
+     position:relative so this badge can anchor to its corner
+     (it's placed absolutely, so it doesn't affect the icon's
+     centering inside the button).
+     ------------------------------------------------------------ */
+  #repeatBtn{position:relative;}
+  .repeat-badge{
+    position:absolute;
+    bottom:2px;
+    right:2px;
+    min-width:13px;
+    height:13px;
+    padding:0 3px;
+    border-radius:7px;
+    background:var(--accent1);
+    color:#fff;
+    font-size:9px;
+    font-weight:800;
+    line-height:13px;
+    text-align:center;
+    display:none;                 /* JS toggles the ".show" class below to reveal it */
+    pointer-events:none;          /* clicks always fall through to the button underneath */
+  }
+  .repeat-badge.show{display:block;}
+
+
+
+  /* ------------------------------------------------------------
+     DRAG-AND-DROP-TO-PLAY OVERLAY
+     Shown full-screen the moment a file is dragged over the app
+     window (see wireDragAndDropPlay() in script.js) and hidden
+     again on dragleave/drop. z-index is above the modal overlay
+     (300) since it can legitimately appear while a modal is open.
+     ------------------------------------------------------------ */
+  .drag-drop-overlay{
+    position:fixed;inset:0;z-index:400;
+    background:rgba(12,12,17,.85);
+    display:flex;align-items:center;justify-content:center;
+    pointer-events:none; /* never intercept the actual drop — the window-level listeners handle it */
+  }
+  .drag-drop-message{
+    display:flex;flex-direction:column;align-items:center;gap:14px;
+    padding:40px 56px;border-radius:var(--radius);
+    border:2px dashed var(--accent1);
+    background:var(--elevated);
+    color:var(--text);font-size:16px;font-weight:700;
+  }
+  .drag-drop-message svg{color:var(--accent1);}
+
+
+
+  /* ------------------------------------------------------------
+     INFO / EDIT MODAL
+     One shared popup used by both the "Info" and "Edit" entries
+     in the side menu. JS swaps the title + body content depending
+     on which one was clicked (see openModal() in the script).
+     ------------------------------------------------------------ */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.6);
+    display:flex;align-items:center;justify-content:center;
+    z-index:300;padding:20px;
+  }
+  .modal-box{
+    background:var(--elevated);border:1px solid var(--border);border-radius:var(--radius);
+    width:min(420px,100%);max-height:80vh;overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .modal-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 18px;border-bottom:1px solid var(--border);
+    position:sticky;top:0;background:var(--elevated);z-index:2;
+  }
+  .modal-header h3{margin:0;font-size:15px;font-weight:700;}
+  .modal-body{padding:16px 18px;}
+
+
+
+  /* ------------------------------------------------------------
+     INFO MODAL CONTENT (key / value rows)
+     Used only for the "Info" entry — a simple label-on-the-left,
+     value-on-the-right row per fact about the song/file.
+     ------------------------------------------------------------ */
+  .info-grid{display:flex;flex-direction:column;gap:2px;}
+  .info-row{display:flex;justify-content:space-between;gap:16px;padding:9px 2px;border-bottom:1px solid var(--border);}
+  .info-row:last-child{border-bottom:none;}
+  .info-key{color:var(--text-dim);font-size:12.5px;font-weight:600;flex-shrink:0;}
+  .info-val{color:var(--text);font-size:12.5px;text-align:right;word-break:break-word;}
+  .info-empty{color:var(--text-faint);font-size:13px;text-align:center;padding:20px 0;}
+
+
+
+  /* ------------------------------------------------------------
+     ABOUT MODAL CONTENT
+     Tagline + build version (reuses .info-grid/.info-row above)
+     + a Telegram community link. Used by openAboutModal().
+     ------------------------------------------------------------ */
+  .about-body{display:flex;flex-direction:column;gap:16px;}
+  .about-tagline{margin:0;font-size:13px;line-height:1.6;color:var(--text-dim);}
+  .about-community{
+    display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--border);
+  }
+  .about-community-text{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-dim);}
+  .about-telegram-btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--accent-grad);color:#fff;text-decoration:none;
+    border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;
+    transition:filter .15s ease;
+  }
+  .about-telegram-btn:hover{filter:brightness(1.08);}
+  .about-telegram-btn svg{flex-shrink:0;}
+
+
+
+  /* ------------------------------------------------------------
+     EDIT MODAL CONTENT
+     Lets the user retag a track: title / artist / album text
+     fields plus a swappable cover image. Used by openEditModal()
+     in the script.
+     ------------------------------------------------------------ */
+  .edit-form{display:flex;flex-direction:column;gap:16px;}
+  .edit-cover-row{display:flex;align-items:center;gap:14px;}
+  .edit-cover-preview{
+    width:72px;height:72px;border-radius:10px;overflow:hidden;flex-shrink:0;
+    background:var(--panel);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;color:var(--text-faint);
+  }
+  .edit-cover-preview img{width:100%;height:100%;object-fit:cover;display:block;}
+  .edit-cover-actions{display:flex;flex-direction:column;gap:6px;}
+  .edit-cover-btn{
+    background:var(--elevated-hover);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;text-align:center;
+  }
+  .edit-cover-btn:hover{border-color:var(--accent1);}
+  .edit-cover-btn.secondary{background:none;color:var(--text-dim);}
+
+  /* Cover candidates Auto-tag found for the currently-selected match
+     — clickable thumbnails so the user can pick the right edition's
+     art directly instead of cycling through them one at a time. */
+  .edit-cover-gallery{display:flex;flex-wrap:wrap;gap:8px;}
+  .edit-cover-thumb{
+    width:44px;height:44px;flex-shrink:0;padding:0;border-radius:8px;cursor:pointer;
+    background-color:var(--panel);background-size:cover;background-position:center;
+    border:2px solid var(--border);
+  }
+  .edit-cover-thumb:hover{border-color:var(--text-dim);}
+  .edit-cover-thumb.selected{border-color:var(--accent1);}
+
+  .edit-autotag-row{display:flex;flex-direction:column;gap:6px;}
+  .edit-autotag-buttons{display:flex;gap:8px;}
+  .edit-autotag-btn{
+    flex:1;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--panel);border:1px dashed var(--border);color:var(--text);
+    border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;
+  }
+  .edit-autotag-btn:hover{border-color:var(--accent1);border-style:solid;}
+  .edit-autotag-btn:disabled{opacity:.65;cursor:default;}
+  .edit-autotag-status{margin:0;font-size:12px;color:var(--text-dim);}
+
+  /* Dropdown for picking between several plausible Auto-tag matches
+     (ambiguous fingerprint hits, or a text search that found more
+     than one confident candidate). */
+  .edit-autotag-matches{display:flex;flex-direction:column;gap:6px;}
+  .edit-autotag-select{cursor:pointer;}
+  .edit-field{display:flex;flex-direction:column;gap:6px;}
+  .edit-label{font-size:12px;font-weight:600;color:var(--text-dim);}
+  .edit-input{
+    width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:9px 11px;font-size:13.5px;font-family:inherit;
+  }
+  .edit-input:focus{border-color:var(--accent1);outline:none;}
+  .edit-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:2px;}
+  .edit-cancel-btn,.edit-save-btn{
+    border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid transparent;
+  }
+  .edit-cancel-btn{background:none;border-color:var(--border);color:var(--text-dim);}
+  .edit-cancel-btn:hover{color:var(--text);}
+  .edit-save-btn{background:var(--accent-grad);color:#fff;}
+  .edit-save-btn:hover{filter:brightness(1.08);}
+  .edit-save-btn:disabled{opacity:.7;cursor:default;filter:none;}
+  .edit-status{margin:0;font-size:12px;color:var(--text-dim);text-align:right;}
+
+
+
+  /* ------------------------------------------------------------
+     SYNC LYRICS MODAL CONTENT
+     Lets the user nudge a track's lyric timing forward/backward in
+     milliseconds until it matches playback. Used by openSyncModal()
+     in the script. Reuses .edit-actions/.edit-cancel-btn/
+     .edit-save-btn from the Edit modal above for its button row.
+     ------------------------------------------------------------ */
+  .sync-form{display:flex;flex-direction:column;gap:16px;}
+  .sync-hint{margin:0;font-size:12.5px;color:var(--text-dim);line-height:1.5;}
+  .sync-offset-display{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    padding:6px 0;
+  }
+  .sync-offset-input{
+    width:110px;text-align:center;font-size:28px;font-weight:700;color:var(--text);
+    font-variant-numeric:tabular-nums;background:var(--elevated-hover);
+    border:1px solid var(--border);border-radius:8px;padding:4px 6px;
+    font-family:inherit;
+  }
+  .sync-offset-input:focus{outline:none;border-color:var(--accent1);}
+  .sync-offset-unit{font-size:15px;font-weight:600;color:var(--text-dim);}
+  .sync-nudge-row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;}
+  .sync-nudge-btn{
+    background:var(--elevated-hover);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;
+    font-variant-numeric:tabular-nums;min-width:52px;
+  }
+  .sync-nudge-btn:hover{border-color:var(--accent1);}
+
+
+
+  /* ------------------------------------------------------------
+     SETTINGS: THEME PICKER
+     Two swatch rows shown inside the Settings modal — one for the
+     overall app background (dark / light) and one for the accent
+     color used throughout the app (buttons, active states, the
+     playing-progress bar, gradients, etc). Each swatch is a plain
+     round color circle; the currently-selected one gets a ring +
+     checkmark drawn on top of it.
+     ------------------------------------------------------------ */
+  .theme-picker{display:flex;flex-direction:column;gap:22px;}
+  .theme-group-label{font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;}
+  .swatch-row{display:flex;flex-wrap:wrap;gap:14px;}
+  .swatch-btn{
+    position:relative;width:38px;height:38px;border-radius:50%;
+    border:1px solid var(--border);cursor:pointer;padding:0;flex-shrink:0;
+    transition:transform .12s ease;
+  }
+  .swatch-btn:hover{transform:scale(1.08);}
+  .swatch-btn.active{box-shadow:0 0 0 2px var(--elevated),0 0 0 4px var(--accent1);}
+  .swatch-btn.active::after{
+    content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:15px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);
+  }
+  .swatch-btn.active.on-light::after{color:#2b2b2b;text-shadow:none;}   /* dark check mark reads better on the off-white swatch */
+  .theme-note{margin:10px 0 0;font-size:11.5px;color:var(--text-faint);}
+
+
+
+  /* ------------------------------------------------------------
+     SETTINGS: LANGUAGE
+     Reuses .swatch-row for layout (flex-wrap + gap), but each
+     language gets its own pill-shaped .lang-chip rather than the
+     circular .swatch-btn used for theme colors above — a language
+     needs room to show its name, not a color dot. The active
+     language gets the accent gradient fill; "+ Add language"
+     reuses .amr-add-btn from the Add-Music rows elsewhere in the
+     app to install the next one.
+     ------------------------------------------------------------ */
+  .lang-chip{
+    flex-shrink:0;border:1px solid var(--border);background:none;color:var(--text);
+    font-size:13px;font-weight:600;padding:8px 16px;border-radius:20px;cursor:pointer;
+    transition:transform .12s ease,border-color .12s ease;
+  }
+  .lang-chip:hover{transform:scale(1.04);border-color:var(--accent1);}
+  .lang-chip.active{background:var(--accent-grad);border-color:transparent;color:#fff;}
+
+
+
+  /* ------------------------------------------------------------
+     SETTINGS: PLAYER > BACKGROUND IMAGE + BLUR
+     Lives inside the Player accordion section. A small square
+     preview thumbnail sits next to Choose/Remove buttons, and a
+     range input below controls the blur amount applied to
+     .player-bg via the --player-bg-blur CSS variable.
+     ------------------------------------------------------------ */
+  .player-bg-settings{display:flex;flex-direction:column;gap:14px;}
+  .player-bg-row{display:flex;align-items:center;gap:14px;}
+  .player-bg-preview{
+    width:64px;height:64px;border-radius:10px;flex-shrink:0;overflow:hidden;
+    border:1px solid var(--border);background:var(--elevated);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .player-bg-preview img{width:100%;height:100%;object-fit:cover;display:block;}
+  .player-bg-preview-empty{font-size:10.5px;color:var(--text-faint);text-align:center;padding:0 4px;}
+  .player-bg-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+  .backup-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+  /* ------------------------------------------------------------
+     SETTINGS > AUDIO (Equalizer + Gapless Playback)
+     ------------------------------------------------------------ */
+  .audio-settings{display:flex;flex-direction:column;gap:18px;}
+  .settings-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .settings-toggle-row-divider{padding-top:18px;border-top:1px solid var(--border);}
+  .settings-toggle-label{flex:1;min-width:0;}
+  .settings-toggle-label .theme-group-label{margin-bottom:4px;}
+  .settings-toggle-label .theme-note{margin-top:0;}
+
+  /* A checkbox styled as a pill switch — reused for both the EQ and
+     Gapless Playback on/off toggles. The checkbox itself stays in
+     the DOM (so it's still keyboard/screen-reader operable) but is
+     visually hidden; .toggle-slider is what's actually painted. */
+  .toggle-switch{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;}
+  .toggle-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1;}
+  .toggle-slider{position:absolute;inset:0;background:var(--elevated);border:1px solid var(--border);border-radius:999px;transition:background .15s,border-color .15s;}
+  .toggle-slider::before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:var(--text-dim);border-radius:50%;transition:transform .15s,background .15s;}
+  .toggle-switch input:checked + .toggle-slider{background:var(--accent1);border-color:var(--accent1);}
+  .toggle-switch input:checked + .toggle-slider::before{transform:translateX(18px);background:#fff;}
+
+  .eq-controls{display:flex;flex-direction:column;gap:12px;transition:opacity .15s;}
+  .eq-controls.disabled{opacity:.4;pointer-events:none;}
+  .eq-presets{display:flex;gap:8px;flex-wrap:wrap;}
+
+  .eq-bands-row{display:flex;justify-content:space-between;gap:4px;padding:6px 2px 2px;}
+  .eq-band{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:0;}
+  .eq-band-value{font-size:10px;color:var(--text-dim);min-width:26px;text-align:center;}
+  .eq-band-freq{font-size:10px;color:var(--text-faint);}
+  /* Same "rotate a horizontal slider" trick as #volumeSlider above —
+     see that rule's comment for the full explanation. */
+  .eq-band-wrap{width:20px;height:90px;display:flex;align-items:center;justify-content:center;}
+  .eq-band-slider{flex:none;width:90px;height:4px;transform:rotate(-90deg);margin:0;}
+  .player-bg-blur-row{display:flex;flex-direction:column;gap:8px;}
+  .player-bg-blur-control{display:flex;align-items:center;gap:12px;}
+  .player-bg-blur-control input[type="range"]{
+    flex:1;accent-color:var(--accent1);height:4px;
+  }
+  .player-bg-blur-value{font-size:12.5px;color:var(--text-dim);min-width:34px;text-align:right;}
+
+  /* Settings > Player: Visualizer opacity slider — reuses the blur
+     row's layout, just greyed out via .disabled while the Visualizer
+     toggle above it is off (see visualizerEnabledToggle's listener). */
+  .visualizer-opacity-row{transition:opacity .15s;}
+  .visualizer-opacity-row.disabled{opacity:.4;pointer-events:none;}
+
+
+
+  /* ------------------------------------------------------------
+     SETTINGS: ACCORDION
+     The Settings modal is now a stack of collapsible sections
+     (Theme / Audio / Player, in that order) instead of jumping
+     straight to the color picker. Clicking a section's header
+     expands just that section's body below it — other sections
+     stay in the stack, collapsed. Multiple sections can be open
+     at once; nothing forces the others shut.
+     ------------------------------------------------------------ */
+  .settings-accordion{display:flex;flex-direction:column;gap:8px;}
+  .accordion-item{
+    border:1px solid var(--border);border-radius:10px;
+    background:var(--elevated);overflow:hidden;
+  }
+  .accordion-header{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:none;border:none;color:var(--text);cursor:pointer;
+    padding:13px 14px;font-size:14px;font-weight:700;font-family:inherit;text-align:left;
+  }
+  .accordion-header:hover{background:var(--elevated-hover);}
+  .accordion-header .accordion-chevron{
+    width:16px;height:16px;flex-shrink:0;color:var(--text-dim);
+    transition:transform .2s ease;
+  }
+  .accordion-item.open .accordion-header .accordion-chevron{transform:rotate(180deg);}
+  .accordion-body{
+    max-height:0;overflow:hidden;
+    transition:max-height .25s ease;
+  }
+  .accordion-item.open .accordion-body{max-height:640px;}
+  .accordion-body-inner{padding:2px 14px 16px;border-top:1px solid var(--border);}
+  .accordion-body-inner .theme-picker{padding-top:14px;}
+
+
+
+  /* ------------------------------------------------------------
+     SETTINGS: UPDATES
+     Lives inside the same accordion as Theme/Audio/Player/Language
+     (see accordionItem() calls in openSettingsModal()). The dot's
+     color/pulse is driven purely by a data-state attribute set from
+     script.js's updateSectionView(), which in turn mirrors whatever
+     main.js's autoUpdater last reported over the "update-status" IPC
+     event (see wireUpdateEvents() in main.js).
+     ------------------------------------------------------------ */
+  .update-section{display:flex;flex-direction:column;gap:14px;padding-top:2px;}
+  .update-status-row{display:flex;align-items:center;gap:9px;}
+  .update-status-text{font-size:13px;color:var(--text-dim);}
+  .update-dot{
+    width:9px;height:9px;border-radius:50%;flex-shrink:0;
+    background:var(--text-faint);transition:background .2s ease;
+  }
+  .update-dot[data-state="checking"],
+  .update-dot[data-state="downloading"]{background:var(--accent1);animation:updatePulse 1.1s ease-in-out infinite;}
+  .update-dot[data-state="available"]{background:#faa61a;}
+  .update-dot[data-state="downloaded"],
+  .update-dot[data-state="up-to-date"]{background:#3ba55d;}
+  .update-dot[data-state="error"]{background:#ed4245;}
+  @keyframes updatePulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .update-check-btn{align-self:flex-start;}
+  .update-check-btn:disabled{opacity:.7;cursor:default;filter:none;}
+
+
+
+  /* ------------------------------------------------------------
+     ADD MUSIC MODAL CONTENT
+     Reuses the shared modal to show every song in the library so
+     the user can add any of them to the playlist they're viewing.
+     Rows for tracks already in the playlist are dimmed and their
+     button disabled/labeled "Added".
+     ------------------------------------------------------------ */
+  .add-music-list{display:flex;flex-direction:column;gap:2px;}
+  .add-music-row{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:8px 2px;border-bottom:1px solid var(--border);
+  }
+  .add-music-row:last-child{border-bottom:none;}
+  .add-music-row .amr-text{min-width:0;}
+  .add-music-row .amr-title{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .add-music-row .amr-artist{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .add-music-row.added .amr-title,.add-music-row.added .amr-artist{color:var(--text-faint);}
+  .amr-add-btn{
+    flex-shrink:0;border:1px solid var(--border);background:none;color:var(--text);
+    font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;
+  }
+  .amr-add-btn:hover{border-color:var(--accent1);color:var(--accent1);}
+  .amr-add-btn:disabled{color:var(--text-faint);border-color:var(--border);cursor:default;}
+
+
+
+  /* ------------------------------------------------------------
+     MOBILE LAYOUT (screens 860px wide or narrower)
+     Switches from the two-column grid to a single column: the
+     sidebar becomes the whole screen, and the now-playing panel
+     becomes a full-screen overlay that slides up from a small
+     "mini player" bar pinned to the bottom of the screen.
+     ------------------------------------------------------------ */
+  .mini-bar{display:none;}
+  @media (max-width:550px){
+    :root{--sidebar-w:100%;--rail-w:52px;--rail-w-expanded:170px;}
+    .app{grid-template-columns:var(--rail-w) 1fr;}
+    .app.rail-expanded{grid-template-columns:var(--rail-w-expanded) 1fr;}
+    .sidebar{height:calc(100dvh - 66px);}
+    .player-panel{
+      position:fixed;inset:0;background:var(--bg);z-index:100;
+      transform:translateY(100%);transition:transform .3s ease;
+      overflow-y:auto;padding-top:56px;
+    }
+    .player-panel.expanded{transform:translateY(0);}
+    .player-panel .close-overlay{
+      display:flex;position:absolute;top:16px;left:16px;background:none;border:none;
+      color:var(--text-dim);cursor:pointer;padding:6px;
+    }
+    .mini-bar{
+      display:flex;align-items:center;gap:10px;position:fixed;left:0;right:0;bottom:0;
+      height:66px;background:var(--elevated);border-top:1px solid var(--border);
+      padding:0 12px;z-index:90;
+    }
+    .mini-bar img{width:42px;height:42px;border-radius:7px;object-fit:cover;background:var(--panel);flex-shrink:0;}
+    .mini-bar .info{min-width:0;flex:1;cursor:pointer;}
+    .mini-bar .info .title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .mini-bar .info .artist{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .mini-bar .mini-controls{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+    .mini-bar .mini-controls button{background:none;border:none;color:var(--text);padding:8px;cursor:pointer;}
+    .mini-bar .mini-controls svg{width:20px;height:20px;}
+    .list-container{padding-bottom:100px;}
+
+    /* The .art-wrap rule (above, ~line 646) caps the cover art at
+       calc(100dvh - 356px) so it shrinks itself out of the way of
+       the track info/controls below instead of overflowing upward.
+       On phone the panel gets an extra padding-top:56px (clearance
+       for the absolutely-positioned close "X" button), so the
+       budget here is 56px larger than the desktop version. */
+    .art-wrap{width:min(360px,80%,42vh,calc(100dvh - 356px));}
+
+    /* *** SHADOW CLIP FIX ***
+       .player-panel has overflow-y:auto (its "safety net" for short
+       windows), and per the CSS overflow spec, once one axis isn't
+       visible the browser forces the OTHER axis to clip too - so
+       .player-panel actually clips on both x and y, not just y.
+       On desktop there's enough padding (40px) for the art's glow
+       (box-shadow blur up to 68px mid-pulse) to stay inside that
+       padding and never get touched. But on phone, .art-wrap above
+       shrinks a lot on narrow widths, and the only *guaranteed*
+       clearance left between the art and the panel's clipped edge
+       is that fixed 40px of padding - smaller than the glow's blur
+       radius. Once the glow exceeds that margin it gets sliced off
+       by the clip, which reads as the glow flickering/disappearing
+       while the pulse animation cycles. Fix: use a smaller glow
+       here that always fits inside the guaranteed 40px, and drop
+       the pulsing animation (which is what pushes the blur past
+       that margin) rather than trying to out-pad a moving target. */
+    .art-wrap{
+      box-shadow:0 8px 22px rgba(var(--accent1-rgb),.28);
+      animation:none;
+    }
+  }
+

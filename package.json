@@ -1,0 +1,96 @@
+{
+    "name": "playnck",
+    "version": "1.1.8",
+    "description": "Playnck",
+    "author": "Arrazi",
+    "license": "UNLICENSED",
+    "main": "main.js",
+    "devDependencies": {
+        "electron": "^43.0.0",
+        "electron-builder": "^26.15.3",
+        "javascript-obfuscator": "^4.1.1"
+    },
+    "dependencies": {
+        "music-metadata": "^11.0.0",
+        "node-id3": "^0.2.6",
+        "electron-updater": "^6.3.9"
+    },
+    "scripts": {
+        "start": "electron .",
+        "build": "node build-scripts/build.js",
+        "release": "node build-scripts/build.js --publish always"
+    },
+    "build": {
+        "appId": "com.Arrazi.playnck",
+        "productName": "Playnck",
+        "copyright": "Copyright © 2026 Arrazi",
+        "publish": [
+            {
+                "provider": "github",
+                "owner": "Arrazi-w140",
+                "repo": "Project-Playnck",
+                "releaseType": "draft"
+            }
+        ],
+        "extraResources": [
+            {
+                "from": "LICENSE",
+                "to": "LICENSE.txt"
+            },
+            {
+                "from": "THIRD-PARTY-NOTICES.txt",
+                "to": "THIRD-PARTY-NOTICES.txt"
+            },
+            {
+                "from": "resources/fpcalc",
+                "to": "fpcalc"
+            }
+        ],
+        "fileAssociations": [
+            {
+                "ext": "mp3",
+                "name": "MP3 Audio",
+                "role": "Viewer",
+                "icon": "icons/mp3 icon.ico"
+            },
+            {
+                "ext": "wav",
+                "name": "WAV Audio",
+                "role": "Viewer",
+                "icon": "icons/wav icon.ico"
+            },
+            {
+                "ext": "flac",
+                "name": "FLAC Audio",
+                "role": "Viewer",
+                "icon": "icons/flac icon.ico"
+            },
+            {
+                "ext": "ogg",
+                "name": "OGG Audio",
+                "role": "Viewer",
+                "icon": "icons/ogg icon.ico"
+            },
+            {
+                "ext": "m4a",
+                "name": "M4A Audio",
+                "role": "Viewer",
+                "icon": "icons/m4a icon.ico"
+            }
+        ],
+        "win": {
+            "target": "nsis",
+            "icon": "icons/icon.ico"
+        },
+        "nsis": {
+            "license": "LICENSE",
+            "oneClick": false,
+            "perMachine": true,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "runAfterFinish": true,
+            "artifactName": "${productName} Setup ${version}.${ext}"
+        }
+    }
+}
