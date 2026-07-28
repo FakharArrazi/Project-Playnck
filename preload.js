@@ -107,5 +107,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
     // -> Promise<string> — running app's version, for the "you're up
     // to date (vX.X.X)" label.
-    getAppVersion: () => ipcRenderer.invoke("get-app-version")
+    getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+
+    // Recolors the native title bar (see titleBarOverlay in main.js)
+    // to match the app's current theme. Called from applyTheme() in
+    // script.js every time the bg theme changes.
+    // ({color, symbolColor}) -> Promise<void>
+    setTitleBarOverlay: (opts) => ipcRenderer.invoke("set-titlebar-overlay", opts)
 });

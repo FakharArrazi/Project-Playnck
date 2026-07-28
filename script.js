@@ -4290,6 +4290,16 @@ function applyTheme(){
   root.setProperty("--accent1",ac.a1);
   root.setProperty("--accent2",ac.a2);
   root.setProperty("--accent1-rgb",ac.rgb);
+
+  // Keeps the native title bar (see titleBarOverlay in main.js) in
+  // sync with whichever of the 3 bg themes is active, using that
+  // theme's own --bg/--text so it never has to be hand-matched again.
+  // Optional chaining guards dev/browser contexts without the
+  // preload's electronAPI present.
+  window.electronAPI?.setTitleBarOverlay?.({
+    color: bg.vars["--bg"],
+    symbolColor: bg.vars["--text"]
+  });
 }
 
 // Switches the background or accent choice, re-applies the theme,

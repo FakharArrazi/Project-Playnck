@@ -144,6 +144,11 @@
   .brand{
     padding:18px 20px 4px;
     flex-shrink:0;
+    /* titleBarStyle:"hidden" (main.js) removes ALL native drag
+       chrome, so without this the window can't be moved at all.
+       The wordmark has no buttons/links inside it, so it's a safe,
+       always-visible drag handle. */
+    -webkit-app-region:drag;
   }
 
   /* PLAYNCK wordmark.
@@ -674,7 +679,11 @@
      ------------------------------------------------------------ */
   .side-menu-btn{
     position:absolute;
-    top:18px;
+    /* Was top:18px, which sat inside the ~138x34px rectangle Windows
+       reserves (top-right) for the native minimize/maximize/close
+       buttons added via titleBarOverlay in main.js — the OS draws
+       right over it. Pushed down clear of that strip. */
+    top:44px;
     right:18px;
     z-index:100;
   }
@@ -710,7 +719,7 @@
      ------------------------------------------------------------ */
   .side-dropdown{
     position:absolute;
-    top:58px;
+    top:84px;
     right:18px;
     z-index:101;
     background:var(--elevated);
@@ -738,7 +747,7 @@
      ------------------------------------------------------------ */
   .volume-btn{
     position:absolute;
-    top:60px;
+    top:86px;
     right:18px;
     z-index:100;
   }
@@ -748,7 +757,7 @@
      under volumeBtn the same way the button itself is positioned. */
   .volume-popup{
     position:absolute;
-    top:98px;
+    top:124px;
     right:16px;
     z-index:101;
     display:flex;
