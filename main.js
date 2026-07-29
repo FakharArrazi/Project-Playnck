@@ -310,22 +310,6 @@ ipcMain.handle("install-update-now", () => {
 
 ipcMain.handle("get-app-version", () => app.getVersion());
 
-// Called from script.js's applyTheme() every time the user switches
-// background theme (dark/light/pitchblack), so the title bar's
-// background always matches the app's own --bg color instead of
-// staying stuck on whatever it was set to at window creation.
-// setTitleBarOverlay() only has an effect on Windows/Linux with the
-// titleBarStyle:"hidden" overlay above; it's a silent no-op elsewhere
-// (e.g. macOS), so no platform check is needed here.
-ipcMain.handle("set-titlebar-overlay", (event, { color, symbolColor } = {}) => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    try {
-        mainWindow.setTitleBarOverlay({ color, symbolColor });
-    } catch (e) {
-        // Older Electron/OS combos without overlay support — ignore.
-    }
-});
-
 // "Delete track" / "Delete folder" in the renderer send the real
 // file to the OS Recycle Bin / Trash (never a permanent unlink) via
 // Electron's built-in shell.trashItem. Returns {trashed:false, reason}
@@ -528,17 +512,6 @@ function createWindow() {
         minHeight: 600,
         autoHideMenuBar: true,
         icon: path.join(__dirname, "icon.ico"),
-        // Replaces the plain OS title bar with one whose background
-        // color we control, while keeping the native minimize/
-        // maximize/close buttons (just recolored). Windows/Linux only
-        // — see setTitleBarOverlay IPC handler below for how it stays
-        // in sync with the app's current theme.
-        titleBarStyle: "hidden",
-        titleBarOverlay: {
-            color: "#0c0c11",   // matches the default "dark" theme's --bg
-            symbolColor: "#f2f2f6",
-            height: 34
-        },
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
             contextIsolation: true,
