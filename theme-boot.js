@@ -51,7 +51,7 @@
     var raw=localStorage.getItem("playnck-theme-cache");
     if(!raw) return;
     var cached=JSON.parse(raw);
-    var bg=THEME_BG[cached.bg]||THEME_BG.dark;
+    var bg=THEME_BG[cached.bg]||THEME_BG.pitchblack;
     var ac=THEME_ACCENT[cached.accent]||THEME_ACCENT.blue;
     var root=document.documentElement.style;
     for(var k in bg) root.setProperty(k,bg[k]);

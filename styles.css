@@ -37,11 +37,11 @@
      value in this one spot and it updates everywhere it's used.
      ============================================================ */
   :root{
-    --bg:#0c0c11;                 /* page background, almost-black */
-    --panel:#131319;              /* sidebar background, one shade lighter than bg */
-    --elevated:#1c1c25;           /* cards, buttons, inputs sitting "above" the panel */
-    --elevated-hover:#24242f;     /* hover state for anything using --elevated */
-    --border:#232330;             /* hairline borders/dividers everywhere */
+    --bg:#000000;                 /* page background — pitch black (default theme) */
+    --panel:#000000;              /* sidebar background, same pitch black as bg */
+    --elevated:#141414;           /* cards, buttons, inputs sitting "above" the panel */
+    --elevated-hover:#1e1e1e;     /* hover state for anything using --elevated */
+    --border:#242424;             /* hairline borders/dividers everywhere */
     --text:#f2f2f6;               /* primary (brightest) text color */
     --text-dim:#96969f;           /* secondary text, e.g. artist names, sub-labels */
     --text-faint:#5c5c66;         /* tertiary text, e.g. placeholder icons, empty states */

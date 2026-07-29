@@ -130,7 +130,7 @@ const state={
   lyricsCache:{},         // trackId -> parsed lyric lines (or null if none found)
   lyricOffsets:{},        // trackId -> manual sync offset in ms (+delays lyrics, -shows them earlier), from the Sync Lyrics modal
   lastLyricIdx:-2,        // index of the phrase currently shown in the lyrics pane
-  theme:{bg:"dark",accent:"blue"},   // current theme choice — see THEME_BG/THEME_ACCENT below
+  theme:{bg:"pitchblack",accent:"blue"},   // current theme choice — see THEME_BG/THEME_ACCENT below
   playerBg:{image:null,blur:0},      // Settings > Player: custom background image (data URL) shown behind the now-playing panel, plus its blur amount in px (0-20)
   visualizer:{enabled:false,intensity:1},  // Settings > Player: subtle audio-reactive bars along the bottom edge of the panel, plus an opacity multiplier (1 = default look, up to 2 = more pronounced) — see the VISUALIZER section below
   updateInfo:{state:"idle"},         // last "update-status" event from main.js's autoUpdater (Electron only) — see Settings > Updates
@@ -268,6 +268,8 @@ const I18N={
     "sort.artistDesc":"Artist (Z–A)",
     "sort.durationAsc":"Duration (shortest first)",
     "sort.durationDesc":"Duration (longest first)",
+    "sort.dateNewest":"Date added (newest first)",
+    "sort.dateOldest":"Date added (oldest first)",
     "sort.trackNumber":"Track Number",
 
     "playlists.newPlaylist":"+ New Playlist",
@@ -414,7 +416,7 @@ const I18N={
     "about.communityText":"Got a bug, an idea, or just want to hang out with other people using PLAYNCK? Come say hi on Telegram — it's where updates get announced first, feature requests get discussed, and folks help each other out.",
     "about.telegramBtn":"Join the Telegram group",
 
-    "theme.bg.dark":"Dark",
+    "theme.bg.dark":"GitHub Black",
     "theme.bg.light":"Light",
     "theme.bg.pitchblack":"Pitch Black",
     "theme.accent.blue":"Blue",
@@ -518,6 +520,8 @@ const I18N={
     "sort.artistDesc":"Artiste (Z–A)",
     "sort.durationAsc":"Durée (la plus courte d'abord)",
     "sort.durationDesc":"Durée (la plus longue d'abord)",
+    "sort.dateNewest":"Date d'ajout (plus récent d'abord)",
+    "sort.dateOldest":"Date d'ajout (plus ancien d'abord)",
     "sort.trackNumber":"Numéro de piste",
 
     "playlists.newPlaylist":"+ Nouvelle playlist",
@@ -664,9 +668,9 @@ const I18N={
     "about.communityText":"Un bug, une idée, ou juste envie de discuter avec d'autres personnes qui utilisent PLAYNCK ? Venez faire un tour sur Telegram — c'est là que les mises à jour sont annoncées en premier, que les suggestions sont discutées, et où tout le monde s'entraide.",
     "about.telegramBtn":"Rejoindre le groupe Telegram",
 
-    "theme.bg.dark":"Sombre",
+    "theme.bg.dark":"GitHub Black",
     "theme.bg.light":"Clair",
-    "theme.bg.pitchblack":"Noir profond",
+    "theme.bg.pitchblack":"Pitch Black",
     "theme.accent.blue":"Bleu",
     "theme.accent.red":"Rouge",
     "theme.accent.orange":"Orange",
@@ -1743,12 +1747,19 @@ function computeArtists(){
 function sortGroups(groups,nameField){
   const sorted=[...groups];
   const totalDuration=g=>g.tracks.reduce((sum,t)=>sum+(t.duration||0),0);
+  // A group's "date" is however recently/long-ago its most/least
+  // recently added track was added — that single track is what
+  // decides where the whole album/artist lands in the list.
+  const newestDate=g=>g.tracks.reduce((max,t)=>Math.max(max,t.dateAdded||0),0);
+  const oldestDate=g=>g.tracks.reduce((min,t)=>Math.min(min,t.dateAdded||Infinity),Infinity);
   switch(state.sortBy){
     case "title-desc":    sorted.sort((a,b)=>b[nameField].localeCompare(a[nameField])); break;
     case "artist-asc":    sorted.sort((a,b)=>a.artist.localeCompare(b.artist)); break;
     case "artist-desc":   sorted.sort((a,b)=>b.artist.localeCompare(a.artist)); break;
     case "duration-asc":  sorted.sort((a,b)=>totalDuration(a)-totalDuration(b)); break;
     case "duration-desc": sorted.sort((a,b)=>totalDuration(b)-totalDuration(a)); break;
+    case "date-desc":     sorted.sort((a,b)=>newestDate(b)-newestDate(a)); break;
+    case "date-asc":      sorted.sort((a,b)=>oldestDate(a)-oldestDate(b)); break;
     case "title-asc":
     default:              sorted.sort((a,b)=>a[nameField].localeCompare(b[nameField])); break;
   }
@@ -1781,6 +1792,8 @@ const SORT_OPTIONS=[
   {value:"artist-desc",   key:"sort.artistDesc"},
   {value:"duration-asc",  key:"sort.durationAsc"},
   {value:"duration-desc", key:"sort.durationDesc"},
+  {value:"date-desc",     key:"sort.dateNewest"},
+  {value:"date-asc",      key:"sort.dateOldest"},
   {value:"track-asc",     key:"sort.trackNumber"}
 ];
 
@@ -1808,6 +1821,11 @@ function sortTracks(tracks){
     case "artist-desc":   sorted.sort((a,b)=>b.artist.localeCompare(a.artist)); break;
     case "duration-asc":  sorted.sort((a,b)=>a.duration-b.duration); break;
     case "duration-desc": sorted.sort((a,b)=>b.duration-a.duration); break;
+    // dateAdded is a Date.now() timestamp set at import time (see
+    // state.tracks comment above) — missing/undefined values fall
+    // back to 0 so any legacy track without one sorts as "oldest".
+    case "date-desc":     sorted.sort((a,b)=>(b.dateAdded||0)-(a.dateAdded||0)); break;
+    case "date-asc":      sorted.sort((a,b)=>(a.dateAdded||0)-(b.dateAdded||0)); break;
     // Tracks without an embedded track number (trackNum===null) sort
     // to the end rather than to the front, and ties (including two
     // untagged tracks) fall back to Title so the order stays stable.
@@ -4248,7 +4266,7 @@ function toggleRail(){
    ================================================================ */
 const THEME_BG={
   dark:{
-    label:"Dark", swatch:"#0c0c11",
+    label:"GitHub Black", swatch:"#0c0c11",
     vars:{"--bg":"#0c0c11","--panel":"#131319","--elevated":"#1c1c25","--elevated-hover":"#24242f",
           "--border":"#232330","--text":"#f2f2f6","--text-dim":"#96969f","--text-faint":"#5c5c66"}
   },
@@ -4283,7 +4301,7 @@ const THEME_ACCENT={
 // variables. Called once on startup and again every time either
 // choice changes in the Settings modal.
 function applyTheme(){
-  const bg=THEME_BG[state.theme.bg]||THEME_BG.dark;
+  const bg=THEME_BG[state.theme.bg]||THEME_BG.pitchblack;
   const ac=THEME_ACCENT[state.theme.accent]||THEME_ACCENT.blue;
   const root=document.documentElement.style;
   Object.entries(bg.vars).forEach(([k,v])=>root.setProperty(k,v));
