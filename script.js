@@ -2056,6 +2056,7 @@ function renderSongList(tracks, playlistIdContext, alreadySorted=false){
       +(state.selectMode?" selectable":"")
       +(selected?" selected":""));
     row.dataset.trackId=t.id; // lets refreshPlayingHighlight() find this row later without a full re-render
+    row.dataset.selectId=t.id; // lets refreshSelectionHighlight() find this row later without a full re-render
     if(state.selectMode){
       row.appendChild(el("div","row-check"));
     }
@@ -2105,15 +2106,34 @@ function refreshPlayingHighlight(){
 
 
 
+// Toggles the "selected" class (and, via CSS, its checkbox/
+// highlight) on whichever row/card currently represents `id`,
+// without rebuilding the list. Mirrors refreshPlayingHighlight()'s
+// approach for the "now playing" highlight: every selectable row
+// (song row, album card, artist/playlist/folder list-line) is
+// tagged with data-select-id when it's drawn, so the exact element
+// that changed can be found and flipped directly. A full renderTab()
+// would tear down and recreate every visible row — and every
+// <img> — just to flip one checkbox, which is what caused the
+// flicker/scroll-jump during multi-select on large libraries.
+function refreshSelectionHighlight(id){
+  const selected=state.selectedIds.has(id);
+  listContainer.querySelectorAll(`[data-select-id="${CSS.escape(String(id))}"]`).forEach(elm=>{
+    elm.classList.toggle("selected",selected);
+  });
+}
+
+
+
 // Flips one item's checked state in select mode (a track id, album
 // key, artist name, playlist id, or folder id, depending on
-// state.selectType) and refreshes both the list (so its checkbox/
-// highlight updates) and the bulk-action bar (so the "N selected"
-// count and its visibility stay correct).
+// state.selectType) and updates both the affected row (so its
+// checkbox/highlight updates in place) and the bulk-action bar (so
+// the "N selected" count and its visibility stay correct).
 function toggleItemSelected(id){
   if(state.selectedIds.has(id)) state.selectedIds.delete(id);
   else state.selectedIds.add(id);
-  renderTab();
+  refreshSelectionHighlight(id);
   updateSelectionBar();
 }
 
@@ -2263,6 +2283,7 @@ function renderAlbumGrid(albums){
   albums.forEach(a=>{
     const selected=state.selectMode && state.selectedIds.has(a.key);
     const card=el("div","card"+(state.selectMode?" selectable":"")+(selected?" selected":""));
+    card.dataset.selectId=a.key; // lets refreshSelectionHighlight() find this card later without a full re-render
     const imgWrap=el("div","card-art-wrap");
     const img=document.createElement("img"); img.loading="lazy"; img.decoding="async"; img.src=a.art||fallbackArt();
     imgWrap.appendChild(img);
@@ -2289,6 +2310,7 @@ function renderArtistList(artists){
   artists.forEach(a=>{
     const selected=state.selectMode && state.selectedIds.has(a.artist);
     const line=el("div","list-line"+(state.selectMode?" selectable":"")+(selected?" selected":""));
+    line.dataset.selectId=a.artist; // lets refreshSelectionHighlight() find this row later without a full re-render
     if(state.selectMode) line.appendChild(el("div","row-check"));
     const img=document.createElement("img"); img.loading="lazy"; img.decoding="async"; img.src=a.art||fallbackArt();
     line.appendChild(img);
@@ -2331,6 +2353,7 @@ function renderPlaylistList(){
     const selectableRow=state.selectMode && !isFavorites;
     const selected=selectableRow && state.selectedIds.has(p.id);
     const line=el("div","list-line"+(selectableRow?" selectable":"")+(selected?" selected":""));
+    line.dataset.selectId=p.id; // lets refreshSelectionHighlight() find this row later without a full re-render
     if(selectableRow) line.appendChild(el("div","row-check"));
     const img=document.createElement("img");
     img.loading="lazy"; img.decoding="async";
@@ -2388,6 +2411,7 @@ function renderFolderList(){
     const tracks=state.tracks.filter(t=>t.folderId===f.id);
     const selected=state.selectMode && state.selectedIds.has(f.id);
     const line=el("div","list-line folder-line"+(state.selectMode?" selectable":"")+(selected?" selected":""));
+    line.dataset.selectId=f.id; // lets refreshSelectionHighlight() find this row later without a full re-render
     if(state.selectMode) line.appendChild(el("div","row-check"));
     const iconWrap=el("div","icon-wrap","<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2'><path d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z'/></svg>");
     line.appendChild(iconWrap);
