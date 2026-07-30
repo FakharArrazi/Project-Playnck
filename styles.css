@@ -74,6 +74,15 @@
     overflow:hidden;                 /* the app manages its own internal scroll areas */
   }
   button{font-family:inherit;}       /* buttons don't inherit fonts by default in some browsers */
+  .native-titlebar{display:none;}
+  html.native-titlebar-enabled body{padding-top:32px;}
+  html.native-titlebar-enabled .native-titlebar{
+    position:fixed;top:0;left:0;right:0;height:32px;z-index:1000;
+    display:flex;align-items:center;gap:8px;padding:0 150px 0 10px;
+    background:var(--bg);color:var(--text);font-size:12px;font-weight:400;
+    -webkit-app-region:drag;user-select:none;
+  }
+  html.native-titlebar-enabled .native-titlebar img{width:16px;height:16px;object-fit:contain;}
 
 
 
@@ -103,6 +112,7 @@
     height:100vh;
     height:100dvh;                   /* dvh accounts for mobile browser chrome */
   }
+  html.native-titlebar-enabled .app{height:calc(100vh - 32px);height:calc(100dvh - 32px);}
   .app.rail-expanded{
     grid-template-columns:var(--rail-w-expanded) var(--sidebar-w) 1fr;
   }
@@ -1457,6 +1467,52 @@
   .amr-add-btn:disabled{color:var(--text-faint);border-color:var(--border);cursor:default;}
 
 
+  /* ------------------------------------------------------------
+     MOTION LAYER
+     These rules preserve every resting visual value. Interaction
+     feedback uses composited properties only, and never targets the
+     bespoke Play/Pause control or its existing animation.
+     ------------------------------------------------------------ */
+  html{scroll-behavior:smooth;}
+  .list-container,.player-panel,.modal-box{scroll-behavior:smooth;overscroll-behavior:contain;}
+  .list-container,.player-panel{-webkit-overflow-scrolling:touch;}
+
+  button:not(#playBtn),.rail-item,.song-row,.list-line,.card,.swatch-btn,.theme-btn{
+    transition:transform 200ms cubic-bezier(.16,1,.3,1),opacity 200ms ease,background-color 180ms ease,color 180ms ease,border-color 180ms ease,box-shadow 180ms ease;
+  }
+  .rail-item:active,.song-row:active,.list-line:active,.card:active,button:not(#playBtn):active{transform:scale(.975);}
+  .song-row:hover,.list-line:hover,.card:hover{transform:translateZ(0);}
+  button:not(#playBtn):focus-visible,.rail-item:focus-visible,.song-row:focus-visible,.list-line:focus-visible,.card:focus-visible{outline:2px solid var(--accent1);outline-offset:2px;}
+
+  .ctx-menu,.side-dropdown,.volume-popup{transform-origin:top right;}
+  .ctx-menu,.side-dropdown,.volume-popup,.modal-overlay{will-change:transform,opacity;}
+  .motion-in.ctx-menu,.motion-in.side-dropdown,.motion-in.volume-popup{animation:motion-pop-in 240ms cubic-bezier(.16,1,.3,1) both;}
+  .motion-out.side-dropdown,.motion-out.volume-popup{animation:motion-pop-out 180ms cubic-bezier(.4,0,1,1) both;pointer-events:none;}
+  .motion-in.modal-overlay{animation:motion-fade-in 280ms cubic-bezier(.16,1,.3,1) both;}
+  .motion-in.modal-overlay .modal-box{animation:motion-dialog-in 340ms cubic-bezier(.16,1,.3,1) both;}
+  .motion-out.modal-overlay{animation:motion-fade-out 220ms cubic-bezier(.4,0,1,1) both;pointer-events:none;}
+  .view-enter > :is(.song-row,.list-line,.card,.home-view,.empty-state){animation:motion-list-in 360ms cubic-bezier(.16,1,.3,1) both;}
+  .view-enter > :is(.song-row,.list-line,.card):nth-child(2){animation-delay:30ms;}
+  .view-enter > :is(.song-row,.list-line,.card):nth-child(3){animation-delay:60ms;}
+  .view-enter > :is(.song-row,.list-line,.card):nth-child(4){animation-delay:90ms;}
+  .view-enter > :is(.song-row,.list-line,.card):nth-child(n+5){animation-delay:120ms;}
+  .track-change{animation:motion-track-in 420ms cubic-bezier(.16,1,.3,1) both;}
+
+  @keyframes motion-pop-in{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes motion-pop-out{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(-6px) scale(.97)}}
+  @keyframes motion-fade-in{from{opacity:0}to{opacity:1}}
+  @keyframes motion-fade-out{from{opacity:1}to{opacity:0}}
+  @keyframes motion-dialog-in{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes motion-list-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes motion-track-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+  @media (prefers-reduced-motion:reduce){
+    html,.list-container,.player-panel,.modal-box{scroll-behavior:auto;}
+    .motion-in,.motion-out,.view-enter > *,.track-change{animation:none !important;}
+    button:not(#playBtn),.rail-item,.song-row,.list-line,.card,.swatch-btn,.theme-btn{transition-duration:1ms;}
+  }
+
+
 
   /* ------------------------------------------------------------
      MOBILE LAYOUT (screens 860px wide or narrower)
@@ -1471,11 +1527,13 @@
     .app{grid-template-columns:var(--rail-w) 1fr;}
     .app.rail-expanded{grid-template-columns:var(--rail-w-expanded) 1fr;}
     .sidebar{height:calc(100dvh - 66px);}
+    html.native-titlebar-enabled .sidebar{height:calc(100dvh - 98px);}
     .player-panel{
       position:fixed;inset:0;background:var(--bg);z-index:100;
       transform:translateY(100%);transition:transform .3s ease;
       overflow-y:auto;padding-top:56px;
     }
+    html.native-titlebar-enabled .player-panel{top:32px;}
     .player-panel.expanded{transform:translateY(0);}
     .player-panel .close-overlay{
       display:flex;position:absolute;top:16px;left:16px;background:none;border:none;

@@ -1,5 +1,11 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
+if (process.platform === "win32") {
+    window.addEventListener("DOMContentLoaded", () => {
+        document.documentElement.classList.add("native-titlebar-enabled");
+    });
+}
+
 contextBridge.exposeInMainWorld("electronAPI", {
     onOpenFile: (callback) => {
         ipcRenderer.on("open-file", (event, filePath) => {
@@ -107,5 +113,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
     // -> Promise<string> — running app's version, for the "you're up
     // to date (vX.X.X)" label.
-    getAppVersion: () => ipcRenderer.invoke("get-app-version")
+    getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+
+    setTitleBarAppearance: (backgroundColor, symbolColor) =>
+        ipcRenderer.invoke("set-title-bar-appearance", backgroundColor, symbolColor)
 });

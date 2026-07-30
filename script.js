@@ -419,6 +419,9 @@ const I18N={
     "theme.bg.dark":"GitHub Black",
     "theme.bg.light":"Light",
     "theme.bg.pitchblack":"Pitch Black",
+    "theme.bg.midnight":"Deep Midnight Blue",
+    "theme.bg.graphite":"Graphite Gray",
+    "theme.bg.forest":"Forest Green",
     "theme.accent.blue":"Blue",
     "theme.accent.red":"Red",
     "theme.accent.orange":"Orange",
@@ -671,6 +674,9 @@ const I18N={
     "theme.bg.dark":"GitHub Black",
     "theme.bg.light":"Clair",
     "theme.bg.pitchblack":"Pitch Black",
+    "theme.bg.midnight":"Bleu nuit profond",
+    "theme.bg.graphite":"Gris graphite",
+    "theme.bg.forest":"Vert forêt",
     "theme.accent.blue":"Bleu",
     "theme.accent.red":"Rouge",
     "theme.accent.orange":"Orange",
@@ -1013,8 +1019,13 @@ function filePathToURL(filePath){
 function hydrateTrack(t){
   t.fileURL = t.filePath ? filePathToURL(t.filePath)
             : (t.fileBlob ? URL.createObjectURL(t.fileBlob) : null);
-  t.artURL = t.artBlob ? URL.createObjectURL(t.artBlob) : null;
+  t.artURL = null;
   return t;
+}
+
+function getTrackArtURL(track){
+  if(!track.artURL && track.artBlob) track.artURL=URL.createObjectURL(track.artBlob);
+  return track.artURL;
 }
 
 
@@ -1713,9 +1724,9 @@ function computeAlbums(){
   const map=new Map();
   for(const t of state.tracks){
     const key=t.album+"|||"+t.artist;
-    if(!map.has(key)) map.set(key,{key,album:t.album,artist:t.artist,art:t.artURL,tracks:[]});
+    if(!map.has(key)) map.set(key,{key,album:t.album,artist:t.artist,art:getTrackArtURL(t),tracks:[]});
     map.get(key).tracks.push(t);
-    if(!map.get(key).art && t.artURL) map.get(key).art=t.artURL;
+    if(!map.get(key).art && getTrackArtURL(t)) map.get(key).art=getTrackArtURL(t);
   }
   return sortGroups(Array.from(map.values()),"album");
 }
@@ -1726,9 +1737,9 @@ function computeAlbums(){
 function computeArtists(){
   const map=new Map();
   for(const t of state.tracks){
-    if(!map.has(t.artist)) map.set(t.artist,{artist:t.artist,art:t.artURL,tracks:[]});
+    if(!map.has(t.artist)) map.set(t.artist,{artist:t.artist,art:getTrackArtURL(t),tracks:[]});
     map.get(t.artist).tracks.push(t);
-    if(!map.get(t.artist).art && t.artURL) map.get(t.artist).art=t.artURL;
+    if(!map.get(t.artist).art && getTrackArtURL(t)) map.get(t.artist).art=getTrackArtURL(t);
   }
   return sortGroups(Array.from(map.values()),"artist");
 }
@@ -1859,6 +1870,35 @@ function sortTracks(tracks){
 // dance.
 function el(tag,cls,html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!==undefined)e.innerHTML=html; return e; }
 
+// Replays a composited enter animation without changing an element's
+// resting appearance. Kept separate from the Play/Pause morph on purpose.
+function replayMotion(element,className="motion-in",duration=320){
+  if(!element || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  element.classList.remove(className);
+  requestAnimationFrame(()=>{
+    element.classList.add(className);
+    setTimeout(()=>element.classList.remove(className),duration);
+  });
+}
+
+function showWithMotion(element){
+  element.classList.remove("hidden","motion-out");
+  replayMotion(element);
+}
+
+function hideWithMotion(element,duration=180){
+  if(element.classList.contains("hidden")) return;
+  if(window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    element.classList.add("hidden");
+    return;
+  }
+  element.classList.remove("motion-in");
+  element.classList.add("motion-out");
+  setTimeout(()=>{
+    if(element.classList.contains("motion-out")) element.classList.add("hidden");
+  },duration);
+}
+
 // Wraps fn so rapid repeated calls (e.g. every keystroke) only run it
 // once, ms after the last call — used to keep fast typing from
 // triggering a full list rebuild on every single character.
@@ -1876,6 +1916,7 @@ function debounce(fn,ms){
 // redraws whichever view is currently active.
 function renderTab(){
   listContainer.innerHTML="";
+  virtualSongList=null;
   const q=(searchInput.value||"").toLowerCase().trim();
 
   // Select mode can now be entered from a flat song list OR from
@@ -1914,6 +1955,7 @@ function renderTab(){
     if(q) tracks=tracks.filter(t=>matchQuery(t,q));
     renderSongList(tracks, state.filter.type==="playlist" ? state.filter.playlistId : null);
     addMusicToggle.classList.toggle("hidden", state.filter.type!=="playlist");
+    replayMotion(listContainer,"view-enter",360);
     return;
   }
   backBtn.classList.add("hidden");
@@ -1945,6 +1987,7 @@ function renderTab(){
     listTitle.textContent=tr("nav.folders");
     renderFolderList();
   }
+  replayMotion(listContainer,"view-enter",360);
 }
 
 
@@ -1966,12 +2009,45 @@ function matchQuery(t,q){
 // place of its usual click-to-play behavior — clicking anywhere on
 // the row toggles that song's checked state instead of playing it.
 // The "⋮" menu stays available either way.
-function renderSongList(tracks, playlistIdContext){
-  tracks=sortTracks(tracks);
+const SONG_ROW_HEIGHT=60;
+const SONG_LIST_OVERSCAN=12;
+let virtualSongList=null;
+let virtualScrollFrame=null;
+
+function scheduleVirtualSongRender(){
+  if(!virtualSongList || virtualScrollFrame) return;
+  if(Math.floor(listContainer.scrollTop/SONG_ROW_HEIGHT)===virtualSongList.firstVisible) return;
+  virtualScrollFrame=requestAnimationFrame(()=>{
+    virtualScrollFrame=null;
+    const {tracks,playlistIdContext}=virtualSongList;
+    renderSongList(tracks,playlistIdContext,true);
+  });
+}
+
+function renderSongList(tracks, playlistIdContext, alreadySorted=false){
+  if(!alreadySorted) tracks=sortTracks(tracks);
 
   if(!tracks.length){
     listContainer.appendChild(el("div","empty-state",tr("empty.noSongs")));
     return;
+  }
+  const allTracks=tracks;
+  const queueTracks=allTracks;
+  const virtualized=allTracks.length>120;
+  let windowStart=0;
+  let windowEnd=allTracks.length;
+  if(virtualized){
+    const viewportHeight=listContainer.clientHeight||600;
+    const firstVisible=Math.floor(listContainer.scrollTop/SONG_ROW_HEIGHT);
+    windowStart=Math.max(0,firstVisible-SONG_LIST_OVERSCAN);
+    windowEnd=Math.min(allTracks.length,Math.ceil((listContainer.scrollTop+viewportHeight)/SONG_ROW_HEIGHT)+SONG_LIST_OVERSCAN);
+    virtualSongList={tracks:allTracks,playlistIdContext,firstVisible};
+    listContainer.replaceChildren();
+    const topSpacer=el("div","song-virtual-spacer");
+    topSpacer.style.height=(windowStart*SONG_ROW_HEIGHT)+"px";
+    listContainer.appendChild(topSpacer);
+    tracks=allTracks.slice(windowStart,windowEnd);
+    listContainer.addEventListener("scroll",scheduleVirtualSongRender,{passive:true});
   }
   tracks.forEach(t=>{
     const selected=state.selectMode && state.selectedIds.has(t.id);
@@ -1987,7 +2063,7 @@ function renderSongList(tracks, playlistIdContext){
     img.className="thumb";
     img.loading="lazy";      // defer decode/paint for rows scrolled out of view — cheaper first paint and scroll on long libraries
     img.decoding="async";    // never block the main thread waiting on image decode
-    img.src=t.artURL||fallbackArt();
+    img.src=getTrackArtURL(t)||fallbackArt();
     const info=el("div","info");
     info.appendChild(el("div","title",escapeHTML(t.title)));
     info.appendChild(el("div","sub",escapeHTML(t.artist)));
@@ -1997,10 +2073,15 @@ function renderSongList(tracks, playlistIdContext){
     row.appendChild(img); row.appendChild(info); row.appendChild(dur); row.appendChild(menuBtn);
     row.addEventListener("click",()=>{
       if(state.selectMode) toggleItemSelected(t.id);
-      else playTrack(t,tracks);
+      else playTrack(t,queueTracks);
     });
     listContainer.appendChild(row);
   });
+  if(virtualized){
+    const bottomSpacer=el("div","song-virtual-spacer");
+    bottomSpacer.style.height=((allTracks.length-windowEnd)*SONG_ROW_HEIGHT)+"px";
+    listContainer.appendChild(bottomSpacer);
+  }
 }
 
 
@@ -2156,7 +2237,7 @@ function homeSection(title,tracks,kind){
     img.className="thumb";
     img.loading="lazy";
     img.decoding="async";
-    img.src=t.artURL||fallbackArt();
+    img.src=getTrackArtURL(t)||fallbackArt();
     const info=el("div","info");
     info.appendChild(el("div","title",escapeHTML(t.title)));
     info.appendChild(el("div","sub",escapeHTML(t.artist)));
@@ -2253,7 +2334,7 @@ function renderPlaylistList(){
     if(selectableRow) line.appendChild(el("div","row-check"));
     const img=document.createElement("img");
     img.loading="lazy"; img.decoding="async";
-    img.src=(tracks[0]&&tracks[0].artURL)||fallbackArt();
+    img.src=(tracks[0]&&getTrackArtURL(tracks[0]))||fallbackArt();
     line.appendChild(img);
     const wrap=el("div","wrap");
     wrap.appendChild(el("div","name",escapeHTML(p.name)));
@@ -2362,6 +2443,7 @@ function openFolderMenu(e,folder){
   menu.appendChild(delBtn);
 
   document.body.appendChild(menu);
+  replayMotion(menu);
   const rect=e.currentTarget.getBoundingClientRect();
   let top=rect.bottom+6, left=rect.right-170;
   if(left<8) left=8;
@@ -2509,6 +2591,7 @@ function openTrackMenu(e,track,currentPlaylistId){
   delBtn.addEventListener("click",()=>{ closeMenu(); deleteTrack(track); });
   menu.appendChild(delBtn);
   document.body.appendChild(menu);
+  replayMotion(menu);
   const rect=e.target.getBoundingClientRect();
   let top=rect.bottom+6, left=rect.left-150;
   if(left<8) left=8;
@@ -2541,6 +2624,7 @@ function openSortMenu(e){
   });
 
   document.body.appendChild(menu);
+  replayMotion(menu);
 
   // Right-align the menu under the button so it never spills past
   // the edge of the sidebar.
@@ -2664,6 +2748,7 @@ function openPlaylistMenu(e,playlist){
   menu.appendChild(delBtn);
 
   document.body.appendChild(menu);
+  replayMotion(menu);
   const rect=e.currentTarget.getBoundingClientRect();
   let top=rect.bottom+6, left=rect.right-150;
   if(left<8) left=8;
@@ -3725,15 +3810,19 @@ function updateNowPlayingUI(){
   $("trackAlbum").textContent=t.album;
   $("miniTitle").textContent=t.title;
   $("miniArtist").textContent=t.artist;
-  if(t.artURL){
-    $("artImg").src=t.artURL; $("artImg").classList.remove("hidden"); $("artPlaceholder").classList.add("hidden");
-    $("miniArt").src=t.artURL;
+  const artURL=getTrackArtURL(t);
+  if(artURL){
+    $("artImg").src=artURL; $("artImg").classList.remove("hidden"); $("artPlaceholder").classList.add("hidden");
+    $("miniArt").src=artURL;
   } else {
     $("artImg").classList.add("hidden"); $("artPlaceholder").classList.remove("hidden");
     $("miniArt").src=fallbackArt();
   }
   updateLoveButton();
   $("miniBar").style.display = state.currentTrack ? "flex" : "none";
+  replayMotion($("artWrap"),"track-change",360);
+  replayMotion(document.querySelector(".track-meta"),"track-change",300);
+  replayMotion($("miniBar"),"track-change",260);
 }
 
 
@@ -4044,13 +4133,13 @@ function toggleVolumePopup(){
 }
 function openVolumePopup(){
   const wasHidden=volumePopup.classList.contains("hidden");
-  volumePopup.classList.remove("hidden");
+  showWithMotion(volumePopup);
   if(wasHidden){
     setTimeout(()=>document.addEventListener("click",closeVolumePopup,{once:true}),0);
   }
 }
 function closeVolumePopup(){
-  volumePopup.classList.add("hidden");
+  hideWithMotion(volumePopup);
 }
 
 
@@ -4279,6 +4368,21 @@ const THEME_BG={
     label:"Pitch Black", swatch:"#000000",
     vars:{"--bg":"#000000","--panel":"#000000","--elevated":"#141414","--elevated-hover":"#1e1e1e",
           "--border":"#242424","--text":"#f2f2f6","--text-dim":"#96969f","--text-faint":"#5c5c66"}
+  },
+  midnight:{
+    label:"Deep Midnight Blue", swatch:"#0b1324",
+    vars:{"--bg":"#0b1324","--panel":"#0e192d","--elevated":"#15233b","--elevated-hover":"#1b2c48",
+          "--border":"#223653","--text":"#edf4ff","--text-dim":"#a4b2c8","--text-faint":"#677892"}
+  },
+  graphite:{
+    label:"Graphite Gray", swatch:"#1b1d20",
+    vars:{"--bg":"#1b1d20","--panel":"#202226","--elevated":"#292c31","--elevated-hover":"#34383e",
+          "--border":"#3b3f46","--text":"#f1f2f4","--text-dim":"#afb2b8","--text-faint":"#777b83"}
+  },
+  forest:{
+    label:"Forest Green", swatch:"#10231d",
+    vars:{"--bg":"#10231d","--panel":"#142b23","--elevated":"#1b382d","--elevated-hover":"#244737",
+          "--border":"#305343","--text":"#edf7f0","--text-dim":"#a7c0b0","--text-faint":"#6f8d7c"}
   }
 };
 
@@ -4308,6 +4412,19 @@ function applyTheme(){
   root.setProperty("--accent1",ac.a1);
   root.setProperty("--accent2",ac.a2);
   root.setProperty("--accent1-rgb",ac.rgb);
+  syncNativeTitleBar(bg.vars["--bg"]);
+}
+
+function syncNativeTitleBar(backgroundColor){
+  if(!(window.electronAPI && window.electronAPI.setTitleBarAppearance)) return;
+  const hex=String(backgroundColor||"").replace("#","");
+  const normalized=hex.length===3 ? hex.split("").map(c=>c+c).join("") : hex;
+  if(!/^[0-9a-fA-F]{6}$/.test(normalized)) return;
+  const red=parseInt(normalized.slice(0,2),16);
+  const green=parseInt(normalized.slice(2,4),16);
+  const blue=parseInt(normalized.slice(4,6),16);
+  const luminance=(red*299+green*587+blue*114)/1000;
+  window.electronAPI.setTitleBarAppearance("#"+normalized, luminance>160 ? "#1b1b1b" : "#f2f2f6").catch(()=>{});
 }
 
 // Switches the background or accent choice, re-applies the theme,
@@ -5095,7 +5212,7 @@ function toggleSideDropdown(){
 // closes it again on the next click anywhere on the page (the
 // same "click outside to close" pattern used by closeMenu above).
 function openSideDropdown(){
-  $("sideDropdown").classList.remove("hidden");
+  showWithMotion($("sideDropdown"));
   setTimeout(()=>document.addEventListener("click",closeSideDropdown,{once:true}),0);
 }
 
@@ -5103,7 +5220,7 @@ function openSideDropdown(){
 
 // Hides the Info/Edit dropdown.
 function closeSideDropdown(){
-  $("sideDropdown").classList.add("hidden");
+  hideWithMotion($("sideDropdown"));
 }
 
 
@@ -5113,14 +5230,14 @@ function closeSideDropdown(){
 function openModal(title, bodyHTML){
   $("modalTitle").textContent=title;
   $("modalBody").innerHTML=bodyHTML;
-  $("modalOverlay").classList.remove("hidden");
+  showWithMotion($("modalOverlay"));
 }
 
 
 
 // Hides the shared modal.
 function closeModal(){
-  $("modalOverlay").classList.add("hidden");
+  hideWithMotion($("modalOverlay"),220);
 }
 
 
@@ -5232,6 +5349,7 @@ function openEditModal(track){
     openModal(tr("edit.modalTitleEmpty"), `<p class='info-empty'>${escapeHTML(tr("empty.nothingPlayingEdit"))}</p>`);
     return;
   }
+  const originalArtURL=getTrackArtURL(t);
 
   let pendingArtFile=null;   // newly picked cover image, staged until Save
   let removeArt=false;       // true if the user chose to remove the cover
@@ -5243,8 +5361,8 @@ function openEditModal(track){
     <div class="edit-form">
       <div class="edit-cover-row">
         <div class="edit-cover-preview" id="editCoverPreview">
-          ${t.artURL
-            ? `<img id="editCoverImg" src="${t.artURL}" alt="cover">`
+          ${originalArtURL
+            ? `<img id="editCoverImg" src="${originalArtURL}" alt="cover">`
             : `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><path d="M9.5 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg>`
           }
         </div>
@@ -5346,8 +5464,8 @@ function openEditModal(track){
       // longer correspond to the song now selected.
       pendingArtFile=null;
       removeArt=false;
-      $("editCoverPreview").innerHTML=t.artURL
-        ? `<img id="editCoverImg" src="${t.artURL}" alt="cover">`
+      $("editCoverPreview").innerHTML=originalArtURL
+        ? `<img id="editCoverImg" src="${originalArtURL}" alt="cover">`
         : `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><path d="M9.5 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg>`;
     }
   }

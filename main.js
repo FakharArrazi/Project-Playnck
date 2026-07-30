@@ -105,6 +105,19 @@ let mainWindow = null;
 let fileToOpen = null;
 let updateCheckStarted = false; // guards against did-finish-load firing more than once
 
+function isHexColor(value) {
+    return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
+}
+
+ipcMain.handle("set-title-bar-appearance", (event, backgroundColor, symbolColor) => {
+    if (!mainWindow || !isHexColor(backgroundColor) || !isHexColor(symbolColor)) return false;
+    mainWindow.setBackgroundColor(backgroundColor);
+    if (process.platform === "win32") {
+        mainWindow.setTitleBarOverlay({ color: backgroundColor, symbolColor });
+    }
+    return true;
+});
+
 // Tiny local-only static file server for the app's own renderer
 // files (index.html, script.js, styles.css, fonts, jsmediatags),
 // served over http://127.0.0.1 instead of file://. Loopback-only
@@ -512,6 +525,11 @@ function createWindow() {
         minHeight: 600,
         autoHideMenuBar: true,
         icon: path.join(__dirname, "icon.ico"),
+        backgroundColor: "#000000",
+        ...(process.platform === "win32" ? {
+            titleBarStyle: "hidden",
+            titleBarOverlay: { color: "#000000", symbolColor: "#f2f2f6", height: 32 }
+        } : {}),
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
             contextIsolation: true,

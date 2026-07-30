@@ -31,7 +31,13 @@
       light:{"--bg":"#f2efe9","--panel":"#fbfaf7","--elevated":"#ece8e0","--elevated-hover":"#e2ddd2",
              "--border":"#dcd6c9","--text":"#211f1c","--text-dim":"#6e6a62","--text-faint":"#a09a8d"},
       pitchblack:{"--bg":"#000000","--panel":"#000000","--elevated":"#141414","--elevated-hover":"#1e1e1e",
-                  "--border":"#242424","--text":"#f2f2f6","--text-dim":"#96969f","--text-faint":"#5c5c66"}
+                  "--border":"#242424","--text":"#f2f2f6","--text-dim":"#96969f","--text-faint":"#5c5c66"},
+      midnight:{"--bg":"#0b1324","--panel":"#0e192d","--elevated":"#15233b","--elevated-hover":"#1b2c48",
+                "--border":"#223653","--text":"#edf4ff","--text-dim":"#a4b2c8","--text-faint":"#677892"},
+      graphite:{"--bg":"#1b1d20","--panel":"#202226","--elevated":"#292c31","--elevated-hover":"#34383e",
+                 "--border":"#3b3f46","--text":"#f1f2f4","--text-dim":"#afb2b8","--text-faint":"#777b83"},
+      forest:{"--bg":"#10231d","--panel":"#142b23","--elevated":"#1b382d","--elevated-hover":"#244737",
+              "--border":"#305343","--text":"#edf7f0","--text-dim":"#a7c0b0","--text-faint":"#6f8d7c"}
     };
     var THEME_ACCENT={
       blue:{a1:"#5865f2",a2:"#8a5cf6",rgb:"88,101,242"},
