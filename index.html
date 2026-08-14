@@ -95,6 +95,10 @@
         <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
         <span class="rail-label" data-i18n="nav.folders">Folders</span>
       </button>
+      <button class="rail-item" data-tab="convert" title="Convert" data-i18n-title="nav.convert">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="M16 21l4-4-4-4"/><path d="M20 17H4"/></svg>
+        <span class="rail-label" data-i18n="nav.convert">Convert</span>
+      </button>
     </div>
 
     <div class="rail-section rail-bottom">
@@ -144,6 +148,17 @@
     -->
     <input type="file" id="filesInput" accept="audio/*" multiple class="hidden">
     <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden">
+
+    <!--
+      Convert tab's own file picker — deliberately separate from
+      filesInput above (never touches the music library, see
+      renderConvertTab()/handleConvertFilesPicked() in script.js).
+      "Add Folder" for this tab uses window.electronAPI.selectFolder()
+      + scanFolder() instead of a webkitdirectory input like
+      folderInput above, since it needs a real folder path back even
+      for an empty folder — see the CONVERT TAB section in script.js.
+    -->
+    <input type="file" id="convertFilesInput" accept="audio/*" multiple class="hidden">
 
     <!-- List header: back button + title on the left, search/sort icons on the right -->
     <div class="list-header">

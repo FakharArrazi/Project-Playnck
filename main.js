@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, Menu, protocol, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const { Readable } = require("stream");
 const http = require("http");
 
@@ -10,6 +11,7 @@ const http = require("http");
 // ever needs to build for a non-desktop target.
 const { getAudioMetadata, writeAudioTags } = require("./metadata-bridge");
 const { autoTagTrack } = require("./autotag-bridge");
+const ffmpegBridge = require("./ffmpeg-bridge");
 
 // Auto-update: checks the GitHub repo configured under
 // build.publish in package.json for a newer release, downloads it
@@ -453,6 +455,116 @@ ipcMain.handle("scan-folder", async (event, folderPath) => {
         return [];
     }
     return out;
+});
+
+// Generic native folder picker — returns a real absolute path
+// directly, unlike the library's "Add Folder" (a hidden
+// <input webkitdirectory> in index.html, wired up in script.js),
+// which only ever hands back a FileList of whatever happens to be
+// inside the folder. That's fine for "add every song already in
+// here", but no good for choosing a *destination* folder, which
+// needs to work even when empty. Reused by the Convert tab for both
+// its "Add Folder" (paired with scan-folder above, which already
+// does exactly "find every audio file in this folder") and its
+// "Choose Folder" output-destination picker.
+// (defaultPath?) -> Promise<string | null>
+ipcMain.handle("select-folder", async (event, defaultPath) => {
+    try {
+        const result = await dialog.showOpenDialog(mainWindow, {
+            properties: ["openDirectory", "createDirectory"],
+            defaultPath: defaultPath || undefined
+        });
+        if (result.canceled || !result.filePaths || !result.filePaths.length) return null;
+        return result.filePaths[0];
+    } catch (err) {
+        console.error("select-folder failed:", err);
+        return null;
+    }
+});
+
+// Reveals a folder in Explorer/Finder — used by the Convert tab's
+// "Open Output Folder" once a batch finishes.
+ipcMain.handle("open-folder", async (event, folderPath) => {
+    if (!folderPath) return { opened: false, reason: "No folder path given." };
+    try {
+        const err = await shell.openPath(folderPath);
+        return err ? { opened: false, reason: err } : { opened: true };
+    } catch (err) {
+        return { opened: false, reason: String((err && err.message) || err) };
+    }
+});
+
+// ----------------------------------------------------------------
+// CONVERT TAB — see ffmpeg-bridge.js for everything these actually
+// do (FFmpeg detection, one-click winget install, running a
+// conversion with real progress). This is just the same thin
+// ipcMain.handle wrapping every other bridge module in this file
+// gets, plus two event streams — "ffmpeg-install-progress" and
+// "convert-progress" — for the parts that can't be a single
+// request/response (mirrors how Settings > Updates streams
+// "update-status" events alongside its own checkForUpdates() call
+// above).
+// ----------------------------------------------------------------
+
+ipcMain.handle("ffmpeg-detect", async () => {
+    try {
+        return await ffmpegBridge.detectFFmpeg();
+    } catch (err) {
+        console.error("ffmpeg-detect failed:", err);
+        return { available: false };
+    }
+});
+
+ipcMain.handle("ffmpeg-install", async () => {
+    try {
+        return await ffmpegBridge.installFFmpeg((line) => {
+            if (mainWindow) mainWindow.webContents.send("ffmpeg-install-progress", { line });
+        });
+    } catch (err) {
+        console.error("ffmpeg-install failed:", err);
+        return { success: false, reason: String((err && err.message) || err) };
+    }
+});
+
+ipcMain.handle("convert-resolve-output-path", async (event, outputDir, baseName, ext, mode) => {
+    try {
+        return await ffmpegBridge.resolveOutputPath(outputDir, baseName, ext, mode);
+    } catch (err) {
+        console.error("convert-resolve-output-path failed:", err);
+        return { path: path.join(outputDir, `${baseName}.${ext}`), skip: false };
+    }
+});
+
+ipcMain.handle("convert-file", async (event, job) => {
+    try {
+        return await ffmpegBridge.convertFile(job, (progress) => {
+            if (mainWindow) mainWindow.webContents.send("convert-progress", { jobId: job.jobId, ...progress });
+        });
+    } catch (err) {
+        console.error("convert-file failed:", err);
+        return { success: false, reason: String((err && err.message) || err) };
+    }
+});
+
+ipcMain.handle("convert-cancel", (event, jobId) => {
+    return ffmpegBridge.cancelConvertJob(jobId);
+});
+
+// Sensible default for the Output Folder field the very first time
+// the Convert tab is opened — the person's OS Music folder plus a
+// "Playnck Converted" subfolder, created on demand so the field never
+// starts out pointing at somewhere that doesn't exist yet. After
+// this, script.js remembers whatever the person actually chose (in
+// the same localStorage-backed settings as everything else under
+// Settings) instead of asking again every time.
+ipcMain.handle("get-default-convert-output", async () => {
+    const dir = path.join(app.getPath("music"), "Playnck Converted");
+    try {
+        await fs.promises.mkdir(dir, { recursive: true });
+    } catch (err) {
+        console.error("Couldn't create default Convert output folder:", err);
+    }
+    return dir;
 });
 
 // Generic "Save As" for text content the renderer has already fully

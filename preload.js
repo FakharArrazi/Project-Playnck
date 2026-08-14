@@ -116,5 +116,49 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getAppVersion: () => ipcRenderer.invoke("get-app-version"),
 
     setTitleBarAppearance: (backgroundColor, symbolColor) =>
-        ipcRenderer.invoke("set-title-bar-appearance", backgroundColor, symbolColor)
+        ipcRenderer.invoke("set-title-bar-appearance", backgroundColor, symbolColor),
+
+    // --- Convert tab — see ffmpeg-bridge.js (main process) for what
+    // each of these actually does. onFFmpegInstallProgress/
+    // onConvertProgress are event streams (mirrors onUpdateStatus
+    // above) since a single request/response can't report progress
+    // as it happens; the matching install/convert calls below still
+    // resolve once with the final result either way.
+
+    // Generic native folder picker, real absolute path back — used
+    // for both the Convert tab's "Add Folder" (paired with the
+    // existing scanFolder above) and its output-destination picker.
+    // (defaultPath?) -> Promise<string | null>
+    selectFolder: (defaultPath) => ipcRenderer.invoke("select-folder", defaultPath),
+    // folderPath -> Promise<{opened, reason?}>
+    openFolder: (folderPath) => ipcRenderer.invoke("open-folder", folderPath),
+    // -> Promise<string> — OS Music folder + "Playnck Converted", created if needed
+    getDefaultConvertOutput: () => ipcRenderer.invoke("get-default-convert-output"),
+
+    // -> Promise<{available, version?}>
+    ffmpegDetect: () => ipcRenderer.invoke("ffmpeg-detect"),
+    // One-click install via winget. Progress arrives via
+    // onFFmpegInstallProgress; this resolves once with the outcome.
+    // -> Promise<{success, version?, reason?}>
+    ffmpegInstall: () => ipcRenderer.invoke("ffmpeg-install"),
+    onFFmpegInstallProgress: (callback) => {
+        ipcRenderer.on("ffmpeg-install-progress", (event, payload) => callback(payload));
+    },
+
+    // Applies the chosen collision-handling mode (skip/replace/
+    // rename) to a desired output path before a conversion starts.
+    // (outputDir, baseName, ext, mode) -> Promise<{path, skip}>
+    convertResolveOutputPath: (outputDir, baseName, ext, mode) =>
+        ipcRenderer.invoke("convert-resolve-output-path", outputDir, baseName, ext, mode),
+    // Runs one real FFmpeg conversion. Progress (percent/position/
+    // speed) arrives via onConvertProgress, keyed by job.jobId; this
+    // resolves once with the final outcome for that file.
+    // job:{jobId, inputPath, outputPath, format, settings, durationSec}
+    // -> Promise<{success, cancelled?, outputPath?, reason?}>
+    convertFile: (job) => ipcRenderer.invoke("convert-file", job),
+    onConvertProgress: (callback) => {
+        ipcRenderer.on("convert-progress", (event, payload) => callback(payload));
+    },
+    // jobId -> Promise<boolean> — true if a running job was actually found and killed
+    convertCancel: (jobId) => ipcRenderer.invoke("convert-cancel", jobId)
 });
