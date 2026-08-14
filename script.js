@@ -1143,7 +1143,11 @@ function sanitizeFilename(name){
 // `npm start`; production builds have devtools locked out — see
 // main.js — so this is dev-only visibility, not user-facing).
 async function backfillTrackNumbers(){
-  const targets=state.tracks.filter(t=>t.trackNum==null);
+  // Unpersisted external tracks (see ingestFiles()) are skipped —
+  // there's nothing in the library store for a fix-up here to write
+  // back to, and doing the lookup anyway would just end up calling
+  // idbPut() on a track that's supposed to stay temporary.
+  const targets=state.tracks.filter(t=>t.trackNum==null && !t.external);
   if(!targets.length) return;
 
   let changed=false;
@@ -1260,7 +1264,11 @@ async function ingestDiscoveredPaths(paths, folderId){
     // it knew about at scan time, but this loop can run long on a big
     // folder, so guard against the rare case of the same path getting
     // added some other way (e.g. drag/drop) while this was still going.
-    if(state.tracks.some(t=>t.filePath===filePath)) continue;
+    // Excludes unpersisted external tracks (see ingestFiles()) on
+    // purpose: a file living inside a library folder shouldn't stay
+    // unimported forever just because it was previously opened
+    // externally — the next rescan should still pick it up for real.
+    if(state.tracks.some(t=>t.filePath===filePath && !t.external)) continue;
 
     let meta=null;
     try{ meta=await window.electronAPI.getAudioMetadata(filePath); }
@@ -1484,11 +1492,27 @@ function getDuration(url){
 
 
 // Takes a raw FileList (from either the "Add Songs" or "Add
-// Folder" button in the Folders tab) and turns every audio file in
-// it into a saved track. When folderName is given, a matching
-// folder is created (if it doesn't already exist) and every file
-// is tagged with it.
-async function ingestFiles(fileList, folderName){
+// Folder" button in the Folders tab, or the external open-file
+// handler further down) and turns every audio file in it into a
+// track. When folderName is given, a matching folder is created (if
+// it doesn't already exist) and every file is tagged with it.
+//
+// opts.persist (default true) is what separates an intentional
+// library import from a track someone just opened externally
+// (double-click / "Open with" / launching Playnck on a file — see
+// the open-file listener below): with persist:false, a genuinely
+// new file still becomes a real, playable track object and still
+// goes through the same duplicate guard as everything else, but it
+// is never written to IndexedDB and is flagged track.external=true
+// so libraryTracks() (just below) leaves it out of the Songs/
+// Albums/Artists/Home library views and it simply won't exist again
+// next launch — exactly like it never happened, other than having
+// played once. If that same file is later imported for real (Add
+// Songs/Add Folder, persist:true) while its external copy is still
+// in memory, the duplicate guard below "promotes" that existing
+// object into a real library track instead of creating a second one.
+async function ingestFiles(fileList, folderName, opts={}){
+  const persist = opts.persist!==false;
   const files=Array.from(fileList).filter(f=>{
     const ext=f.name.split(".").pop().toLowerCase();
     return AUDIO_EXT.includes(ext) || f.type.startsWith("audio/");
@@ -1536,11 +1560,12 @@ async function ingestFiles(fileList, folderName){
 
     // Duplicate guard: if this exact file on disk (by path) or a
     // track with the same title/artist/size is already in the
-    // library, treat this as "already in the library" rather than
-    // adding a second copy. This is what stops re-opening a song
-    // you've already added (double-click, "Open with", drag onto
-    // the app icon a second time, etc.) from piling up duplicate
-    // rows in the songs list.
+    // library (or already sitting in memory as a not-yet-persisted
+    // external track — see opts.persist above), treat this as
+    // "already there" rather than adding a second copy. This is
+    // what stops re-opening a song you've already added (double-
+    // click, "Open with", drag onto the app icon a second time,
+    // etc.) from piling up duplicate rows in the songs list.
     const existingTrack=state.tracks.find(t=>{
       const sameTitleArtist=
         (t.title||"").trim().toLowerCase()===title.trim().toLowerCase() &&
@@ -1549,6 +1574,22 @@ async function ingestFiles(fileList, folderName){
       return filePath ? t.filePath===filePath : (t.fileBlob && t.fileBlob.size===file.size);
     });
     if(existingTrack){
+      // A real import (persist:true) landing on a track that only
+      // existed as a temporary external one promotes it into the
+      // library for real, instead of silently staying unpersisted —
+      // otherwise explicitly re-adding a song you'd only ever
+      // double-clicked before would look like it worked but
+      // vanish again on next launch.
+      if(persist && existingTrack.external){
+        existingTrack.external=false;
+        idbPut("tracks",{
+          id:existingTrack.id, title:existingTrack.title, artist:existingTrack.artist, album:existingTrack.album,
+          trackNum:existingTrack.trackNum,
+          duration:existingTrack.duration, folderId:existingTrack.folderId, dateAdded:existingTrack.dateAdded,
+          fileBlob:existingTrack.fileBlob, artBlob:existingTrack.artBlob, filePath:existingTrack.filePath
+        });
+        addedAny=true; // wasn't visible in the library before; it is now, so the Songs tab needs a repaint
+      }
       resultTracks.push(existingTrack);
       continue;
     }
@@ -1580,27 +1621,51 @@ async function ingestFiles(fileList, folderName){
       dateAdded: Date.now(),      // Shown by the Info panel as "Date added"
       fileBlob,
       artBlob: tags.artBlob||null,
-      filePath
+      filePath,
+      external: !persist          // true only for an unpersisted, externally-opened track — see libraryTracks() below
     };
     hydrateTrack(track);
-    state.tracks.push(track);
+    state.tracks.push(track);     // kept in state.tracks either way, so playback/queue/next-prev lookups work identically for external tracks — see libraryTracks() for the one place that needs to tell the two apart
     resultTracks.push(track);
     addedAny=true;
 
     // Save a plain copy to IndexedDB — deliberately WITHOUT the
     // temporary fileURL/artURL, since those blob: URLs only make
     // sense for this one page session and would be meaningless
-    // (and wasteful) to persist.
-    const storeCopy={
-      id:track.id, title:track.title, artist:track.artist, album:track.album,
-      trackNum:track.trackNum,
-      duration:track.duration, folderId:track.folderId, dateAdded:track.dateAdded,
-      fileBlob:track.fileBlob, artBlob:track.artBlob, filePath:track.filePath
-    };
-    idbPut("tracks",storeCopy);
+    // (and wasteful) to persist. Skipped entirely for an external
+    // track: that's the actual fix — it plays like any other track
+    // this session, but there's nothing on disk for next launch to
+    // find, so it's gone from the library as if it never happened.
+    if(persist){
+      const storeCopy={
+        id:track.id, title:track.title, artist:track.artist, album:track.album,
+        trackNum:track.trackNum,
+        duration:track.duration, folderId:track.folderId, dateAdded:track.dateAdded,
+        fileBlob:track.fileBlob, artBlob:track.artBlob, filePath:track.filePath
+      };
+      idbPut("tracks",storeCopy);
+    }
   }
   if(addedAny) renderTab();
   return resultTracks;
+}
+
+
+
+// The library-facing view of state.tracks — every track EXCEPT the
+// unpersisted, externally-opened ones (see the "external" flag set
+// in ingestFiles() above). Anything that's showing the user "your
+// music library" (Songs/Albums/Artists/Home, the add-to-playlist
+// picker, library-wide stats) should read through this instead of
+// state.tracks directly, so a song opened via double-click/"Open
+// with" doesn't visibly show up as a library item during this
+// session either — not just after a restart. Playback/queue code
+// (nextTrack/prevTrack, now-playing, favorites, etc.) intentionally
+// keeps using state.tracks as-is, since an external track still
+// needs to actually play, seek, and skip normally while it's the
+// current track.
+function libraryTracks(){
+  return state.tracks.filter(t=>!t.external);
 }
 
 
@@ -1720,9 +1785,11 @@ function formatBitrate(bytes, seconds){
 
 // Groups tracks by "album + artist" (so two different artists'
 // albums that happen to share a name don't get merged together).
+// Reads through libraryTracks() (see its comment) so an unpersisted
+// external track doesn't show up as an "album" of its own.
 function computeAlbums(){
   const map=new Map();
-  for(const t of state.tracks){
+  for(const t of libraryTracks()){
     const key=t.album+"|||"+t.artist;
     if(!map.has(key)) map.set(key,{key,album:t.album,artist:t.artist,art:getTrackArtURL(t),tracks:[]});
     map.get(key).tracks.push(t);
@@ -1733,10 +1800,10 @@ function computeAlbums(){
 
 
 
-// Groups tracks by artist name.
+// Groups tracks by artist name. See computeAlbums() just above.
 function computeArtists(){
   const map=new Map();
-  for(const t of state.tracks){
+  for(const t of libraryTracks()){
     if(!map.has(t.artist)) map.set(t.artist,{artist:t.artist,art:getTrackArtURL(t),tracks:[]});
     map.get(t.artist).tracks.push(t);
     if(!map.get(t.artist).art && getTrackArtURL(t)) map.get(t.artist).art=getTrackArtURL(t);
@@ -1881,6 +1948,27 @@ function replayMotion(element,className="motion-in",duration=320){
   });
 }
 
+// Shared tactile "press" feedback for the transport row (shuffle/
+// prev/next/repeat, desktop + mini-player) — a soft accent ripple
+// behind the icon, plus an optional per-button flourish class on the
+// icon itself (e.g. "skip-kick", "shuffle-spin"). Deliberately never
+// called on #playBtn, which keeps its own liquid-glass morph as-is.
+// Shared tactile "press" feedback for the transport row (shuffle/
+// prev/next/repeat, desktop + mini-player) — a ripple behind the
+// icon (circular by default, or "ctrl-streak" for a directional
+// glow that shoots toward the skip direction on Prev/Next), plus an
+// optional per-button flourish class on the icon itself (e.g.
+// "skip-kick", "shuffle-spin", "repeat-flip"). Deliberately never
+// called on #playBtn, which keeps its own liquid-glass morph as-is.
+function pulseCtrlBtn(btnId,svgClass,svgDuration=420,pingClass="ctrl-ping"){
+  const btn=$(btnId);
+  if(!btn) return;
+  replayMotion(btn,pingClass,480);
+  if(!svgClass) return;
+  const icon=btn.querySelector("svg");
+  if(icon) replayMotion(icon,svgClass,svgDuration);
+}
+
 function showWithMotion(element){
   element.classList.remove("hidden","motion-out");
   replayMotion(element);
@@ -1967,7 +2055,7 @@ function renderTab(){
     renderHomeTab();
   } else if(state.currentTab==="songs"){
     listTitle.textContent=tr("nav.songs");
-    let tracks=[...state.tracks];             // copy so filtering never mutates state.tracks
+    let tracks=libraryTracks();                // excludes unpersisted external tracks — see libraryTracks()
     if(q) tracks=tracks.filter(t=>matchQuery(t,q));
     renderSongList(tracks,null);                // renderSongList applies state.sortBy itself
   } else if(state.currentTab==="albums"){
@@ -2208,17 +2296,17 @@ function renderHomeTab(){
   const wrap=el("div","home-view");
 
   const stats=el("div","home-stats");
-  stats.appendChild(homeStatBox(state.tracks.length,tr("nav.songs")));
+  stats.appendChild(homeStatBox(libraryTracks().length,tr("nav.songs")));
   stats.appendChild(homeStatBox(computeAlbums().length,tr("nav.albums")));
   stats.appendChild(homeStatBox(computeArtists().length,tr("nav.artists")));
   wrap.appendChild(stats);
 
-  const recent=state.tracks.filter(t=>t.lastPlayedAt)
+  const recent=libraryTracks().filter(t=>t.lastPlayedAt)
     .sort((a,b)=>b.lastPlayedAt-a.lastPlayedAt)
     .slice(0,3);
   wrap.appendChild(homeSection(tr("home.recentlyPlayed"),recent,"recent"));
 
-  const top=state.tracks.filter(t=>t.playCount>0)
+  const top=libraryTracks().filter(t=>t.playCount>0)
     .sort((a,b)=>b.playCount-a.playCount)
     .slice(0,3);
   wrap.appendChild(homeSection(tr("home.topSongs"),top,"plays"));
@@ -2875,12 +2963,12 @@ function openAddMusicModal(playlistId){
   const p=state.playlists.find(pl=>pl.id===playlistId);
   if(!p) return;
 
-  if(!state.tracks.length){
+  if(!libraryTracks().length){
     openModal(tr("modal.addMusic"), `<p class='info-empty'>${escapeHTML(tr("empty.noLibraryForAddMusic"))}</p>`);
     return;
   }
 
-  const sorted=[...state.tracks].sort((a,b)=>a.title.localeCompare(b.title));
+  const sorted=libraryTracks().sort((a,b)=>a.title.localeCompare(b.title));
   const bodyHTML="<div class='add-music-list' id='addMusicList'>"+sorted.map(t=>{
     const already=p.trackIds.includes(t.id);
     return `<div class="add-music-row${already?" added":""}" data-track-id="${t.id}">
@@ -2937,10 +3025,48 @@ function isInFavorites(track){
 function toggleFavorite(track){
   const fav=state.playlists.find(p=>p.id===state.favoritesId);
   if(!fav) return;
-  if(fav.trackIds.includes(track.id)) fav.trackIds=fav.trackIds.filter(id=>id!==track.id);
-  else fav.trackIds.push(track.id);
+  let liked;
+  if(fav.trackIds.includes(track.id)){ fav.trackIds=fav.trackIds.filter(id=>id!==track.id); liked=false; }
+  else { fav.trackIds.push(track.id); liked=true; }
   idbPut("playlists",fav);
   updateLoveButton();
+  animateLoveIcon(liked);
+}
+
+
+
+// The heart's reaction to actually being toggled by the user (as
+// opposed to updateLoveButton() elsewhere just silently syncing its
+// resting state on a track change) — liking sends it up on a bouncy
+// overshoot with a little scatter of hearts/sparks; unliking lets it
+// visibly droop and sag back down instead.
+function animateLoveIcon(liked){
+  const btn=$("loveBtn");
+  if(!btn) return;
+  const icon=btn.querySelector("svg");
+  if(icon) replayMotion(icon, liked?"heart-rise":"heart-sink", liked?640:620);
+  if(liked && !window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    replayMotion(btn,"heart-glow",640);
+    spawnHeartSparks(btn);
+  }
+}
+
+// Scatters a handful of tiny hearts/sparks off the Love button that
+// float up and fade, each on a slightly randomized drift/rotation/
+// delay so the burst doesn't look mechanically identical every time.
+function spawnHeartSparks(btn){
+  const glyphs=["♥","✦","♥","✦","♥","♥"];
+  glyphs.forEach(g=>{
+    const spark=document.createElement("span");
+    spark.className="heart-spark";
+    spark.textContent=g;
+    spark.style.setProperty("--dx",Math.round(Math.random()*46-23)+"px");
+    spark.style.setProperty("--rot",Math.round(Math.random()*50-25)+"deg");
+    spark.style.animationDelay=Math.round(Math.random()*80)+"ms";
+    btn.appendChild(spark);
+    spark.addEventListener("animationend",()=>spark.remove(),{once:true});
+    setTimeout(()=>spark.remove(),900); // fail-safe in case animationend doesn't fire
+  });
 }
 
 
@@ -3196,6 +3322,14 @@ function loadAndPlay(track){
 function recordPlay(track){
   track.playCount=(track.playCount||0)+1;
   track.lastPlayedAt=Date.now();
+  // An unpersisted external track (see ingestFiles()) just plays —
+  // simply listening to it isn't the explicit "add this to my
+  // library" action the rest of this fix is trying to preserve, so
+  // don't let hitting MIN_PLAY_SECONDS silently write it to disk.
+  // playCount/lastPlayedAt still update in memory above; they just
+  // never reach a view, since libraryTracks() leaves this track out
+  // of Home's Recently Played/Top Songs anyway.
+  if(track.external) return;
   const storeCopy={...track};
   delete storeCopy.fileURL;
   delete storeCopy.artURL;
@@ -3259,6 +3393,15 @@ function togglePlay(){
 
 
 
+// Which way the cover art should swipe on the *next* updateNowPlayingUI()
+// call — set right before an actual track change from nextTrack()/
+// prevTrack()/completeCrossfadeHandoff() below, consumed (and reset)
+// by updateNowPlayingUI() itself. Left null for track changes with no
+// real "direction" (picking a song straight from a list, editing tags,
+// etc.), which fall back to the plain track-change pop instead of a
+// swipe — a swipe implies "next" or "previous", and those cases aren't.
+let navSwipeDir=null;
+
 // Advances to the next track. "auto" is true when this was
 // triggered by a track finishing on its own (vs. the user pressing
 // the next button) — that distinction matters for repeat-one,
@@ -3273,7 +3416,7 @@ function nextTrack(auto){
   if(state.shuffle && state.queue.length>1) state.shuffleHistory.push(state.queueIndex); // remember where we came from so prevTrack can retrace it
   state.queueIndex=idx;
   const t=state.tracks.find(tt=>tt.id===state.queue[idx]);
-  if(t) loadAndPlay(t);
+  if(t){ navSwipeDir="next"; loadAndPlay(t); }
 }
 
 
@@ -3298,7 +3441,7 @@ function prevTrack(){
       const idx=state.shuffleHistory.pop();
       state.queueIndex=idx;
       const t=state.tracks.find(tt=>tt.id===state.queue[idx]);
-      if(t) loadAndPlay(t);
+      if(t){ navSwipeDir="prev"; loadAndPlay(t); }
     } else {
       audioEl.currentTime=0;
     }
@@ -3309,7 +3452,7 @@ function prevTrack(){
   if(idx<0) idx = state.repeat==="all" ? state.queue.length-1 : 0;
   state.queueIndex=idx;
   const t=state.tracks.find(tt=>tt.id===state.queue[idx]);
-  if(t) loadAndPlay(t);
+  if(t){ navSwipeDir="prev"; loadAndPlay(t); }
 }
 
 
@@ -3604,6 +3747,7 @@ function completeCrossfadeHandoff(){
   fe.src="";
 
   crossfadeState=null;
+  navSwipeDir="next"; // gapless handoff is still a forward advance — swipe the same way a manual Next would
   updateNowPlayingUI();
   closeLyrics();
   resetPlayProgress(nextTrackObj.id); // same MIN_PLAY_SECONDS countdown as a normal track start — see PLAY PROGRESS above
@@ -3834,6 +3978,32 @@ function updateNowPlayingUI(){
   $("trackAlbum").textContent=t.album;
   $("miniTitle").textContent=t.title;
   $("miniArtist").textContent=t.artist;
+
+  // Consume navSwipeDir (set by nextTrack()/prevTrack()/the gapless
+  // handoff — see just above nextTrack()) up front: only THIS update
+  // gets to use it, so a later unrelated refresh doesn't replay a
+  // stale swipe.
+  const dir=navSwipeDir;
+  navSwipeDir=null;
+  const wrap=$("artWrap");
+  const reduceMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // If there's a direction, snapshot whatever's currently shown as a
+  // "ghost" layered on top BEFORE swapping the real art underneath —
+  // see the ART SWIPE TRANSITION comment in styles.css for how the
+  // two halves (ghost sliding out, real art sliding in) combine into
+  // one swipe.
+  let ghost=null;
+  if(dir && wrap && !reduceMotion){
+    const liveEl = $("artImg").classList.contains("hidden") ? $("artPlaceholder") : $("artImg");
+    ghost=liveEl.cloneNode(true);
+    ghost.removeAttribute("id");
+    ghost.classList.remove("hidden");
+    ghost.classList.add("art-ghost", dir==="next" ? "art-swipe-out-left" : "art-swipe-out-right");
+    wrap.appendChild(ghost);
+    wrap.classList.add("art-swiping");
+  }
+
   const artURL=getTrackArtURL(t);
   if(artURL){
     $("artImg").src=artURL; $("artImg").classList.remove("hidden"); $("artPlaceholder").classList.add("hidden");
@@ -3842,9 +4012,29 @@ function updateNowPlayingUI(){
     $("artImg").classList.add("hidden"); $("artPlaceholder").classList.remove("hidden");
     $("miniArt").src=fallbackArt();
   }
+
+  if(ghost){
+    const realEl = $("artImg").classList.contains("hidden") ? $("artPlaceholder") : $("artImg");
+    const inClass = dir==="next" ? "art-swipe-in-right" : "art-swipe-in-left";
+    realEl.classList.remove("art-swipe-in-right","art-swipe-in-left");
+    void realEl.offsetWidth; // force a reflow so the animation restarts even on rapid repeated skips
+    realEl.classList.add(inClass);
+    let cleaned=false;
+    const cleanup=()=>{
+      if(cleaned) return;
+      cleaned=true;
+      ghost.remove();
+      realEl.classList.remove(inClass);
+      wrap.classList.remove("art-swiping");
+    };
+    const failSafe=setTimeout(cleanup,540); // comfortably past the 460ms in-animation, in case animationend never fires for some reason
+    realEl.addEventListener("animationend",()=>{ clearTimeout(failSafe); cleanup(); },{once:true});
+  } else {
+    replayMotion(wrap,"track-change",360);
+  }
+
   updateLoveButton();
   $("miniBar").style.display = state.currentTrack ? "flex" : "none";
-  replayMotion($("artWrap"),"track-change",360);
   replayMotion(document.querySelector(".track-meta"),"track-change",300);
   replayMotion($("miniBar"),"track-change",260);
 }
@@ -3965,6 +4155,7 @@ function updateRepeatBadge(){
   if(state.repeat==="all"){ badge.textContent="A"; badge.classList.add("show"); }
   else if(state.repeat==="one"){ badge.textContent="1"; badge.classList.add("show"); }
   else { badge.textContent=""; badge.classList.remove("show"); }
+  if(badge.classList.contains("show")) replayMotion(badge,"badge-pop",380);
 }
 
 
@@ -5710,7 +5901,12 @@ function openEditModal(track){
 
     // Persist a plain copy to IndexedDB — same shape used when a
     // track is first imported (see ingestFiles() above), deliberately
-    // without the temporary fileURL/artURL blob: URLs.
+    // without the temporary fileURL/artURL blob: URLs. Saving an edit
+    // always persists (there's no "temporary" edit), so an externally
+    // opened track reached via the player panel's Edit menu (see
+    // openEditModal()'s comment) gets promoted into the real library
+    // here too — same idea as ingestFiles()'s re-import promotion.
+    if(t.external) t.external=false;
     const storeCopy={
       id:t.id, title:t.title, artist:t.artist, album:t.album,
       trackNum:t.trackNum,
@@ -6024,23 +6220,27 @@ function bindEvents(){
 
 
   // --- Transport controls (desktop player panel) ---
+  // Every button here besides #playBtn also gets a small "alive"
+  // flourish via pulseCtrlBtn() — see the TRANSPORT ROW comment in
+  // styles.css. #playBtn is untouched, per its own liquid-glass morph.
   $("playBtn").addEventListener("click",togglePlay);
-  $("nextBtn").addEventListener("click",()=>nextTrack(false));
-  $("prevBtn").addEventListener("click",prevTrack);
+  $("nextBtn").addEventListener("click",()=>{ pulseCtrlBtn("nextBtn","skip-kick",380,"ctrl-streak"); nextTrack(false); });
+  $("prevBtn").addEventListener("click",()=>{ pulseCtrlBtn("prevBtn","skip-kick",380,"ctrl-streak"); prevTrack(); });
   $("shuffleBtn").addEventListener("click",()=>{
     state.shuffle=!state.shuffle;
     if(!state.shuffle) state.shuffleHistory=[];   // turning shuffle off invalidates the retrace trail
     $("shuffleBtn").classList.toggle("active",state.shuffle);
+    pulseCtrlBtn("shuffleBtn","shuffle-spin",520);
   });
-  $("repeatBtn").addEventListener("click",cycleRepeatMode);
+  $("repeatBtn").addEventListener("click",()=>{ cycleRepeatMode(); pulseCtrlBtn("repeatBtn","repeat-flip",520); });
   $("lyricsBtn").addEventListener("click",toggleLyrics);
   $("loveBtn").addEventListener("click",()=>{ if(state.currentTrack){ toggleFavorite(state.currentTrack); } });
 
 
   // --- Transport controls (mobile mini-player bar) ---
   $("miniPlay").addEventListener("click",togglePlay);
-  $("miniNext").addEventListener("click",()=>nextTrack(false));
-  $("miniPrev").addEventListener("click",prevTrack);
+  $("miniNext").addEventListener("click",()=>{ pulseCtrlBtn("miniNext","skip-kick",380,"ctrl-streak"); nextTrack(false); });
+  $("miniPrev").addEventListener("click",()=>{ pulseCtrlBtn("miniPrev","skip-kick",380,"ctrl-streak"); prevTrack(); });
 
 
   // --- Mobile now-playing overlay open/close ---
@@ -6084,9 +6284,13 @@ function bindEvents(){
    When the OS hands the app an audio file (double-click, "Open
    with", drag onto the .exe/.app, second-instance on Windows), main.js
    reads it and sends {name, mime, data} over IPC. We rebuild that
-   into a real File object and feed it through the exact same
-   ingestFiles()/playTrack() path used for manually added songs, so
-   it shows up in the library and starts playing immediately.
+   into a real File object and feed it through the same ingestFiles()/
+   playTrack() path used for manually added songs — but with
+   persist:false, so it plays immediately like any other track
+   without being written into the Songs library. If it's already a
+   real library track, ingestFiles() just hands back that existing
+   (persisted) entry as usual, per its duplicate guard. See
+   ingestFiles()/libraryTracks() further up for the full picture.
    ================================================================ */
 if(window.electronAPI){
   window.electronAPI.onOpenFile(async (payload)=>{
@@ -6100,11 +6304,12 @@ if(window.electronAPI){
     if(payload.path) file.__electronPath=payload.path;
 
     // ingestFiles() now hands back the track it actually ended up
-    // with for this file - either a brand-new one, or the existing
-    // library track it matched. Either way we just play that, so
-    // reopening a song you already have plays your existing copy
-    // instead of adding (and playing) a duplicate.
-    const [track] = await ingestFiles([file], null);
+    // with for this file - either a brand-new, temporary/unpersisted
+    // one (persist:false — see its comment), or the existing library
+    // track it matched. Either way we just play that, so reopening a
+    // song you already have plays your existing copy instead of
+    // adding (and playing) a duplicate.
+    const [track] = await ingestFiles([file], null, {persist:false});
 
     if(track){
       playTrack(track, [track]);

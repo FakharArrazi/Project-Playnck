@@ -850,6 +850,60 @@
     filter:brightness(.45) blur(6px);
   }
 
+  /* ------------------------------------------------------------
+     COVER ART — SWIPE TRANSITION
+     Next/Previous give the cover a physical "flicked away" feel —
+     never a fade — clipped strictly to the art container so nothing
+     bleeds into the rest of the player. updateNowPlayingUI()
+     (script.js) clones whatever is currently showing into a
+     throwaway ".art-ghost" layered on top, swaps the real #artImg/
+     #artPlaceholder to the new track underneath, then animates the
+     ghost accelerating off one side (fully clear of the container,
+     not stopping halfway) while the real art enters from the other
+     side and settles with a small spring overshoot — direction
+     depends on whether it was Next (out left / in from the right)
+     or Previous (out right / in from the left). The ghost node
+     removes itself once its animation ends; .art-swiping just clips
+     both to the rounded card while that's happening. Position/
+     rotation/scale carry the motion; opacity only resolves the
+     ghost's exit cleanup and is not the transition itself.
+     ------------------------------------------------------------ */
+  .art-wrap.art-swiping{overflow:hidden;}
+  .art-ghost{position:absolute;inset:0;z-index:2;pointer-events:none;}
+
+  /* Exit: a hard, accelerating flick — starts as if already moving
+     and keeps gaining speed all the way off-frame (easeInQuart),
+     the way a card actually behaves once a finger lets go of it. */
+  .art-swipe-out-left{animation:artSwipeOutLeft 320ms cubic-bezier(.5,0,.75,0) both;}
+  .art-swipe-out-right{animation:artSwipeOutRight 320ms cubic-bezier(.5,0,.75,0) both;}
+  /* Entrance: the same springy "back" ease already used on the
+     transport buttons below, so the incoming cover overshoots its
+     resting position slightly and settles — it reads as caught and
+     placed by the same gesture that flicked the old one away. */
+  .art-swipe-in-right{animation:artSwipeInRight 460ms cubic-bezier(.34,1.56,.64,1) both;}
+  .art-swipe-in-left{animation:artSwipeInLeft 460ms cubic-bezier(.34,1.56,.64,1) both;}
+
+  @keyframes artSwipeOutLeft{
+    0%  { transform:translateX(0) rotate(0deg) scale(1); opacity:1; }
+    75% { opacity:1; }
+    100%{ transform:translateX(-135%) rotate(-16deg) scale(.8); opacity:0; }
+  }
+  @keyframes artSwipeOutRight{
+    0%  { transform:translateX(0) rotate(0deg) scale(1); opacity:1; }
+    75% { opacity:1; }
+    100%{ transform:translateX(135%) rotate(16deg) scale(.8); opacity:0; }
+  }
+  @keyframes artSwipeInRight{
+    0%  { transform:translateX(125%) rotate(11deg) scale(.9); opacity:0; }
+    18% { opacity:1; }
+    100%{ transform:translateX(0) rotate(0deg) scale(1); opacity:1; }
+  }
+  @keyframes artSwipeInLeft{
+    0%  { transform:translateX(-125%) rotate(-11deg) scale(.9); opacity:0; }
+    18% { opacity:1; }
+    100%{ transform:translateX(0) rotate(0deg) scale(1); opacity:1; }
+  }
+
 
 
   /* ------------------------------------------------------------
@@ -916,6 +970,58 @@
   .meta-actions #loveBtn.active{color:var(--heart);border-color:var(--heart);}
   .meta-actions #loveBtn.active svg{fill:var(--heart);}
 
+  /* ------------------------------------------------------------
+     LOVE BUTTON — "RISES AND DESPAIRS"
+     Liking a track sends the heart up on a little bouncy overshoot,
+     blooms a soft red glow behind it, and scatters a handful of tiny
+     hearts/sparks that float off and fade (see animateLoveIcon()/
+     spawnHeartSparks() in script.js). Unliking it gives a completely
+     different motion — no glow, no sparks — just the heart visibly
+     wilting: it shrinks, dips, and wobbles side to side twice like a
+     deflating balloon before settling back down. The instant color/
+     fill swap from .active above still happens immediately — this
+     layer only adds the motion (and, on liking, the glow) on top.
+     ------------------------------------------------------------ */
+  #loveBtn{position:relative;}
+  #loveBtn svg{transform-origin:50% 55%;}
+  #loveBtn::before{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle,rgba(239,68,99,.5),transparent 70%);
+    opacity:0;transform:scale(.4);pointer-events:none;
+  }
+  #loveBtn.heart-glow::before{animation:ctrlPing 640ms ease-out both;}
+
+  @keyframes heartRise{
+    0%  { transform:scale(1) translateY(0) rotate(0deg); }
+    30% { transform:scale(1.45) translateY(-6px) rotate(-10deg); }
+    55% { transform:scale(.92) translateY(1px) rotate(7deg); }
+    78% { transform:scale(1.12) translateY(-2px) rotate(-3deg); }
+    100%{ transform:scale(1) translateY(0) rotate(0deg); }
+  }
+  @keyframes heartSink{
+    0%  { transform:scale(1) translateY(0) rotate(0deg); }
+    28% { transform:scale(.72) translateY(4px) rotate(-9deg); }
+    48% { transform:scale(.88) translateY(3px) rotate(7deg); }
+    68% { transform:scale(.8) translateY(3.5px) rotate(-4deg); }
+    86% { transform:scale(.9) translateY(1.5px) rotate(2deg); }
+    100%{ transform:scale(1) translateY(0) rotate(0deg); }
+  }
+  #loveBtn svg.heart-rise{animation:heartRise 640ms cubic-bezier(.22,1,.36,1) both;}
+  #loveBtn svg.heart-sink{animation:heartSink 620ms ease-out both;}
+
+  .heart-spark{
+    position:absolute;left:50%;top:40%;
+    transform:translate(-50%,-50%);
+    font-size:11px;line-height:1;color:var(--heart);
+    pointer-events:none;z-index:5;
+    animation:heartSparkFloat 760ms ease-out both;
+  }
+  @keyframes heartSparkFloat{
+    0%  { opacity:0; transform:translate(-50%,-50%) translate(0,0) scale(.4) rotate(0deg); }
+    18% { opacity:1; }
+    100%{ opacity:0; transform:translate(-50%,-50%) translate(var(--dx,0px),-34px) scale(1) rotate(var(--rot,0deg)); }
+  }
+
 
 
   /* ------------------------------------------------------------
@@ -941,10 +1047,96 @@
      TRANSPORT CONTROLS (shuffle / prev / play / next / repeat)
      ------------------------------------------------------------ */
   .controls-row{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:clamp(10px,2.5vh,22px);}
-  .ctrl-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:8px;display:flex;}
+  .ctrl-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:8px;display:flex;position:relative;overflow:visible;border-radius:50%;}
   .ctrl-btn:hover{color:var(--text);}
   .ctrl-btn.active{color:var(--accent1);}
   .ctrl-btn svg{width:20px;height:20px;}
+
+  /* ------------------------------------------------------------
+     TRANSPORT ROW — "ALIVE" MICRO-INTERACTIONS
+     Each button gets its own physical metaphor rather than one
+     generic bounce reused everywhere:
+       • Prev/Next kick their glyph a step in the direction of
+         travel, behind a directional "streak" ping that shoots the
+         same way (not the plain circular ping below) — reinforcing
+         that this is a *directional* move, and echoing the cover
+         art's own swipe.
+       • Shuffle gets a flat, playful full spin (things get mixed
+         up) behind the plain circular ping.
+       • Repeat gets a genuine 3D card-flip on the Y axis (behind
+         the same circular ping) — it's switching between discrete
+         modes, so it "flips over" to the next one rather than just
+         spinning — and its A/1 badge pops back in afterwards.
+     All of it is triggered from script.js (pulseCtrlBtn() /
+     updateRepeatBadge()), which also drives the cover-art swipe
+     above — the two are meant to read as one gesture. #playBtn is
+     untouched by any of this; it keeps its own liquid-glass morph.
+     ------------------------------------------------------------ */
+  .ctrl-btn::before{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle,rgba(var(--accent1-rgb),.38),transparent 70%);
+    opacity:0;transform:scale(.4);pointer-events:none;
+  }
+  .ctrl-btn.ctrl-ping::before{animation:ctrlPing 480ms ease-out both;}
+  @keyframes ctrlPing{
+    0%  { opacity:.55; transform:scale(.3); }
+    100%{ opacity:0; transform:scale(1.55); }
+  }
+
+  /* Directional streak ping for Prev/Next — an elongated glow that
+     shoots the same way the track is skipping, instead of the plain
+     radial ping shuffle/repeat use. */
+  #nextBtn.ctrl-streak::before,#miniNext.ctrl-streak::before{
+    background:linear-gradient(90deg,transparent,rgba(var(--accent1-rgb),.5) 45%,transparent 85%);
+    animation:ctrlStreakRight 420ms ease-out both;
+  }
+  #prevBtn.ctrl-streak::before,#miniPrev.ctrl-streak::before{
+    background:linear-gradient(270deg,transparent,rgba(var(--accent1-rgb),.5) 45%,transparent 85%);
+    animation:ctrlStreakLeft 420ms ease-out both;
+  }
+  @keyframes ctrlStreakRight{
+    0%  { opacity:0; transform:translateX(-35%) scaleX(.4); }
+    35% { opacity:1; }
+    100%{ opacity:0; transform:translateX(70%) scaleX(1.6); }
+  }
+  @keyframes ctrlStreakLeft{
+    0%  { opacity:0; transform:translateX(35%) scaleX(.4); }
+    35% { opacity:1; }
+    100%{ opacity:0; transform:translateX(-70%) scaleX(1.6); }
+  }
+
+  #nextBtn svg.skip-kick,#miniNext svg.skip-kick{animation:skipKickNext 380ms cubic-bezier(.34,1.56,.64,1) both;}
+  #prevBtn svg.skip-kick,#miniPrev svg.skip-kick{animation:skipKickPrev 380ms cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes skipKickNext{
+    0%  { transform:translateX(0) scale(1); }
+    35% { transform:translateX(4px) scale(.86); }
+    62% { transform:translateX(-2px) scale(1.1); }
+    100%{ transform:translateX(0) scale(1); }
+  }
+  @keyframes skipKickPrev{
+    0%  { transform:translateX(0) scale(1); }
+    35% { transform:translateX(-4px) scale(.86); }
+    62% { transform:translateX(2px) scale(1.1); }
+    100%{ transform:translateX(0) scale(1); }
+  }
+
+  #shuffleBtn svg.shuffle-spin{animation:shuffleSpin 520ms cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes shuffleSpin{
+    0%  { transform:rotate(0deg) scale(1); }
+    45% { transform:rotate(190deg) scale(1.2); }
+    100%{ transform:rotate(360deg) scale(1); }
+  }
+
+  /* Repeat "flips" through its modes on the Y axis instead of
+     spinning flat like Shuffle — perspective lives on the button so
+     the flip actually reads as 3D rather than just squashing. */
+  #repeatBtn{perspective:80px;}
+  #repeatBtn svg.repeat-flip{animation:repeatFlip 520ms cubic-bezier(.45,.05,.55,.95) both;}
+  @keyframes repeatFlip{
+    0%  { transform:rotateY(0deg) scale(1); }
+    50% { transform:rotateY(180deg) scale(1.14); }
+    100%{ transform:rotateY(360deg) scale(1); }
+  }
   /* ------------------------------------------------------------
      LIQUID GLASS PLAY / PAUSE BUTTON
      Hit-area-only button — no fill, no radius, no chrome behind it.
@@ -1073,6 +1265,12 @@
     pointer-events:none;          /* clicks always fall through to the button underneath */
   }
   .repeat-badge.show{display:block;}
+  .repeat-badge.badge-pop{animation:repeatBadgePop 380ms cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes repeatBadgePop{
+    0%  { transform:scale(0); opacity:0; }
+    60% { transform:scale(1.3); opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }
 
 
 
@@ -1510,6 +1708,16 @@
     html,.list-container,.player-panel,.modal-box{scroll-behavior:auto;}
     .motion-in,.motion-out,.view-enter > *,.track-change{animation:none !important;}
     button:not(#playBtn),.rail-item,.song-row,.list-line,.card,.swatch-btn,.theme-btn{transition-duration:1ms;}
+    /* Same "no motion" contract for the new transport/heart/cover-swipe
+       flourishes above — script.js also skips creating these classes
+       when this media query matches, this is just the belt-and-braces
+       CSS-side guarantee. */
+    .art-ghost,.art-swipe-out-left,.art-swipe-out-right,.art-swipe-in-left,.art-swipe-in-right{animation:none !important;}
+    .ctrl-btn.ctrl-ping::before,.mini-controls button.ctrl-ping::before,
+    #nextBtn.ctrl-streak::before,#prevBtn.ctrl-streak::before,#miniNext.ctrl-streak::before,#miniPrev.ctrl-streak::before,
+    #nextBtn svg.skip-kick,#prevBtn svg.skip-kick,#miniNext svg.skip-kick,#miniPrev svg.skip-kick,
+    #shuffleBtn svg.shuffle-spin,#repeatBtn svg.repeat-flip,.repeat-badge.badge-pop{animation:none !important;}
+    #loveBtn svg.heart-rise,#loveBtn svg.heart-sink,#loveBtn.heart-glow::before,.heart-spark{animation:none !important;}
   }
 
 
@@ -1549,8 +1757,15 @@
     .mini-bar .info .title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .mini-bar .info .artist{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .mini-bar .mini-controls{display:flex;align-items:center;gap:4px;flex-shrink:0;}
-    .mini-bar .mini-controls button{background:none;border:none;color:var(--text);padding:8px;cursor:pointer;}
+    .mini-bar .mini-controls button{background:none;border:none;color:var(--text);padding:8px;cursor:pointer;position:relative;overflow:visible;border-radius:50%;}
     .mini-bar .mini-controls svg{width:20px;height:20px;}
+    /* Same shared ripple as the desktop transport row's .ctrl-btn — see TRANSPORT ROW above. */
+    .mini-controls button:not(#miniPlay)::before{
+      content:"";position:absolute;inset:0;border-radius:50%;
+      background:radial-gradient(circle,rgba(var(--accent1-rgb),.38),transparent 70%);
+      opacity:0;transform:scale(.4);pointer-events:none;
+    }
+    .mini-controls button:not(#miniPlay).ctrl-ping::before{animation:ctrlPing 480ms ease-out both;}
     .list-container{padding-bottom:100px;}
 
     /* The .art-wrap rule (above, ~line 646) caps the cover art at
