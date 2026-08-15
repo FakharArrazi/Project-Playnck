@@ -72,7 +72,7 @@ playnck/
 Clone the repository
 
 ```bash
-git clone https://github.com/Arrazi-w140/Project-Playnck.git
+git clone https://github.com/FakharArrazi/Project-Playnck.git
 ```
 
 Move into the project

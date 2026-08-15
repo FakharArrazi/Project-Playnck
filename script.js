@@ -358,6 +358,7 @@ const I18N={
     "edit.savedTagsButNotRenamed":"Saved — tags updated on disk, but the file couldn't be renamed: {reason}",
     "edit.savedToLibraryOnly":"Saved to your library. {reason}",
     "edit.savedButNotRenamed":"Saved to your library, but the file couldn't be renamed: {reason}",
+    "edit.savedButNoCoverArtSupport":"Saved — tags updated on disk, but this file format can't hold embedded cover art.",
     "edit.fileNotChanged":"The file on disk wasn't changed.",
     "edit.couldntRenameGeneric":"Couldn't rename the file on disk.",
 
@@ -676,6 +677,7 @@ const I18N={
     "edit.savedTagsButNotRenamed":"Enregistré — les tags ont été mis à jour sur le disque, mais le fichier n'a pas pu être renommé : {reason}",
     "edit.savedToLibraryOnly":"Enregistré dans votre bibliothèque. {reason}",
     "edit.savedButNotRenamed":"Enregistré dans votre bibliothèque, mais le fichier n'a pas pu être renommé : {reason}",
+    "edit.savedButNoCoverArtSupport":"Enregistré — les tags ont été mis à jour sur le disque, mais ce format de fichier ne peut pas contenir de pochette intégrée.",
     "edit.fileNotChanged":"Le fichier sur le disque n'a pas été modifié.",
     "edit.couldntRenameGeneric":"Impossible de renommer le fichier sur le disque.",
 
@@ -6836,7 +6838,9 @@ function openEditModal(track){
       const status=$("editStatus");
       if(status){
         status.classList.remove("hidden");
-        if(result && result.written && !renameFailedReason){
+        if(result && result.written && result.imageIgnored){
+          status.textContent=tr("edit.savedButNoCoverArtSupport");
+        } else if(result && result.written && !renameFailedReason){
           status.textContent=tr("edit.savedRenamedAndUpdated");
         } else if(result && result.written){
           status.textContent=tr("edit.savedTagsButNotRenamed",{reason:renameFailedReason});

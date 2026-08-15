@@ -492,11 +492,166 @@ function cancelConvertJob(jobId) {
     return true;
 }
 
+// ----------------------------------------------------------------
+// TAG WRITING (everything except MP3)
+// ----------------------------------------------------------------
+// metadata-bridge.js's writeAudioTags() only ever covers .mp3 (ID3v2
+// via node-id3) — there's no dependency-free tag writer for the rest
+// of what Playnck can play. Once FFmpeg is available (same
+// detection as the Convert tab above), this reuses it for that too:
+// remux the file to a temp copy with the same -map_metadata 0 +
+// explicit overrides trick buildFFmpegArgs() already uses, -c copy
+// throughout so the actual audio is never re-encoded, then
+// atomically swap the temp copy in for the original. The original is
+// never opened for writing directly — if anything goes wrong
+// partway through, it's the temp copy that ends up broken (and gets
+// deleted), and the real file is untouched.
+//
+// Which containers can actually hold an embedded picture mirrors
+// FORMAT_INFO's supportsCoverArt reasoning above (WAV has no
+// standard picture frame; FFmpeg's ogg/opus muxer doesn't reliably
+// carry one through) — title/artist/album still get written either
+// way, just not a new cover.
+const TAG_WRITABLE_EXTS = {
+    ".flac": { supportsCoverArt: true },
+    ".m4a":  { supportsCoverArt: true },
+    // .ogg and .opus share the same underlying Ogg container/muxer in
+    // FFmpeg, and an attached picture there is an unofficial (if
+    // widely-used) convention rather than a formally standardized
+    // part of the format the way FLAC's own PICTURE block is — in
+    // practice, plenty of phones/media scanners don't reliably show
+    // it even when FFmpeg writes it correctly. Kept false for both,
+    // consistent with FORMAT_INFO's opus entry above, rather than
+    // risk the exact "looks fine in Playnck, still missing once it's
+    // actually on your phone" bug this file exists to fix.
+    ".ogg":  { supportsCoverArt: false },
+    ".opus": { supportsCoverArt: false },
+    ".wav":  { supportsCoverArt: false }
+};
+
+// tags: { title?, artist?, album?, imageData?, imageMime?, removeImage? }
+// — the exact same shape the renderer already builds for
+// metadata-bridge.js's writeAudioTags(), so main.js's write-audio-tags
+// handler can hand either writer the same object untouched (see the
+// extension-based dispatch there).
+async function writeTagsViaFFmpeg(filePath, tags) {
+    const ext = path.extname(filePath).toLowerCase();
+    const capability = TAG_WRITABLE_EXTS[ext];
+    if (!capability) {
+        const label = ext ? ext.slice(1).toUpperCase() : "this file type";
+        return { written: false, reason: `Writing tags directly to ${label} files isn't supported yet.` };
+    }
+
+    const found = await findFFmpeg();
+    if (!found) {
+        const label = ext.slice(1).toUpperCase();
+        return {
+            written: false,
+            reason: `Writing tags into ${label} files needs FFmpeg, which isn't installed yet. Install it from the Convert tab, then try saving again.`
+        };
+    }
+
+    const wantsNewImage = !tags.removeImage && tags.imageData;
+    const imageIgnored = !!(wantsNewImage && !capability.supportsCoverArt);
+
+    const dir = path.dirname(filePath);
+    // Hidden, same-directory temp name — same directory keeps the
+    // final fs.rename() on the same filesystem, which is what makes
+    // it atomic (a cross-device rename isn't, and could leave a
+    // half-copied file behind if interrupted).
+    const tempOutput = path.join(dir, `.playnck-tagwrite-${Date.now()}${ext}`);
+    let tempCoverPath = null;
+
+    try {
+        const args = ["-y", "-i", filePath];
+
+        if (wantsNewImage && capability.supportsCoverArt) {
+            // FFmpeg needs a real file for a second input — there's no
+            // clean way to hand it an in-memory buffer as -i pipe:1
+            // while pipe:0 is already the main input.
+            tempCoverPath = path.join(os.tmpdir(), `playnck-cover-${Date.now()}${imageExtFromMime(tags.imageMime)}`);
+            await fs.promises.writeFile(tempCoverPath, Buffer.from(tags.imageData));
+            args.push("-i", tempCoverPath);
+        }
+
+        // Copy every tag FFmpeg can read off the source first, same as
+        // buildFFmpegArgs() above, then override just the fields the
+        // Edit modal actually exposes — everything else the file
+        // already had (genre, date, composer, disc/track number, etc.)
+        // passes through untouched.
+        args.push("-map_metadata", "0", "-map", "0:a", "-c:a", "copy");
+
+        if (tags.removeImage) {
+            // No video map at all — drops whatever picture stream was there.
+        } else if (wantsNewImage && capability.supportsCoverArt) {
+            // New picture comes from input 1 (the temp file above); it
+            // has no pre-existing disposition of its own, so it needs
+            // to be explicitly flagged as the attached cover rather
+            // than a generic video stream.
+            args.push("-map", "1:v", "-disposition:v:0", "attached_pic", "-c:v", "copy");
+        } else if (capability.supportsCoverArt) {
+            // Keep whatever's already embedded, byte-for-byte — "0:v?"
+            // is FFmpeg's "optional stream" syntax, so a source file
+            // with no art at all just quietly maps nothing.
+            args.push("-map", "0:v?", "-c:v", "copy");
+        }
+
+        if (tags.title != null) args.push("-metadata", `title=${tags.title}`);
+        if (tags.artist != null) args.push("-metadata", `artist=${tags.artist}`);
+        if (tags.album != null) args.push("-metadata", `album=${tags.album}`);
+        args.push(tempOutput);
+
+        const run = await new Promise((resolve) => {
+            let child;
+            try {
+                child = spawn(found.ffmpegPath, args, { windowsHide: true, env: found.env || process.env });
+            } catch (err) {
+                resolve({ ok: false, reason: `FFmpeg couldn't start: ${err.message}` });
+                return;
+            }
+            let stderrTail = "";
+            child.stderr.on("data", (chunk) => {
+                stderrTail += chunk.toString("utf8");
+                if (stderrTail.length > 4000) stderrTail = stderrTail.slice(-4000);
+            });
+            child.on("error", (err) => resolve({ ok: false, reason: `FFmpeg couldn't start: ${err.message}` }));
+            child.on("close", (code) => {
+                if (code === 0) resolve({ ok: true });
+                else resolve({ ok: false, reason: stderrTail.trim().split("\n").filter(Boolean).slice(-3).join(" ") || `FFmpeg exited with code ${code}` });
+            });
+        });
+
+        if (!run.ok) {
+            await fs.promises.unlink(tempOutput).catch(() => {});
+            return { written: false, reason: run.reason };
+        }
+
+        await fs.promises.rename(tempOutput, filePath);
+        return imageIgnored ? { written: true, imageIgnored: true } : { written: true };
+    } catch (err) {
+        await fs.promises.unlink(tempOutput).catch(() => {});
+        return { written: false, reason: String((err && err.message) || err) };
+    } finally {
+        if (tempCoverPath) await fs.promises.unlink(tempCoverPath).catch(() => {});
+    }
+}
+
+// Just enough of a mime-type -> extension mapping to give the temp
+// cover file a plausible name — FFmpeg identifies the actual image
+// format from its file contents, not its extension, so this is only
+// for readability if anyone ever has to debug a leftover temp file.
+function imageExtFromMime(mime) {
+    if (mime === "image/png") return ".png";
+    if (mime === "image/webp") return ".webp";
+    return ".jpg";
+}
+
 module.exports = {
     FORMAT_INFO,
     detectFFmpeg,
     installFFmpeg,
     resolveOutputPath,
     convertFile,
-    cancelConvertJob
+    cancelConvertJob,
+    writeTagsViaFFmpeg
 };

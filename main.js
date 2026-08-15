@@ -17,7 +17,7 @@ const ffmpegBridge = require("./ffmpeg-bridge");
 // build.publish in package.json for a newer release, downloads it
 // in the background, and installs it on next restart.
 //
-// This repo (Arrazi-w140/Project-Playnck) needs to be PUBLIC.
+// This repo (FakharArrazi/Project-Playnck) needs to be PUBLIC.
 // electron-updater's GitHub provider always resolves the latest
 // version via a plain https://github.com/OWNER/REPO/releases.atom
 // page — a normal github.com webpage, not the api.github.com REST
@@ -271,9 +271,20 @@ ipcMain.handle("get-audio-metadata", async (event, filePath) => {
     }
 });
 
+// Writing tags is really two different writers behind one IPC
+// channel: .mp3 goes through metadata-bridge.js's node-id3 path
+// (works standalone, no external dependency); everything else FFmpeg
+// can handle goes through ffmpeg-bridge.js's writeTagsViaFFmpeg()
+// instead (see its header comment) — that one needs FFmpeg installed
+// (Convert tab), which is why MP3 deliberately keeps its own
+// zero-dependency path rather than everything routing through FFmpeg
+// for consistency: someone who only ever edits MP3 tags shouldn't
+// suddenly need to install anything.
 ipcMain.handle("write-audio-tags", async (event, filePath, tags) => {
     try {
-        return await writeAudioTags(filePath, tags);
+        const ext = path.extname(filePath || "").toLowerCase();
+        if (ext === ".mp3") return await writeAudioTags(filePath, tags);
+        return await ffmpegBridge.writeTagsViaFFmpeg(filePath, tags);
     } catch (err) {
         console.error("write-audio-tags failed:", err);
         return { written: false, reason: String((err && err.message) || err) };

@@ -93,7 +93,7 @@ const ACOUSTID_CLIENT_KEY = "cJcqWYqnQr";
 // main process rather than the renderer specifically so this header
 // can actually be set — browsers/renderer fetch() silently refuse to
 // let scripts set User-Agent at all.
-const USER_AGENT = "Playnck/1.1.5 ( https://github.com/Arrazi-w140/Project-Playnck )";
+const USER_AGENT = "Playnck/1.1.5 ( https://github.com/FakharArrazi/Project-Playnck )";
 
 const ACOUSTID_LOOKUP_URL = "https://api.acoustid.org/v2/lookup";
 const MUSICBRAINZ_API = "https://musicbrainz.org/ws/2";

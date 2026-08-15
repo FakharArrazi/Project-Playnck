@@ -3,8 +3,11 @@
 // ----------------------------------------------------------------
 // Getting an accurate bitrate reading (real encoded stream info, not
 // a size/duration estimate) and writing edited tags back into the
-// real file on disk — kept separate from main.js so it's easy to
-// drop entirely if this project is ever built without Electron.
+// real .mp3 file on disk — kept separate from main.js so it's easy
+// to drop entirely if this project is ever built without Electron.
+// Non-.mp3 tag writing (FLAC/M4A/OGG/Opus/WAV) lives in
+// ffmpeg-bridge.js instead — see write-audio-tags in main.js for how
+// the two are dispatched between.
 //
 // Two functions are exported and wired up to IPC in main.js:
 //   getAudioMetadata(filePath) -> { bitrate, codec, sampleRate,
@@ -17,17 +20,15 @@
 //                       container. ESM-only, so it's loaded here
 //                       with a dynamic import() even though this
 //                       file itself is CommonJS.
-//   "node-id3"        — writing. Only understands ID3v2 tags, i.e.
-//                       only .mp3 files. Other formats (flac/ogg/
-//                       wav/m4a) fall back to "not written, but
-//                       here's why" instead of silently doing nothing.
+//   "node-id3"        — writing, .mp3 (ID3v2) only.
 // ================================================================
 
 const path = require("path");
 
-// Extensions writeAudioTags() actually knows how to write to. Kept
-// as its own list so adding a new writer later (e.g. a FLAC/Vorbis
-// comment writer) is a one-line change plus a new branch below.
+// Extensions this file's writeAudioTags() actually knows how to
+// write to — just .mp3. Everything else Playnck can play is handled
+// by ffmpeg-bridge.js's writeTagsViaFFmpeg() instead once FFmpeg is
+// installed (see write-audio-tags in main.js for the dispatch).
 const ID3_WRITABLE_EXTS = new Set([".mp3"]);
 
 // Extension -> MIME type, for the Info modal's "File type" row.
@@ -122,9 +123,14 @@ async function getAudioMetadata(filePath) {
 }
 
 // Writes new title/artist/album/cover directly into the file on
-// disk. Currently only .mp3 (ID3v2, via node-id3) is supported —
-// anything else comes back with written:false and a plain-English
-// reason so the UI can say so instead of pretending it worked.
+// disk via ID3v2 (.mp3 only — node-id3 doesn't understand any other
+// container). main.js's write-audio-tags handler is what actually
+// decides which writer a given file gets: this one for .mp3, or
+// ffmpeg-bridge.js's writeTagsViaFFmpeg() (FLAC/M4A/OGG/Opus/WAV,
+// once FFmpeg is installed) for everything else it can. This
+// function itself still returns written:false with a plain-English
+// reason for any extension it doesn't recognize, as a defensive
+// fallback in case it's ever called directly.
 async function writeAudioTags(filePath, tags) {
     if (!filePath) return { written: false, reason: "This track's file location isn't known (it may have been imported from a different device)." };
 
