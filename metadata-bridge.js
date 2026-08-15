@@ -163,8 +163,55 @@ async function writeAudioTags(filePath, tags) {
         };
     }
 
-    const ok = NodeID3.update(id3Tags, filePath);
-    if (!ok) return { written: false, reason: "node-id3 wasn't able to write to this file (it may be read-only or locked by another program)." };
+    // node-id3's update() doesn't throw on a failed write — on error
+    // it returns the Error object itself, not `false` (see its
+    // writeSync(), which catches and `return error`s). That's still
+    // truthy, so a plain `if (!ok)` check silently misses it. Retry a
+    // few times first if it's specifically a Windows file-locking
+    // error: some other handle on the file (antivirus, the search
+    // indexer, OneDrive, or briefly Playnck's own playback stream —
+    // the Edit modal's Save handler in script.js releases that before
+    // calling this, but leaves a small window) may just not have let
+    // go yet, and often does within a few hundred ms.
+    let ok = null;
+    const lockCodes = new Set(["EPERM", "EBUSY", "EACCES"]);
+    for (let attempt = 0; attempt < 5; attempt++) {
+        ok = NodeID3.update(id3Tags, filePath);
+        if (ok === true) break;
+        const code = ok instanceof Error ? ok.code : null;
+        if (attempt === 4 || !lockCodes.has(code)) break;
+        await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+
+    if (ok !== true) {
+        const detail = ok instanceof Error ? (ok.message || String(ok)) : null;
+        return {
+            written: false,
+            reason: detail
+                ? `Couldn't write to the file: ${detail}`
+                : "node-id3 wasn't able to write to this file (it may be read-only or locked by another program)."
+        };
+    }
+
+    // Verify: node-id3's boolean return only means the frame bytes
+    // were flushed to disk, not that they round-trip to what was
+    // actually asked for. Read the file straight back and compare
+    // before calling this a success — the Edit modal's "Saved" only
+    // means something if it's backed by this check.
+    try {
+        const verify = NodeID3.read(filePath);
+        const mismatches = [];
+        if (tags.title != null && (verify.title || "") !== tags.title) mismatches.push("title");
+        if (tags.artist != null && (verify.artist || "") !== tags.artist) mismatches.push("artist");
+        if (tags.album != null && (verify.album || "") !== tags.album) mismatches.push("album");
+        if (tags.imageData && !verify.image) mismatches.push("cover art");
+        if (tags.removeImage && verify.image) mismatches.push("cover art removal");
+        if (mismatches.length) {
+            return { written: false, reason: `Wrote to the file, but reading it back shows the ${mismatches.join(", ")} didn't actually stick.` };
+        }
+    } catch (err) {
+        return { written: false, reason: `Wrote to the file, but couldn't verify it afterward: ${String((err && err.message) || err)}` };
+    }
 
     return { written: true };
 }

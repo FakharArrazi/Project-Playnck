@@ -529,6 +529,26 @@ const TAG_WRITABLE_EXTS = {
     ".wav":  { supportsCoverArt: false }
 };
 
+// Retries an fs operation a few times with a short, increasing delay
+// if it fails with a Windows file-locking error code — EPERM/EBUSY
+// most commonly mean some other handle on the file (antivirus, the
+// search indexer, OneDrive, or Playnck's own playback stream if it
+// wasn't released in time — see the Edit modal's Save handler in
+// script.js for that one) hasn't let go yet, and it often does within
+// a few hundred ms. Anything else (e.g. a genuine permissions error)
+// is rethrown immediately rather than retried pointlessly.
+async function retryOnWindowsLock(fn, { attempts = 5, baseDelayMs = 150 } = {}) {
+    for (let i = 0; i < attempts; i++) {
+        try {
+            return await fn();
+        } catch (err) {
+            const lockCodes = new Set(["EPERM", "EBUSY", "EACCES"]);
+            if (i === attempts - 1 || !lockCodes.has(err && err.code)) throw err;
+            await new Promise((resolve) => setTimeout(resolve, baseDelayMs * (i + 1)));
+        }
+    }
+}
+
 // tags: { title?, artist?, album?, imageData?, imageMime?, removeImage? }
 // — the exact same shape the renderer already builds for
 // metadata-bridge.js's writeAudioTags(), so main.js's write-audio-tags
@@ -626,7 +646,35 @@ async function writeTagsViaFFmpeg(filePath, tags) {
             return { written: false, reason: run.reason };
         }
 
-        await fs.promises.rename(tempOutput, filePath);
+        // Verify the temp copy actually contains what was asked for
+        // BEFORE swapping it in for the real file — FFmpeg exiting 0
+        // only means it finished without error, not that every
+        // -metadata override actually stuck (some muxers silently
+        // drop fields or streams they don't recognize). Checking here,
+        // pre-rename, means the original file is genuinely never
+        // touched if verification fails, matching the "temp copy ends
+        // up broken, real file untouched" guarantee described above —
+        // not just "briefly touched then left in a broken state."
+        try {
+            const mm = await import("music-metadata");
+            const verify = await mm.parseFile(tempOutput, { duration: false, skipCovers: false });
+            const common = verify.common || {};
+            const mismatches = [];
+            if (tags.title != null && (common.title || "") !== tags.title) mismatches.push("title");
+            if (tags.artist != null && (common.artist || "") !== tags.artist) mismatches.push("artist");
+            if (tags.album != null && (common.album || "") !== tags.album) mismatches.push("album");
+            if (wantsNewImage && capability.supportsCoverArt && !(common.picture && common.picture.length)) mismatches.push("cover art");
+            if (tags.removeImage && common.picture && common.picture.length) mismatches.push("cover art removal");
+            if (mismatches.length) {
+                await fs.promises.unlink(tempOutput).catch(() => {});
+                return { written: false, reason: `FFmpeg ran, but the ${mismatches.join(", ")} didn't actually take in the result. The original file wasn't touched.` };
+            }
+        } catch (err) {
+            await fs.promises.unlink(tempOutput).catch(() => {});
+            return { written: false, reason: `Couldn't verify FFmpeg's output before swapping it in, so the original file wasn't touched: ${String((err && err.message) || err)}` };
+        }
+
+        await retryOnWindowsLock(() => fs.promises.rename(tempOutput, filePath));
         return imageIgnored ? { written: true, imageIgnored: true } : { written: true };
     } catch (err) {
         await fs.promises.unlink(tempOutput).catch(() => {});

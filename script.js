@@ -361,6 +361,9 @@ const I18N={
     "edit.savedButNoCoverArtSupport":"Saved — tags updated on disk, but this file format can't hold embedded cover art.",
     "edit.fileNotChanged":"The file on disk wasn't changed.",
     "edit.couldntRenameGeneric":"Couldn't rename the file on disk.",
+    "edit.fileWriteFailed":"The file on disk wasn't updated. {reason} Nothing has been saved yet.",
+    "edit.saveLibraryOnly":"Save inside Playnck only",
+    "edit.savedLibraryOnlyConfirmed":"Saved inside Playnck only — the file on disk still has the old metadata.",
 
     "sync.hint":"Nudge the timing until the highlighted line matches what's being sung. Positive delays the lyrics, negative shows them earlier.",
     "sync.resetTo0":"Reset to 0",
@@ -680,6 +683,9 @@ const I18N={
     "edit.savedButNoCoverArtSupport":"Enregistré — les tags ont été mis à jour sur le disque, mais ce format de fichier ne peut pas contenir de pochette intégrée.",
     "edit.fileNotChanged":"Le fichier sur le disque n'a pas été modifié.",
     "edit.couldntRenameGeneric":"Impossible de renommer le fichier sur le disque.",
+    "edit.fileWriteFailed":"Le fichier sur le disque n'a pas été mis à jour. {reason} Rien n'a encore été enregistré.",
+    "edit.saveLibraryOnly":"Enregistrer uniquement dans Playnck",
+    "edit.savedLibraryOnlyConfirmed":"Enregistré uniquement dans Playnck — le fichier sur le disque a toujours l'ancienne métadonnée.",
 
     "sync.hint":"Ajustez le décalage jusqu'à ce que la ligne surlignée corresponde à ce qui est chanté. Une valeur positive retarde les paroles, une valeur négative les avance.",
     "sync.resetTo0":"Réinitialiser à 0",
@@ -6763,30 +6769,163 @@ function openEditModal(track){
     const newArtist=$("editArtistInput").value.trim()||t.artist;
     const newAlbum=$("editAlbumInput").value.trim()||t.album;
 
-    t.title=newTitle;
-    t.artist=newArtist;
-    t.album=newAlbum;
+    // Applies the edit to Playnck's own library/UI. For a real
+    // path-backed track this only ever runs AFTER the actual file on
+    // disk has been written and verified further down (or, via the
+    // "Save inside Playnck only" fallback, after the user explicitly
+    // chooses to keep the edit despite the file write failing) — the
+    // whole point being that the library is a reflection of what's
+    // really on disk, not a separate, possibly-stale copy of it.
+    async function applyToLibrary(){
+      t.title=newTitle;
+      t.artist=newArtist;
+      t.album=newAlbum;
 
-    if(pendingArtFile){
-      if(t.artURL) URL.revokeObjectURL(t.artURL);
-      t.artBlob=pendingArtFile;
-      t.artURL=URL.createObjectURL(pendingArtFile);
-    } else if(removeArt){
-      if(t.artURL) URL.revokeObjectURL(t.artURL);
-      t.artBlob=null;
-      t.artURL=null;
+      if(pendingArtFile){
+        if(t.artURL) URL.revokeObjectURL(t.artURL);
+        t.artBlob=pendingArtFile;
+        t.artURL=URL.createObjectURL(pendingArtFile);
+      } else if(removeArt){
+        if(t.artURL) URL.revokeObjectURL(t.artURL);
+        t.artBlob=null;
+        t.artURL=null;
+      }
+
+      // Persist a plain copy to IndexedDB — same shape used when a
+      // track is first imported (see ingestFiles() above), deliberately
+      // without the temporary fileURL/artURL blob: URLs. Saving an edit
+      // always persists (there's no "temporary" edit), so an externally
+      // opened track reached via the player panel's Edit menu (see
+      // openEditModal()'s comment) gets promoted into the real library
+      // here too — same idea as ingestFiles()'s re-import promotion.
+      if(t.external) t.external=false;
+      const storeCopy={
+        id:t.id, title:t.title, artist:t.artist, album:t.album,
+        trackNum:t.trackNum,
+        duration:t.duration, folderId:t.folderId, dateAdded:t.dateAdded,
+        fileBlob:t.fileBlob, artBlob:t.artBlob, filePath:t.filePath
+      };
+      await idbPut("tracks",storeCopy);
+
+      if(state.currentTrack && state.currentTrack.id===t.id) updateNowPlayingUI();
+      renderTab();
     }
 
-    // --- Electron-only: rename the real file on disk to match the
-    // edited title/artist, so it's not just the tags that change —
-    // anyone looking at the file outside the app sees the right name
-    // too. Done BEFORE the library save below so storeCopy/idbPut
-    // persist the correct (possibly new) path, and before the tag
-    // write further down so it targets the renamed file. On plain
-    // web, or if we never learned this track's real path, this is a
-    // no-op and Save behaves exactly as before.
+    const isRealFileTrack=!!(window.electronAPI && window.electronAPI.writeAudioTags && t.filePath);
+
+    if(!isRealFileTrack){
+      // No known file on disk to be the source of truth for (plain
+      // web build, or a track Playnck never learned a real path for)
+      // — Save behaves exactly as it always has: the library copy is
+      // the only thing that changes, and there's no "file wasn't
+      // updated" implication because there was never a file to update.
+      await applyToLibrary();
+      closeModal();
+      return;
+    }
+
+    // --- If this exact track is the one currently loaded in the
+    // player, Playnck's OWN open read stream on it (see the
+    // playnck-file:// protocol handler in main.js — it reads straight
+    // off disk via fs.createReadStream, it never buffers the whole
+    // file into memory first) is, by itself, enough for Windows to
+    // refuse the rename that swaps the freshly-tagged copy in. That's
+    // a real lock, not a false alarm, and it has nothing to do with
+    // any other program — releasing it before writing is what
+    // actually fixes it, rather than just retrying blindly. Detach
+    // <audio> from the file first, restore playback afterward either
+    // way.
+    let resumePlayback=null;
+    const wasCurrentlyLoaded=!!(state.currentTrack && state.currentTrack.id===t.id && audioEl.src);
+    if(wasCurrentlyLoaded){
+      resumePlayback={ time: audioEl.currentTime, wasPlaying: !audioEl.paused };
+      audioEl.pause();
+      // removeAttribute (not src="") + load(): per spec this drops
+      // networkState to NETWORK_EMPTY without firing 'error' or
+      // 'ended' — setting src="" instead would fire a real 'error'
+      // event, which the "error" listener further down treats as a
+      // sign the file went missing on disk and would incorrectly
+      // trigger handleMissingTrack() on a file that's actually fine.
+      audioEl.removeAttribute("src");
+      audioEl.load();
+    }
+
+    // --- Real file on disk: write the tags/artwork into it FIRST,
+    // and verify the write actually stuck (see metadata-bridge.js /
+    // ffmpeg-bridge.js) — before touching Playnck's own library or UI
+    // at all. This is what makes the file the source of truth instead
+    // of Playnck's database: nothing here is "saved" from the user's
+    // point of view until the bytes on disk actually carry it,
+    // because that's the copy that survives a phone transfer, a
+    // reimport, or opening the file in any other player.
+    let imageData=null;
+    if(pendingArtFile) imageData=await pendingArtFile.arrayBuffer();
+
+    const result=await window.electronAPI.writeAudioTags(t.filePath,{
+      title:newTitle, artist:newArtist, album:newAlbum,
+      imageData, imageMime: pendingArtFile ? pendingArtFile.type : null,
+      removeImage: removeArt
+    }).catch(err=>({written:false, reason:String((err&&err.message)||err)}));
+
+    const status=$("editStatus");
+    // Clear out any "Save inside Playnck only" row left over from a
+    // previous failed attempt in this same modal session — it's a
+    // sibling of #editStatus, not part of its text, so it wouldn't
+    // otherwise go away just because this retry took a different path.
+    const leftoverActions=$("editSaveLibraryOnlyBtn");
+    if(leftoverActions) leftoverActions.closest(".edit-status-actions").remove();
+
+    if(!(result && result.written)){
+      // The write failed, or wrote something that didn't verify back
+      // correctly — either way the real file was NOT changed
+      // (metadata-bridge.js / ffmpeg-bridge.js only ever swap in a
+      // copy they've already confirmed matches). So the library isn't
+      // touched either: no optimistic title/artist/album/art change,
+      // no idbPut. The modal stays open (no auto-close) so this can't
+      // be missed, the reason is shown, Save is re-enabled so the
+      // user can just retry after fixing the cause, and the fallback
+      // button below is the only way to keep the edit anyway.
+      saveBtn.disabled=false;
+      saveBtn.textContent=tr("edit.saveChanges");
+
+      // Nothing on disk changed, so restoring playback just means
+      // pointing back at the exact same fileURL it already had.
+      if(wasCurrentlyLoaded){
+        audioEl.src=t.fileURL;
+        audioEl.currentTime=resumePlayback.time;
+        if(resumePlayback.wasPlaying) audioEl.play().catch(()=>{});
+      }
+
+      if(status){
+        status.classList.remove("hidden");
+        status.classList.add("is-error");
+        status.textContent=tr("edit.fileWriteFailed",{reason:(result && result.reason) || tr("edit.fileNotChanged")});
+
+        const actionsRow=el("div","edit-status-actions");
+        const libOnlyBtn=el("button","edit-lib-only-btn",escapeHTML(tr("edit.saveLibraryOnly")));
+        libOnlyBtn.type="button";
+        libOnlyBtn.id="editSaveLibraryOnlyBtn";
+        libOnlyBtn.addEventListener("click",async()=>{
+          libOnlyBtn.disabled=true;
+          await applyToLibrary();
+          status.classList.remove("is-error");
+          status.textContent=tr("edit.savedLibraryOnlyConfirmed");
+          actionsRow.remove();
+          setTimeout(closeModal,1400);
+        });
+        actionsRow.appendChild(libOnlyBtn);
+        status.insertAdjacentElement("afterend",actionsRow);
+      }
+      return;
+    }
+
+    // --- Write verified. Rename the real file to match the edited
+    // title/artist too (best-effort, cosmetic — the embedded tags are
+    // already correct either way), THEN reflect all of it — tags,
+    // artwork, and the (possibly new) path — in the library/UI in one
+    // go, so nothing in between is ever half-updated.
     let renameFailedReason=null;
-    if(window.electronAPI && window.electronAPI.renameFile && t.filePath){
+    if(window.electronAPI.renameFile){
       const desiredBase=sanitizeFilename(`${newArtist} - ${newTitle}`);
       const renameResult=await window.electronAPI.renameFile(t.filePath,desiredBase)
         .catch(err=>({renamed:false, reason:String((err&&err.message)||err)}));
@@ -6801,64 +6940,30 @@ function openEditModal(track){
       }
     }
 
-    // Persist a plain copy to IndexedDB — same shape used when a
-    // track is first imported (see ingestFiles() above), deliberately
-    // without the temporary fileURL/artURL blob: URLs. Saving an edit
-    // always persists (there's no "temporary" edit), so an externally
-    // opened track reached via the player panel's Edit menu (see
-    // openEditModal()'s comment) gets promoted into the real library
-    // here too — same idea as ingestFiles()'s re-import promotion.
-    if(t.external) t.external=false;
-    const storeCopy={
-      id:t.id, title:t.title, artist:t.artist, album:t.album,
-      trackNum:t.trackNum,
-      duration:t.duration, folderId:t.folderId, dateAdded:t.dateAdded,
-      fileBlob:t.fileBlob, artBlob:t.artBlob, filePath:t.filePath
-    };
-    await idbPut("tracks",storeCopy);
+    await applyToLibrary();
 
-    if(state.currentTrack && state.currentTrack.id===t.id) updateNowPlayingUI();
-    renderTab();
-
-    // --- Electron-only: also write the new tags into the real file
-    // on disk (see metadata-bridge.js / writeAudioTags in main.js).
-    // On plain web — or if we never learned this track's real path —
-    // this whole branch is skipped and Save behaves exactly as
-    // before: the library copy above is the only thing that changes.
-    if(window.electronAPI && window.electronAPI.writeAudioTags && t.filePath){
-      let imageData=null;
-      if(pendingArtFile) imageData=await pendingArtFile.arrayBuffer();
-
-      const result=await window.electronAPI.writeAudioTags(t.filePath,{
-        title:newTitle, artist:newArtist, album:newAlbum,
-        imageData, imageMime: pendingArtFile ? pendingArtFile.type : null,
-        removeImage: removeArt
-      }).catch(err=>({written:false, reason:String((err&&err.message)||err)}));
-
-      const status=$("editStatus");
-      if(status){
-        status.classList.remove("hidden");
-        if(result && result.written && result.imageIgnored){
-          status.textContent=tr("edit.savedButNoCoverArtSupport");
-        } else if(result && result.written && !renameFailedReason){
-          status.textContent=tr("edit.savedRenamedAndUpdated");
-        } else if(result && result.written){
-          status.textContent=tr("edit.savedTagsButNotRenamed",{reason:renameFailedReason});
-        } else {
-          status.textContent=tr("edit.savedToLibraryOnly",{reason:(result && result.reason) || tr("edit.fileNotChanged")});
-        }
-      }
-      setTimeout(closeModal,1400);
-    } else if(renameFailedReason){
-      const status=$("editStatus");
-      if(status){
-        status.classList.remove("hidden");
-        status.textContent=tr("edit.savedButNotRenamed",{reason:renameFailedReason});
-      }
-      setTimeout(closeModal,1400);
-    } else {
-      closeModal();
+    // Restore playback now that the swap is complete — using t.fileURL
+    // AFTER applyToLibrary() specifically, since a successful rename
+    // just above may have changed it. Restoring any earlier would
+    // point <audio> at a path that briefly doesn't exist anymore.
+    if(wasCurrentlyLoaded){
+      audioEl.src=t.fileURL;
+      audioEl.currentTime=resumePlayback.time;
+      if(resumePlayback.wasPlaying) audioEl.play().catch(()=>{});
     }
+
+    if(status){
+      status.classList.remove("hidden");
+      status.classList.remove("is-error");
+      if(result.imageIgnored){
+        status.textContent=tr("edit.savedButNoCoverArtSupport");
+      } else if(!renameFailedReason){
+        status.textContent=tr("edit.savedRenamedAndUpdated");
+      } else {
+        status.textContent=tr("edit.savedTagsButNotRenamed",{reason:renameFailedReason});
+      }
+    }
+    setTimeout(closeModal,1400);
   });
 }
 

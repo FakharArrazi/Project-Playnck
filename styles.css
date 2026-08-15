@@ -1574,6 +1574,18 @@
   .edit-save-btn:hover{filter:brightness(1.08);}
   .edit-save-btn:disabled{opacity:.7;cursor:default;filter:none;}
   .edit-status{margin:0;font-size:12px;color:var(--text-dim);text-align:right;}
+  /* Shown when the actual file write fails verification (see the
+     Edit modal's Save handler in script.js) — left-aligned and in
+     the app's existing "heart" red rather than the muted default,
+     since this one needs to actually be noticed and doesn't
+     auto-dismiss the way a success message does. */
+  .edit-status.is-error{color:var(--heart);text-align:left;line-height:1.4;}
+  .edit-status-actions{display:flex;justify-content:flex-end;margin-top:8px;}
+  .edit-lib-only-btn{
+    border-radius:8px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;
+    background:none;border:1px solid var(--border);color:var(--text-dim);
+  }
+  .edit-lib-only-btn:hover{color:var(--text);border-color:var(--text-dim);}
 
 
 
