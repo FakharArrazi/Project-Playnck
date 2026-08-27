@@ -210,6 +210,7 @@ const I18N={
 
     "header.addMusicToThisPlaylist":"Add music to this playlist",
     "header.search":"Search",
+    "header.jumpToPlaying":"Jump to playing song",
     "header.sortSongs":"Sort songs",
     "header.selectPrefix":"Select ",
 
@@ -532,6 +533,7 @@ const I18N={
 
     "header.addMusicToThisPlaylist":"Ajouter de la musique à cette playlist",
     "header.search":"Rechercher",
+    "header.jumpToPlaying":"Aller à la chanson en cours",
     "header.sortSongs":"Trier les titres",
     "header.selectPrefix":"Sélectionner ",
 
@@ -909,6 +911,7 @@ const listContainer=$("listContainer");
 const listTitle=$("listTitle");
 const backBtn=$("backBtn");
 const searchToggle=$("searchToggle");
+const locatePlayingToggle=$("locatePlayingToggle");
 const searchRow=$("searchRow");
 const searchInput=$("searchInput");
 const addMusicToggle=$("addMusicToggle");
@@ -2135,6 +2138,13 @@ function renderTab(){
   // through, so it hides the search bar the same way Home does.
   const searchApplies = state.filter || (state.currentTab!=="home" && state.currentTab!=="convert");
   searchToggle.classList.toggle("hidden", !searchApplies);
+  // The locate button only makes sense where renderSongList() actually
+  // draws flat, scrollable song rows — a drilled-down view (any
+  // filter type) or the top-level Songs tab. Albums/Artists show
+  // grids/lists of *groups*, not individual playable rows, so there's
+  // nothing for it to scroll to there.
+  const songListApplies = state.filter || state.currentTab==="songs";
+  locatePlayingToggle.classList.toggle("hidden", !songListApplies);
   if(!searchApplies){ searchRow.classList.add("hidden"); searchInput.value=""; }
 
   // Drilled-down view (inside a specific album/artist/playlist/folder).
@@ -2295,6 +2305,69 @@ function refreshPlayingHighlight(){
   const id=state.currentTrack&&state.currentTrack.id;
   if(id==null) return;
   listContainer.querySelectorAll(`.song-row[data-track-id="${CSS.escape(String(id))}"]`).forEach(r=>r.classList.add("playing"));
+}
+
+
+
+// Rebuilds the exact same track list renderTab() would currently be
+// feeding into renderSongList() — same filter/tab, same search query,
+// same sort order — without actually re-rendering anything. Used only
+// to look up *where* the playing track sits in that list. Returns
+// null on views that aren't a flat song list at all (Albums/Artists/
+// Playlists/Folders/Home/Convert), since there's nothing to locate.
+function currentSongListTracks(){
+  const q=(searchInput.value||"").toLowerCase().trim();
+  let tracks;
+  if(state.filter){
+    tracks=state.filter.tracks;
+    if(q) tracks=tracks.filter(t=>matchQuery(t,q));
+  } else if(state.currentTab==="songs"){
+    tracks=libraryTracks();
+    if(q) tracks=tracks.filter(t=>matchQuery(t,q));
+  } else {
+    return null;
+  }
+  return sortTracks(tracks);
+}
+
+// The locate ("target") button's handler. Finds whichever row is
+// tagged .playing and scrolls it into view. If the library is large
+// enough that the list is virtualized (see SONG_ROW_HEIGHT/
+// renderSongList above), the playing row may not exist in the DOM at
+// all right now — in that case this works out its index in the full
+// sorted/filtered list instead and scrolls straight to where that
+// index lands, which is enough to bring it into the virtual render
+// window; the scroll-triggered re-render then draws the real row in.
+function scrollToNowPlaying(){
+  if(!state.currentTrack) return;
+  const existingRow=listContainer.querySelector(".song-row.playing");
+  if(existingRow){
+    existingRow.scrollIntoView({block:"center",behavior:"smooth"});
+    flashRow(existingRow);
+    return;
+  }
+  const tracks=currentSongListTracks();
+  if(!tracks) return; // not on a song-list view — nothing to scroll to
+  const index=tracks.findIndex(t=>t.id===state.currentTrack.id);
+  if(index===-1) return; // playing track isn't part of this view (e.g. filtered out by search, or a different playlist)
+  const target=Math.max(0, (index*SONG_ROW_HEIGHT) - (listContainer.clientHeight/2) + (SONG_ROW_HEIGHT/2));
+  listContainer.scrollTo({top:target,behavior:"smooth"});
+  // Give the virtual window time to catch up with the scroll, then
+  // flash whichever row actually landed there for the same feedback
+  // the non-virtualized path gets instantly.
+  setTimeout(()=>{
+    const row=listContainer.querySelector(".song-row.playing");
+    if(row) flashRow(row);
+  },420);
+}
+
+// Brief one-shot highlight pulse so it's obvious which row the
+// locate button landed on, even though .playing already tints it —
+// useful on a long list where the eye needs a nudge to the right spot.
+function flashRow(row){
+  row.classList.remove("row-locate-flash");
+  void row.offsetWidth; // restart the animation if clicked again quickly
+  row.classList.add("row-locate-flash");
 }
 
 
@@ -4024,6 +4097,12 @@ function removeTrackData(track){
   if(qIdx!==-1){
     state.queue.splice(qIdx,1);
     if(state.queueIndex>qIdx) state.queueIndex--;
+    // Any memoized shuffle pick (see shuffleNextPick above) stored a
+    // raw queue *index* — if the removed track sat before that index,
+    // the number now points at a different track entirely. Safer to
+    // just force a fresh roll than risk a wrong-but-in-range index.
+    shuffleNextPick=null;
+    refreshNextPreview();
   }
 
   // Release its temporary blob: URLs — nothing else is using them
@@ -4931,6 +5010,7 @@ function cycleRepeatMode(){
   btn.title = state.repeat==="one" ? tr("player.repeatOne") : state.repeat==="all" ? tr("player.repeatAll") : tr("player.repeat");
 
   updateRepeatBadge();
+  refreshNextPreview(); // repeat mode can change what resolveNextIndex() returns at the end of the queue
 }
 
 
@@ -5047,6 +5127,41 @@ function syncCarouselStatic(){
   void current.el.offsetWidth;
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{ [current,prev,next].forEach(s=>s.el.classList.remove("art-slot-instant")); });
+  });
+}
+
+// Repaints ONLY the prev/next preview slots to match whatever
+// resolveNextIndex()/resolvePrevIndex() would return right now — no
+// slide, and the "current" slot is untouched. This is the single
+// place responsible for keeping the background "next" artwork in
+// sync with anything that changes what the next track actually is
+// WITHOUT the current track itself changing: toggling Shuffle,
+// cycling Repeat, or the live queue being edited (e.g. deleting the
+// track that was the shuffle pick). A genuine track change (Next/
+// Previous/picking a song) already goes through rotateCarousel()/
+// syncCarouselStatic() via updateNowPlayingUI() and doesn't need this.
+//
+// Root cause this exists to fix: resolveNextIndex() already
+// recalculates correctly the moment it's called (it reads
+// state.shuffle/state.repeat/state.queue live, so it's never itself
+// "wrong") — but nothing was re-invoking it to repaint the carousel
+// when Shuffle/Repeat changed with no accompanying track change, so
+// the "next" slot kept showing whatever artwork the LAST recalculation
+// had painted (e.g. the shuffle pick from before Shuffle was turned
+// off). The fix is to call this wherever that could happen, not to
+// give the artwork its own separate state to patch up.
+function refreshNextPreview(){
+  initCarouselSlots();
+  const prev=slotWithRole("prev"), next=slotWithRole("next");
+  [prev,next].forEach(s=>{
+    if(!s) return;
+    s.el.classList.add("art-slot-instant");
+  });
+  if(prev) paintCarouselSlot(prev, peekPrevEntry(), true);
+  if(next) paintCarouselSlot(next, peekNextEntry(), true);
+  if(prev) void prev.el.offsetWidth;
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{ [prev,next].forEach(s=>{ if(s) s.el.classList.remove("art-slot-instant"); }); });
   });
 }
 
@@ -7372,6 +7487,10 @@ function bindEvents(){
   searchInput.addEventListener("input",debounce(renderTab,120));
 
 
+  // --- Locate button scrolls the list to the currently playing song ---
+  locatePlayingToggle.addEventListener("click",scrollToNowPlaying);
+
+
   // --- Sort button opens the sort-order menu ---
   $("sortToggle").addEventListener("click",(e)=>{ e.stopPropagation(); openSortMenu(e); });
 
@@ -7425,8 +7544,19 @@ function bindEvents(){
   $("shuffleBtn").addEventListener("click",()=>{
     state.shuffle=!state.shuffle;
     if(!state.shuffle) state.shuffleHistory=[];   // turning shuffle off invalidates the retrace trail
+    // The shuffle pick memoized in resolveNextIndex() (see
+    // shuffleNextPick above) was only ever valid for "shuffle was ON,
+    // for this current track" — it's now stale either way (shuffle
+    // just turned off, so it no longer applies at all; or just turned
+    // on, and Test 3 expects a genuinely fresh roll rather than
+    // silently reusing whatever the last roll happened to be, since
+    // the memo's forId key wouldn't have changed). Clearing it here
+    // forces the very next resolveNextIndex() call to recalculate
+    // from scratch instead of returning a leftover value.
+    shuffleNextPick=null;
     $("shuffleBtn").classList.toggle("active",state.shuffle);
     pulseCtrlBtn("shuffleBtn","shuffle-spin",520);
+    refreshNextPreview(); // this is the actual fix — see refreshNextPreview()'s comment for why it was missing before
   });
   $("repeatBtn").addEventListener("click",()=>{ cycleRepeatMode(); pulseCtrlBtn("repeatBtn","repeat-flip",520); });
   $("lyricsBtn").addEventListener("click",toggleLyrics);

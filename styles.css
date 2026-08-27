@@ -366,6 +366,17 @@
   }
   .song-row:hover{background:var(--elevated);}
   .song-row.playing{background:var(--accent-grad);}         /* highlights the track that's playing */
+  /* One-shot pulse fired by the header's locate/target button (see
+     flashRow() in script.js) so the eye catches where it scrolled to,
+     even on a row that was already tinted by .playing above. */
+  .song-row.row-locate-flash{animation:rowLocatePulse .9s ease-out;}
+  @keyframes rowLocatePulse{
+    0%  { box-shadow:0 0 0 2px rgba(var(--accent1-rgb),.9); }
+    100%{ box-shadow:0 0 0 2px rgba(var(--accent1-rgb),0); }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .song-row.row-locate-flash{animation:none;}
+  }
   .song-row .thumb{
     width:44px;height:44px;border-radius:7px;object-fit:cover;flex-shrink:0;
     background:var(--elevated);
@@ -1098,6 +1109,10 @@
     position:absolute;top:-2%;right:-2%;bottom:-2%;left:-2%;background:rgba(12,12,17,.6);border-radius:22px;
     padding:24px;overflow-y:auto;display:flex;flex-direction:column;
     align-items:center;justify-content:center;text-align:center;
+    z-index:5; /* must beat .art-slot[data-role="current"]'s z-index:3 — that
+                  slot's will-change:transform,opacity gives it its own
+                  stacking layer, so without this the lyrics pane rendered
+                  correctly but sat visually behind the cover art. */
   }
   /* The single "now singing" phrase. Uses the app's accent1 blue
      plus a soft glow in that same color. .swap is toggled by JS
