@@ -46,7 +46,7 @@ function wireMediaKeys(){
   const audioEl=document.getElementById("audioEl");
   const titleEl=document.getElementById("trackTitle");
   const artistEl=document.getElementById("trackArtist");
-  const artImg=document.getElementById("artImg");
+  const artImg=document.querySelector('.art-slot[data-role="current"] .art-slot-img');
   if(!audioEl || !titleEl) return;
 
   // Keep the OS's play/pause indicator in sync with real playback.

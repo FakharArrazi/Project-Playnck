@@ -1173,6 +1173,20 @@
   .player-panel .track-meta .marquee-line .marquee-track{display:inline-block;white-space:nowrap;}
   .player-panel .track-meta .marquee-line.marquee-active{text-align:left;}
 
+  /* While a line is actively scrolling, fade its two edges instead
+     of hard-clipping them. Without this, whatever frame you happen
+     to catch mid-scroll shows text sheared off mid-glyph on both
+     sides (e.g. "...Furi|ous..." missing its tail) — which reads as
+     a rendering bug rather than a text marquee, especially in a
+     screenshot. The fade makes the same frame unambiguously read as
+     "there's more text just out of view" on both sides. Only
+     applied during .marquee-active so static, fully-visible text is
+     never masked. */
+  .player-panel .track-meta .marquee-line.marquee-active{
+    -webkit-mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+    mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  }
+
 
 
   /* ------------------------------------------------------------
