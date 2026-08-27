@@ -472,5 +472,10 @@
      other platforms (web, Android, etc). Safe to omit this one
      script tag on a non-Electron build. -->
 <script src="renderer-bridge.js"></script>
+<!-- Player Panel now-playing marquee (title/artist/album overflow
+     scroll). Same "reach in from outside" reasoning as
+     renderer-bridge.js above — see player-marquee.js's own header
+     comment for what it does and why it's kept separate. -->
+<script src="player-marquee.js"></script>
 </body>
 </html>

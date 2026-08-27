@@ -1149,6 +1149,30 @@
   .track-meta .t-artist{font-size:14px;color:var(--text-dim);margin:0;}
   .track-meta .t-album{font-size:12.5px;color:var(--text-faint);margin:2px 0 0;}
 
+  /* ------------------------------------------------------------
+     NOW-PLAYING MARQUEE (title / artist / album overflow)
+     Purely additive on top of the block above — font, size, color,
+     margin and (for text that fits) alignment are all untouched.
+     Classes are toggled by player-marquee.js and apply ONLY inside
+     the Player Panel's .track-meta; nothing else in the app uses
+     .marquee-line/.marquee-track/.marquee-active.
+       - .marquee-line: added permanently to all three lines. Clips
+         to one line instead of ever letting text wrap to a 2nd.
+       - .marquee-track: the actual text, moved by the animation —
+         plain inline-block so with no transform it's exactly the
+         width of the text and sits centered (inheriting
+         .track-meta's text-align:center) whenever it fits.
+       - .marquee-active: added only while a line is genuinely
+         overflowing and scrolling. Switches that ONE line to left
+         alignment, which is what makes "show the start first, then
+         scroll left to reveal the end" make sense. Lines that fit
+         never get this class, so they stay centered exactly like
+         before.
+     ------------------------------------------------------------ */
+  .player-panel .track-meta .marquee-line{overflow:hidden;white-space:nowrap;max-width:100%;}
+  .player-panel .track-meta .marquee-line .marquee-track{display:inline-block;white-space:nowrap;}
+  .player-panel .track-meta .marquee-line.marquee-active{text-align:left;}
+
 
 
   /* ------------------------------------------------------------
