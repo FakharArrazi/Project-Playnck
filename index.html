@@ -303,10 +303,37 @@
          space left over below the label above, instead of the
          whole panel (see .now-playing-center in the CSS). -->
     <div class="now-playing-center">
+      <!--
+        Three-album carousel: three persistent, identical ".art-slot"
+        elements. Which one currently reads as "previous"/"current"/
+        "next" is decided purely by its data-role attribute (set by
+        script.js's ALBUM CAROUSEL logic), which is what the CSS
+        transitions animate between — see the COVER ART CAROUSEL
+        block in styles.css. Starts with the middle slot as "current"
+        (showing the same default placeholder the old single-image
+        art used) and the other two as empty "prev"/"next" so there's
+        nothing to peek at until a queue actually exists.
+      -->
       <div class="art-wrap" id="artWrap">
-        <img id="artImg" class="hidden" alt="cover">
-        <div class="art-placeholder" id="artPlaceholder">
-          <svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><path d="M9.5 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg>
+        <div class="art-carousel" id="artCarousel">
+          <div class="art-slot art-slot-empty" data-role="prev">
+            <img class="art-slot-img hidden" alt="">
+            <div class="art-placeholder hidden">
+              <svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><path d="M9.5 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg>
+            </div>
+          </div>
+          <div class="art-slot" data-role="current">
+            <img class="art-slot-img hidden" alt="cover">
+            <div class="art-placeholder">
+              <svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><path d="M9.5 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg>
+            </div>
+          </div>
+          <div class="art-slot art-slot-empty" data-role="next">
+            <img class="art-slot-img hidden" alt="">
+            <div class="art-placeholder hidden">
+              <svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><path d="M9.5 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg>
+            </div>
+          </div>
         </div>
         <div class="lyrics-pane hidden" id="lyricsPane"></div>
       </div>

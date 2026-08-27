@@ -968,6 +968,11 @@
     aspect-ratio:1;border-radius:16px;position:relative;
     box-shadow:0 20px 60px rgba(var(--accent1-rgb),.22);flex-shrink:0;
     animation:artGlowPulse 8s ease-in-out infinite alternate;
+    /* Deliberately NOT overflow:hidden — the previous/next slots
+       below are sized and positioned to peek out past this box's own
+       edges (into the panel's side padding), which is what makes the
+       carousel read as three cards in shallow depth instead of one
+       clipped square. See COVER ART CAROUSEL just below. */
   }
   .art-wrap img{
     width:100%;height:100%;border-radius:16px;object-fit:cover;background:var(--elevated);display:block;
@@ -989,65 +994,94 @@
     display:flex;align-items:center;justify-content:center;color:var(--text-faint);
     transition:filter .35s ease;
   }
-  /* When lyrics are open, the cover art dims + blurs a touch
-     behind them (JS toggles ".lyrics-active" on #artWrap). */
-  .art-wrap.lyrics-active img,
-  .art-wrap.lyrics-active .art-placeholder{
+  /* When lyrics are open, the cover art dims + blurs a touch behind
+     them (JS toggles ".lyrics-active" on #artWrap). Only the CURRENT
+     slot needs this — the previous/next slots already fade out
+     entirely below, since the lyrics pane covers the whole card. */
+  .art-wrap.lyrics-active .art-slot[data-role="current"] img,
+  .art-wrap.lyrics-active .art-slot[data-role="current"] .art-placeholder{
     filter:brightness(.45) blur(6px);
   }
+  .art-wrap.lyrics-active .art-slot:not([data-role="current"]){opacity:0 !important;}
 
   /* ------------------------------------------------------------
-     COVER ART — SWIPE TRANSITION
-     Next/Previous give the cover a physical "flicked away" feel —
-     never a fade — clipped strictly to the art container so nothing
-     bleeds into the rest of the player. updateNowPlayingUI()
-     (script.js) clones whatever is currently showing into a
-     throwaway ".art-ghost" layered on top, swaps the real #artImg/
-     #artPlaceholder to the new track underneath, then animates the
-     ghost accelerating off one side (fully clear of the container,
-     not stopping halfway) while the real art enters from the other
-     side and settles with a small spring overshoot — direction
-     depends on whether it was Next (out left / in from the right)
-     or Previous (out right / in from the left). The ghost node
-     removes itself once its animation ends; .art-swiping just clips
-     both to the rounded card while that's happening. Position/
-     rotation/scale carry the motion; opacity only resolves the
-     ghost's exit cleanup and is not the transition itself.
+     COVER ART CAROUSEL
+     Three permanent ".art-slot" elements (see index.html) sit
+     stacked on top of each other inside ".art-carousel", one square
+     the exact size of the old single cover. Which one currently
+     reads as previous/current/next is purely a matter of its
+     data-role attribute — the rules below are what actually
+     position/scale/dim each role, and since they're plain
+     transform/opacity/filter transitions, script.js's
+     rotateCarousel() (see script.js) can animate a slot from one
+     role to another just by flipping that attribute: change
+     data-role and the browser tweens the rest for free. That's also
+     what makes rapid repeated Next/Previous presses safe — retargeting
+     a transition that's already mid-flight just smoothly redirects it,
+     nothing needs to be manually cancelled or reset.
+
+     The one exception is the "recycle" step every rotation also does
+     (the old previous/next album that's no longer relevant silently
+     becomes the new next/previous, off-screen): script.js jumps that
+     specific slot straight to its resting spot with .art-slot-instant
+     (transition:none) so it never visibly slides across the whole
+     carousel — it should just already be there, exactly like the
+     genuinely-new next/previous album was already sitting in place
+     before the click. See rotateCarousel() in script.js for the full
+     sequence.
      ------------------------------------------------------------ */
-  .art-wrap.art-swiping{overflow:hidden;}
-  .art-ghost{position:absolute;inset:0;z-index:2;pointer-events:none;}
+  .art-carousel{position:relative;width:100%;height:100%;}
+  .art-slot{
+    position:absolute;
+    left:50%;top:50%;
+    width:100%;height:100%;
+    border-radius:16px;
+    overflow:hidden;
+    pointer-events:none;
+    transition:transform .48s cubic-bezier(.22,.61,.36,1),
+               opacity .42s cubic-bezier(.22,.61,.36,1),
+               filter .42s cubic-bezier(.22,.61,.36,1),
+               box-shadow .42s cubic-bezier(.22,.61,.36,1);
+    will-change:transform,opacity;
+  }
+  /* Resting positions. Kept almost perfectly upright on purpose —
+     no rotation, no dramatic perspective — just a size/opacity/
+     brightness/depth difference so the current album is unmistakably
+     the one playing while the side albums stay clearly identifiable,
+     not just barely-there slivers. Percentages inside translate()
+     resolve against the slot's own (unscaled) box, so they compose
+     cleanly with the scale() alongside them — see the comment above. */
+  .art-slot[data-role="current"]{
+    transform:translate(-50%,-50%) scale(1);
+    opacity:1;
+    filter:brightness(1);
+    z-index:3;
+    box-shadow:0 18px 46px rgba(0,0,0,.4);
+  }
+  .art-slot[data-role="prev"]{
+    transform:translate(-67%,-50%) scale(.82);
+    opacity:.62;
+    filter:brightness(.72);
+    z-index:1;
+    box-shadow:0 8px 18px rgba(0,0,0,.3);
+  }
+  .art-slot[data-role="next"]{
+    transform:translate(-33%,-50%) scale(.82);
+    opacity:.62;
+    filter:brightness(.72);
+    z-index:1;
+    box-shadow:0 8px 18px rgba(0,0,0,.3);
+  }
+  /* No track sits in that queue position (start/end of the queue) —
+     fade the slot out completely rather than showing a fake/empty
+     album. Position stays put (so it eases back in from the right
+     spot if the queue later grows) — only visibility changes. */
+  .art-slot.art-slot-empty{opacity:0 !important;box-shadow:none !important;}
+  /* Used only for the instant "recycle" jump described above. */
+  .art-slot.art-slot-instant{transition:none !important;}
 
-  /* Exit: a hard, accelerating flick — starts as if already moving
-     and keeps gaining speed all the way off-frame (easeInQuart),
-     the way a card actually behaves once a finger lets go of it. */
-  .art-swipe-out-left{animation:artSwipeOutLeft 320ms cubic-bezier(.5,0,.75,0) both;}
-  .art-swipe-out-right{animation:artSwipeOutRight 320ms cubic-bezier(.5,0,.75,0) both;}
-  /* Entrance: the same springy "back" ease already used on the
-     transport buttons below, so the incoming cover overshoots its
-     resting position slightly and settles — it reads as caught and
-     placed by the same gesture that flicked the old one away. */
-  .art-swipe-in-right{animation:artSwipeInRight 460ms cubic-bezier(.34,1.56,.64,1) both;}
-  .art-swipe-in-left{animation:artSwipeInLeft 460ms cubic-bezier(.34,1.56,.64,1) both;}
-
-  @keyframes artSwipeOutLeft{
-    0%  { transform:translateX(0) rotate(0deg) scale(1); opacity:1; }
-    75% { opacity:1; }
-    100%{ transform:translateX(-135%) rotate(-16deg) scale(.8); opacity:0; }
-  }
-  @keyframes artSwipeOutRight{
-    0%  { transform:translateX(0) rotate(0deg) scale(1); opacity:1; }
-    75% { opacity:1; }
-    100%{ transform:translateX(135%) rotate(16deg) scale(.8); opacity:0; }
-  }
-  @keyframes artSwipeInRight{
-    0%  { transform:translateX(125%) rotate(11deg) scale(.9); opacity:0; }
-    18% { opacity:1; }
-    100%{ transform:translateX(0) rotate(0deg) scale(1); opacity:1; }
-  }
-  @keyframes artSwipeInLeft{
-    0%  { transform:translateX(-125%) rotate(-11deg) scale(.9); opacity:0; }
-    18% { opacity:1; }
-    100%{ transform:translateX(0) rotate(0deg) scale(1); opacity:1; }
+  @media (prefers-reduced-motion:reduce){
+    .art-slot{transition:none !important;}
   }
 
 
@@ -1866,11 +1900,10 @@
     html,.list-container,.player-panel,.modal-box{scroll-behavior:auto;}
     .motion-in,.motion-out,.view-enter > *,.track-change{animation:none !important;}
     button:not(#playBtn),.rail-item,.song-row,.list-line,.card,.swatch-btn,.theme-btn{transition-duration:1ms;}
-    /* Same "no motion" contract for the new transport/heart/cover-swipe
-       flourishes above — script.js also skips creating these classes
-       when this media query matches, this is just the belt-and-braces
-       CSS-side guarantee. */
-    .art-ghost,.art-swipe-out-left,.art-swipe-out-right,.art-swipe-in-left,.art-swipe-in-right{animation:none !important;}
+    /* Same "no motion" contract for the transport/heart flourishes
+       below — the cover carousel's own reduced-motion rule lives
+       next to .art-slot, above, since it needs to disable a plain
+       CSS transition rather than an animation. */
     .ctrl-btn.ctrl-ping::before,.mini-controls button.ctrl-ping::before,
     #nextBtn.ctrl-streak::before,#prevBtn.ctrl-streak::before,#miniNext.ctrl-streak::before,#miniPrev.ctrl-streak::before,
     #nextBtn svg.skip-kick,#prevBtn svg.skip-kick,#miniNext svg.skip-kick,#miniPrev svg.skip-kick,
@@ -1955,5 +1988,12 @@
       box-shadow:0 8px 22px rgba(var(--accent1-rgb),.28);
       animation:none;
     }
+    /* Same clipping budget problem as the glow fix just above, applied
+       to the carousel's previous/next peek: pull the side slots in a
+       little closer and shrink their shadow so peek + shadow blur
+       together still fit inside the guaranteed 40px, even at this
+       breakpoint's largest .art-wrap width. */
+    .art-slot[data-role="prev"]{transform:translate(-64%,-50%) scale(.82);box-shadow:0 5px 10px rgba(0,0,0,.25);}
+    .art-slot[data-role="next"]{transform:translate(-36%,-50%) scale(.82);box-shadow:0 5px 10px rgba(0,0,0,.25);}
   }
 

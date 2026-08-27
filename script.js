@@ -4520,14 +4520,28 @@ const GAPLESS_CROSSFADE_SECONDS=3;
 
 let crossfadeState=null; // {nextIndex, nextTrack, rafHandle} while a crossfade is in flight, else null
 
+// Under shuffle, resolveNextIndex() below has to pick a *random*
+// index — but it's now also called speculatively, before any click,
+// just to paint the carousel's "next" preview (see peekNextEntry()
+// and the ALBUM CAROUSEL section further down). Without memoizing
+// that pick, every extra speculative call would re-roll the dice,
+// so the album the user sees sitting on the right could be a
+// different one than what Next/crossfade actually lands on.
+// Memoized per state.currentTrack.id — the moment the current track
+// actually changes, the old pick is no longer for "what comes after
+// THIS track" and naturally falls out of date on its own.
+let shuffleNextPick=null; // {forId, index} | null
+
 // Figures out which queue index playback would move to next if
 // nextTrack() ran right now, respecting shuffle/repeat — WITHOUT
-// moving there or touching shuffleHistory. Used by both nextTrack()
-// itself (which commits to the result) and maybeStartCrossfade()
-// below (which needs to know what's coming before the current track
-// actually ends, without any side effects, in case it never gets
-// used — e.g. the person pauses, skips manually, or picks a
-// different track before the crossfade would complete).
+// moving there or touching shuffleHistory. Used by nextTrack() itself
+// (which commits to the result), maybeStartCrossfade() below (which
+// needs to know what's coming before the current track actually
+// ends, without any side effects, in case it never gets used — e.g.
+// the person pauses, skips manually, or picks a different track
+// before the crossfade would complete), and peekNextEntry() (which
+// paints the carousel's "next" preview with this same result, so
+// what's on screen always matches what a click actually does).
 // Returns null when there's nowhere to go (end of a non-repeating
 // queue). Doesn't handle repeat:"one" — that's a same-track loop,
 // not a "next track" in the sense this function's callers care about.
@@ -4535,7 +4549,10 @@ function resolveNextIndex(){
   if(!state.queue.length) return null;
   if(state.shuffle){
     if(state.queue.length>1){
+      const forId=state.currentTrack?state.currentTrack.id:null;
+      if(shuffleNextPick && shuffleNextPick.forId===forId) return shuffleNextPick.index;
       let r; do{ r=Math.floor(Math.random()*state.queue.length); }while(r===state.queueIndex);
+      shuffleNextPick={forId, index:r};
       return r;
     }
     return state.queueIndex; // only one track in the queue — nowhere else to shuffle to
@@ -4546,6 +4563,48 @@ function resolveNextIndex(){
     return null;
   }
   return idx;
+}
+
+// Mirror of resolveNextIndex() for the carousel's "previous" preview
+// (there's no prevTrack()-side equivalent to memoize against, since
+// non-shuffle "previous" is already fully deterministic and shuffle
+// "previous" already reads from the deterministic shuffleHistory
+// stack rather than picking randomly — see prevTrack() above).
+// Returns null exactly where prevTrack() itself would just restart
+// the current track rather than genuinely move to a different one
+// (no shuffle history yet, or repeat is off and already at index 0):
+// the carousel intentionally shows "no previous album" rather than a
+// fake one in that case — see peekPrevEntry() and requirement #16 in
+// the ALBUM CAROUSEL section below.
+function resolvePrevIndex(){
+  if(!state.queue.length) return null;
+  if(state.shuffle){
+    if(!state.shuffleHistory.length) return null;
+    return state.shuffleHistory[state.shuffleHistory.length-1];
+  }
+  const idx=state.queueIndex-1;
+  if(idx<0){
+    if(state.repeat==="all") return state.queue.length-1;
+    return null;
+  }
+  return idx;
+}
+
+// Resolves resolveNextIndex()/resolvePrevIndex() all the way to the
+// actual track object (or null), for the carousel to paint directly.
+function peekNextEntry(){
+  if(!state.currentTrack || !state.queue.length) return null;
+  const idx=resolveNextIndex();
+  if(idx===null) return null;
+  const track=state.tracks.find(tt=>tt.id===state.queue[idx]);
+  return track ? {index:idx, track} : null;
+}
+function peekPrevEntry(){
+  if(!state.currentTrack || !state.queue.length) return null;
+  const idx=resolvePrevIndex();
+  if(idx===null) return null;
+  const track=state.tracks.find(tt=>tt.id===state.queue[idx]);
+  return track ? {index:idx, track} : null;
 }
 
 // Lazily creates the hidden crossfade-partner element, connecting it
@@ -4876,8 +4935,158 @@ function cycleRepeatMode(){
 
 
 
+/* ================================================================
+   ALBUM CAROUSEL
+   Drives the three persistent ".art-slot" elements in #artCarousel
+   (see index.html) that replace the old single cover image. Exactly
+   three DOM slots exist for the app's entire lifetime — nothing is
+   ever cloned or thrown away (see requirement #18: no ghost-card
+   system) — and at any moment each one is doing one of three jobs,
+   tracked via its .role property (kept in sync with its data-role
+   attribute, which is what styles.css's COVER ART CAROUSEL rules
+   actually animate):
+
+     "prev"    — the track that was just playing
+     "current" — the track playing right now (full size/opacity)
+     "next"    — the track that would start if Next were pressed
+
+   Rotating which physical slot holds which role (rotateCarousel(),
+   below) — rather than swapping one slot's image — is what lets the
+   album already visible on the right glide into the center instead
+   of popping in as a freshly-loaded image, per this file's core
+   requirement. peekNextEntry()/peekPrevEntry() (see just above
+   nextTrack()) are what let this paint the next/previous slots
+   *before* the user ever clicks anything.
+   ================================================================ */
+let carouselSlots=null; // [{el,img,ph,role}, ...] — populated once, lazily
+
+function initCarouselSlots(){
+  if(carouselSlots) return carouselSlots;
+  const nodes=Array.from(document.querySelectorAll("#artCarousel .art-slot"));
+  carouselSlots=nodes.map(el=>({
+    el,
+    img: el.querySelector(".art-slot-img"),
+    ph: el.querySelector(".art-placeholder"),
+    role: el.dataset.role // "prev" | "current" | "next", matches the HTML's initial data-role
+  }));
+  return carouselSlots;
+}
+
+function slotWithRole(role){ return carouselSlots.find(s=>s.role===role); }
+
+// Paints a single slot's img/placeholder to match `entry`
+// ({index,track} from peekNextEntry()/peekPrevEntry(), or null).
+// hideWhenEmpty controls what an empty result looks like: the
+// "current" slot falls back to the app's generic placeholder icon
+// (matching the player's original no-track-loaded look), while the
+// previous/next slots instead disappear entirely — see requirement
+// #16, no fake album at the start/end of the queue.
+function paintCarouselSlot(slot, entry, hideWhenEmpty){
+  const track=entry && entry.track;
+  if(!track){
+    slot.el.classList.toggle("art-slot-empty", !!hideWhenEmpty);
+    slot.img.classList.add("hidden");
+    slot.img.removeAttribute("src");
+    slot.ph.classList.remove("hidden");
+    return;
+  }
+  slot.el.classList.remove("art-slot-empty");
+  // Requirement #15: a real track with no embedded art still uses
+  // the app's existing fallback icon rather than an empty hole.
+  const artURL=getTrackArtURL(track);
+  if(artURL){
+    slot.img.src=artURL;
+    slot.img.classList.remove("hidden");
+    slot.ph.classList.add("hidden");
+  } else {
+    slot.img.classList.add("hidden");
+    slot.img.removeAttribute("src");
+    slot.ph.classList.remove("hidden");
+  }
+}
+
+// Instantly (no transition) reassigns a slot to a new role and
+// repaints it — used only for the "recycle" half of rotateCarousel():
+// an old previous/next slot that's no longer relevant silently
+// becomes the new next/previous, in place, rather than visibly
+// sliding all the way across the carousel to get there.
+function recycleSlotInstant(slot, role, entry){
+  slot.el.classList.add("art-slot-instant");
+  slot.role=role;
+  slot.el.dataset.role=role;
+  paintCarouselSlot(slot, entry, true);
+  void slot.el.offsetWidth; // commit transition:none before the next frame, so nothing tweens
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{ slot.el.classList.remove("art-slot-instant"); });
+  });
+}
+
+// Non-directional (re)sync: repaints all three slots straight to
+// their resting content with no slide, for anything that isn't a
+// genuine Next/Previous — first paint, picking a track directly from
+// a list, a tag edit refreshing the currently-playing track's art,
+// etc. (navSwipeDir stays null in all of those — see just above
+// nextTrack()).
+function syncCarouselStatic(){
+  initCarouselSlots();
+  const current=slotWithRole("current") || carouselSlots[0];
+  const others=carouselSlots.filter(s=>s!==current);
+  const prev=others[0], next=others[1];
+
+  const currentEntry=state.currentTrack ? {track:state.currentTrack} : null;
+  const prevEntry=peekPrevEntry();
+  const nextEntry=peekNextEntry();
+
+  [current,prev,next].forEach(s=>s.el.classList.add("art-slot-instant"));
+  current.role="current"; current.el.dataset.role="current";
+  prev.role="prev";       prev.el.dataset.role="prev";
+  next.role="next";       next.el.dataset.role="next";
+  paintCarouselSlot(current, currentEntry, false);
+  paintCarouselSlot(prev, prevEntry, true);
+  paintCarouselSlot(next, nextEntry, true);
+  void current.el.offsetWidth;
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{ [current,prev,next].forEach(s=>s.el.classList.remove("art-slot-instant")); });
+  });
+}
+
+// The actual carousel rotation: current->prev, next->current, and
+// the old prev is recycled into the new next (mirrored for "prev").
+// Reads/writes carouselSlots' .role purely in JS, synchronously, so
+// repeated rapid calls (fast repeated Next/Previous presses — see
+// requirement #17) always rotate from whatever the *logical* state
+// currently is, regardless of whether an earlier rotation's CSS
+// transition has visually finished yet.
+function rotateCarousel(dir){
+  initCarouselSlots();
+  if(!slotWithRole("current")){ syncCarouselStatic(); return; }
+
+  if(dir==="next"){
+    const oldPrev=slotWithRole("prev"), oldCurrent=slotWithRole("current"), oldNext=slotWithRole("next");
+    // The art already showing in oldCurrent/oldNext is already
+    // correct for their new roles — see the file header comment
+    // above — so only their role/position changes; nothing is
+    // repainted, which is what makes the next album glide into the
+    // center instead of being swapped in.
+    oldCurrent.role="prev"; oldCurrent.el.dataset.role="prev";
+    oldNext.role="current"; oldNext.el.dataset.role="current";
+    // state.currentTrack/queueIndex have already been advanced by
+    // nextTrack()/completeCrossfadeHandoff() by the time this runs
+    // (updateNowPlayingUI() below is called after that), so this is
+    // "next after the new current" — exactly the new next slot.
+    recycleSlotInstant(oldPrev, "next", peekNextEntry());
+  } else {
+    const oldPrev=slotWithRole("prev"), oldCurrent=slotWithRole("current"), oldNext=slotWithRole("next");
+    oldCurrent.role="next"; oldCurrent.el.dataset.role="next";
+    oldPrev.role="current"; oldPrev.el.dataset.role="current";
+    recycleSlotInstant(oldNext, "prev", peekPrevEntry());
+  }
+}
+
+
+
 // Refreshes every piece of "now playing" UI (title/artist/album,
-// mini-player, cover art) to match state.currentTrack.
+// mini-player, cover art carousel) to match state.currentTrack.
 function updateNowPlayingUI(){
   const t=state.currentTrack;
   if(!t) return;
@@ -4890,55 +5099,25 @@ function updateNowPlayingUI(){
   // Consume navSwipeDir (set by nextTrack()/prevTrack()/the gapless
   // handoff — see just above nextTrack()) up front: only THIS update
   // gets to use it, so a later unrelated refresh doesn't replay a
-  // stale swipe.
+  // stale rotation.
   const dir=navSwipeDir;
   navSwipeDir=null;
-  const wrap=$("artWrap");
-  const reduceMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  // If there's a direction, snapshot whatever's currently shown as a
-  // "ghost" layered on top BEFORE swapping the real art underneath —
-  // see the ART SWIPE TRANSITION comment in styles.css for how the
-  // two halves (ghost sliding out, real art sliding in) combine into
-  // one swipe.
-  let ghost=null;
-  if(dir && wrap && !reduceMotion){
-    const liveEl = $("artImg").classList.contains("hidden") ? $("artPlaceholder") : $("artImg");
-    ghost=liveEl.cloneNode(true);
-    ghost.removeAttribute("id");
-    ghost.classList.remove("hidden");
-    ghost.classList.add("art-ghost", dir==="next" ? "art-swipe-out-left" : "art-swipe-out-right");
-    wrap.appendChild(ghost);
-    wrap.classList.add("art-swiping");
-  }
 
   const artURL=getTrackArtURL(t);
-  if(artURL){
-    $("artImg").src=artURL; $("artImg").classList.remove("hidden"); $("artPlaceholder").classList.add("hidden");
-    $("miniArt").src=artURL;
-  } else {
-    $("artImg").classList.add("hidden"); $("artPlaceholder").classList.remove("hidden");
-    $("miniArt").src=fallbackArt();
-  }
+  $("miniArt").src = artURL || fallbackArt();
 
-  if(ghost){
-    const realEl = $("artImg").classList.contains("hidden") ? $("artPlaceholder") : $("artImg");
-    const inClass = dir==="next" ? "art-swipe-in-right" : "art-swipe-in-left";
-    realEl.classList.remove("art-swipe-in-right","art-swipe-in-left");
-    void realEl.offsetWidth; // force a reflow so the animation restarts even on rapid repeated skips
-    realEl.classList.add(inClass);
-    let cleaned=false;
-    const cleanup=()=>{
-      if(cleaned) return;
-      cleaned=true;
-      ghost.remove();
-      realEl.classList.remove(inClass);
-      wrap.classList.remove("art-swiping");
-    };
-    const failSafe=setTimeout(cleanup,540); // comfortably past the 460ms in-animation, in case animationend never fires for some reason
-    realEl.addEventListener("animationend",()=>{ clearTimeout(failSafe); cleanup(); },{once:true});
+  // Requirement #14: keep the artwork move and the title/artist/
+  // album text change perfectly in sync — both happen right here,
+  // synchronously, in the same tick, so there's never a moment with
+  // new text over old art (or vice versa). A real Next/Previous
+  // rotates the existing prev/current/next slots into their new
+  // roles (see rotateCarousel() above); anything else just repaints
+  // all three fresh with no slide (syncCarouselStatic()).
+  if(dir==="next" || dir==="prev"){
+    rotateCarousel(dir);
   } else {
-    replayMotion(wrap,"track-change",360);
+    syncCarouselStatic();
+    replayMotion($("artWrap"),"track-change",360);
   }
 
   updateLoveButton();
