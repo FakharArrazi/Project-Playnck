@@ -177,6 +177,23 @@ Playnck ships with an in-app **About** screen — current build version, a short
 
 <p align="center"><img src="docs/screenshots/About.png" alt="About Us screen with build version and Telegram community link" width="850"></p>
 
+## ❤️ Support Playnck
+
+Enjoying Playnck? If you'd like to support the project and its future
+development, you can donate through Binance Pay.
+
+### Binance Pay
+
+<p align="center">
+  <a href="https://app.binance.com/uni-qr/5tLuirTT">
+    <img src="docs/screenshots/Donation.jpg" alt="Binance Pay donation QR code" width="220">
+  </a>
+</p>
+
+<p align="center"><strong><a href="https://app.binance.com/uni-qr/5tLuirTT">Donate with Binance Pay</a></strong></p>
+
+Scan the QR code or click the link above to make a donation.
+
 ## 🧑‍💻 Credits
 
 Built and maintained by **[Arrazi](https://github.com/Arrazi-w140)**.

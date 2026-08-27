@@ -1574,7 +1574,8 @@
   /* ------------------------------------------------------------
      ABOUT MODAL CONTENT
      Tagline + build version (reuses .info-grid/.info-row above)
-     + a Telegram community link. Used by openAboutModal().
+     + a Telegram community link + a Binance Pay support/donation
+     block. Used by openAboutModal().
      ------------------------------------------------------------ */
   .about-body{display:flex;flex-direction:column;gap:16px;}
   .about-tagline{margin:0;font-size:13px;line-height:1.6;color:var(--text-dim);}
@@ -1582,14 +1583,31 @@
     display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--border);
   }
   .about-community-text{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-dim);}
-  .about-telegram-btn{
+  /* Shared pill-style CTA for external links in the About modal
+     (Telegram group, Binance Pay donation, ...). */
+  .about-action-btn{
     display:flex;align-items:center;justify-content:center;gap:8px;
     background:var(--accent-grad);color:#fff;text-decoration:none;
     border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;
     transition:filter .15s ease;
   }
-  .about-telegram-btn:hover{filter:brightness(1.08);}
-  .about-telegram-btn svg{flex-shrink:0;}
+  .about-action-btn:hover{filter:brightness(1.08);}
+  .about-action-btn svg{flex-shrink:0;}
+
+  .about-support{
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    padding-top:14px;border-top:1px solid var(--border);text-align:center;
+  }
+  .about-support-title{margin:0;font-size:13.5px;font-weight:700;color:var(--text);align-self:flex-start;}
+  .about-support-text{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-dim);align-self:flex-start;text-align:left;}
+  .about-qr-link{
+    display:block;border-radius:10px;overflow:hidden;line-height:0;
+    border:1px solid var(--border);transition:filter .15s ease;
+  }
+  .about-qr-link:hover{filter:brightness(1.08);}
+  .about-qr-img{display:block;width:168px;height:auto;border-radius:9px;}
+  .about-qr-caption{margin:-2px 0 2px;font-size:11.5px;color:var(--text-faint);}
+  .about-support .about-action-btn{width:100%;}
 
 
 

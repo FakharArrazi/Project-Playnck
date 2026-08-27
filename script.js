@@ -437,6 +437,11 @@ const I18N={
     "about.buildVersion":"Build version",
     "about.communityText":"Got a bug, an idea, or just want to hang out with other people using PLAYNCK? Come say hi on Telegram — it's where updates get announced first, feature requests get discussed, and folks help each other out.",
     "about.telegramBtn":"Join the Telegram group",
+    "about.supportTitle":"Support Playnck ❤️",
+    "about.supportText":"Enjoying Playnck? If you'd like to support the project and its future development, you can send a small donation through Binance Pay.",
+    "about.supportQrAlt":"Binance Pay donation QR code",
+    "about.supportQrCaption":"Scan with Binance Pay",
+    "about.donateBtn":"Donate with Binance Pay",
 
     "theme.bg.dark":"GitHub Black",
     "theme.bg.light":"Light",
@@ -760,6 +765,11 @@ const I18N={
     "about.buildVersion":"Version",
     "about.communityText":"Un bug, une idée, ou juste envie de discuter avec d'autres personnes qui utilisent PLAYNCK ? Venez faire un tour sur Telegram — c'est là que les mises à jour sont annoncées en premier, que les suggestions sont discutées, et où tout le monde s'entraide.",
     "about.telegramBtn":"Rejoindre le groupe Telegram",
+    "about.supportTitle":"Soutenir Playnck ❤️",
+    "about.supportText":"Vous aimez Playnck ? Si vous souhaitez soutenir le projet et son développement futur, vous pouvez envoyer un petit don via Binance Pay.",
+    "about.supportQrAlt":"QR code de don Binance Pay",
+    "about.supportQrCaption":"Scannez avec Binance Pay",
+    "about.donateBtn":"Faire un don via Binance Pay",
 
     "theme.bg.dark":"GitHub Black",
     "theme.bg.light":"Clair",
@@ -6517,9 +6527,20 @@ function openAboutModal(){
       </div>
       <div class="about-community">
         <p class="about-community-text">${escapeHTML(tr("about.communityText"))}</p>
-        <a class="about-telegram-btn" href="https://t.me/+taM7DL_CKsViNGM0" target="_blank" rel="noopener noreferrer">
+        <a class="about-action-btn" href="https://t.me/+taM7DL_CKsViNGM0" target="_blank" rel="noopener noreferrer">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M21.9 4.2c-.3-.2-.6-.3-1-.1L2.4 11.4c-.5.2-.8.6-.8 1.1 0 .5.4.9.9 1.1l4.7 1.5 1.8 5.8c.1.4.5.7.9.7.3 0 .5-.1.7-.3l2.6-2.5 4.8 3.5c.2.2.5.2.7.2.2 0 .4 0 .6-.1.4-.2.6-.5.7-.9l3.2-15.3c.1-.4-.1-.8-.4-1z"/></svg>
           ${escapeHTML(tr("about.telegramBtn"))}
+        </a>
+      </div>
+      <div class="about-support">
+        <p class="about-support-title">${escapeHTML(tr("about.supportTitle"))}</p>
+        <p class="about-support-text">${escapeHTML(tr("about.supportText"))}</p>
+        <a class="about-qr-link" href="https://app.binance.com/uni-qr/5tLuirTT" target="_blank" rel="noopener noreferrer" aria-label="${escapeHTML(tr("about.donateBtn"))}">
+          <img class="about-qr-img" src="docs/screenshots/Donation.jpg" alt="${escapeHTML(tr("about.supportQrAlt"))}">
+        </a>
+        <p class="about-qr-caption">${escapeHTML(tr("about.supportQrCaption"))}</p>
+        <a class="about-action-btn" href="https://app.binance.com/uni-qr/5tLuirTT" target="_blank" rel="noopener noreferrer">
+          ${escapeHTML(tr("about.donateBtn"))}
         </a>
       </div>
     </div>`;

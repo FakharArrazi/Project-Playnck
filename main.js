@@ -138,7 +138,9 @@ const STATIC_MIME_MAP = {
     ".woff": "font/woff",
     ".png": "image/png",
     ".ico": "image/x-icon",
-    ".svg": "image/svg+xml"
+    ".svg": "image/svg+xml",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg"
 };
 
 let localOrigin = null; // e.g. "http://127.0.0.1:47862" — set once startLocalServer() resolves
