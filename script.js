@@ -2352,7 +2352,20 @@ function scrollToNowPlaying(){
   if(!state.currentTrack) return;
   const existingRow=listContainer.querySelector(".song-row.playing");
   if(existingRow){
-    existingRow.scrollIntoView({block:"center",behavior:"smooth"});
+    // Was: existingRow.scrollIntoView({block:"center",behavior:"smooth"}).
+    // scrollIntoView() doesn't just scroll listContainer — it walks every
+    // scrollable ancestor up to the document root and may scroll several
+    // of them at once trying to satisfy block:"center" at each level. In
+    // this app that's meant to be harmless (listContainer is the only
+    // element meant to move), but it's still handing the browser
+    // discretion this button has no business granting: only the Songs
+    // list should ever move. Computing the target offset ourselves and
+    // calling scrollTo() directly on listContainer — the same approach
+    // the virtualized path just below already uses — makes that
+    // structurally impossible instead of relying on nothing upstream
+    // ever becoming scrollable.
+    const target=Math.max(0, existingRow.offsetTop - (listContainer.clientHeight/2) + (existingRow.offsetHeight/2));
+    listContainer.scrollTo({top:target,behavior:"smooth"});
     flashRow(existingRow);
     return;
   }
@@ -5246,7 +5259,23 @@ function updateNowPlayingUI(){
   }
 
   updateLoveButton();
-  $("miniBar").style.display = state.currentTrack ? "flex" : "none";
+  // Was: $("miniBar").style.display = state.currentTrack ? "flex" : "none";
+  // An inline style has higher specificity than the CSS breakpoint rule
+  // that's supposed to gate the mini-player bar to narrow/mobile widths
+  // (see ".mini-bar" in styles.css), so setting it directly here forced
+  // the bar to render at ANY viewport width, including desktop, where
+  // .mini-bar has no position/size rules of its own (those only exist
+  // inside the mobile media query). With no CSS width/height on desktop,
+  // #miniArt rendered at its native image resolution as a normal-flow
+  // block sitting right after the app content, silently inflating
+  // <body>/<html>'s scrollable height — which is what "jump to current
+  // track" (scrollToNowPlaying(), via scrollIntoView()) then partially
+  // scrolled into view, looking like a giant album-art escaping from
+  // the bottom of the player. Using a class instead lets CSS be the
+  // single source of truth for both "is there a track" AND "are we at
+  // a width where the mini-bar should show" — see ".mini-bar.has-track"
+  // in styles.css.
+  $("miniBar").classList.toggle("has-track", !!state.currentTrack);
   replayMotion(document.querySelector(".track-meta"),"track-change",300);
   replayMotion($("miniBar"),"track-change",260);
 }
