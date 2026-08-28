@@ -695,6 +695,43 @@ function createWindow() {
         return { action: "deny" };
     });
 
+    // --- Fix for the "ghost/stale artwork after maximizing" glitch ---
+    // On Windows, Chromium's GPU compositor (the DirectComposition/ANGLE
+    // Direct3D11 path, the default GPU backend on Windows) can leave stale
+    // pixels from a *previous* frame visible in whatever part of the window
+    // was just newly exposed by a resize — including the resize that
+    // happens when a window is maximized/unmaximized/restored, not just a
+    // manual drag-resize. Electron/Chromium's own maintainers documented
+    // this exact bug (old frame content bleeding into the window after a
+    // resize) and shipped engine-level fixes for it — see
+    // https://www.electronjs.org/blog/tech-talk-window-resize-behavior —
+    // but depending on the user's exact Electron build/GPU driver, remnants
+    // of it can still show up, especially right as a maximize coincides
+    // with an animated repaint elsewhere on the page (e.g. the smooth-
+    // scroll "jump to playing song" locate button, or the cover-art
+    // carousel), which is the combination reported for this app.
+    // webContents.invalidate() asks Chromium to schedule an immediate,
+    // full repaint of the window, which clears out any leftover pixels
+    // from before the resize instead of leaving them ghosted in place.
+    // Cheap enough to call on every resize tick, but debounced anyway so a
+    // manual drag-resize doesn't spam it.
+    let repaintDebounceTimer = null;
+    const forceRepaint = () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.invalidate();
+        }
+    };
+    const forceRepaintDebounced = () => {
+        clearTimeout(repaintDebounceTimer);
+        repaintDebounceTimer = setTimeout(forceRepaint, 50);
+    };
+    mainWindow.on("maximize", forceRepaint);
+    mainWindow.on("unmaximize", forceRepaint);
+    mainWindow.on("restore", forceRepaint);
+    mainWindow.on("enter-full-screen", forceRepaint);
+    mainWindow.on("leave-full-screen", forceRepaint);
+    mainWindow.on("resize", forceRepaintDebounced);
+
     mainWindow.webContents.on("did-finish-load", () => {
         console.log("Renderer loaded");
 
