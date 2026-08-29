@@ -447,3 +447,25 @@ Full license text: vendor/fonts/Exo2-OFL-LICENSE.txt
 Copyright 2013 The Exo 2 Project Authors. This Font Software is licensed
 under the SIL Open Font License, Version 1.1. See
 vendor/fonts/Exo2-OFL-LICENSE.txt for the complete license text.
+
+
+Chromaprint / fpcalc
+License: LGPL 2.1 (as distributed — see note below)
+Source: https://github.com/acoustid/chromaprint
+Vendored at: resources/fpcalc/win32/fpcalc.exe (Windows),
+resources/fpcalc/linux/fpcalc (Linux)
+----------------------------------------------------------------------
+Copyright (C) Lukáš Lalinský and the Chromaprint contributors.
+Chromaprint's own source is MIT licensed, but the official prebuilt
+fpcalc binaries used here (unmodified, downloaded from Chromaprint's
+GitHub releases) are statically linked against a small audio-decode-only
+FFmpeg build with no GPL/nonfree components enabled (see
+https://github.com/acoustid/ffmpeg-build), which is itself LGPL 2.1.
+Per Chromaprint's own LICENSE.md, the fpcalc binary as distributed
+should therefore be treated as LGPL 2.1 as a whole:
+https://github.com/acoustid/chromaprint/blob/master/LICENSE.md
+This is used only as a separate command-line executable invoked via a
+child process for the Auto-Tag feature (see autotag-bridge.js) — it is
+never statically or dynamically linked into Playnck's own code, and
+its full corresponding source is available at the URL above.
+

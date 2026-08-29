@@ -222,6 +222,20 @@ async function detectFFmpeg() {
 // back a real percentage at all.
 function installFFmpeg(onLine) {
     return new Promise((resolve) => {
+        if (process.platform === "linux") {
+            // No one-click path here on purpose — unlike winget, there's
+            // no single command that works across every distro, and
+            // silently shelling out to "sudo dnf ..." from a GUI app
+            // isn't something this feature should do uninvited. Fedora's
+            // own repos ship "ffmpeg-free", which is missing libmp3lame
+            // (patent-encumbered), so MP3 conversion needs the full
+            // build from RPM Fusion specifically, not just any ffmpeg.
+            resolve({
+                success: false,
+                reason: "FFmpeg wasn't found. On Fedora, the official repo's \"ffmpeg-free\" package is missing the MP3 encoder — enable RPM Fusion first: sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm && sudo dnf install ffmpeg. On other distros, install the \"ffmpeg\" package from your package manager. Reopen the Convert tab once it's installed."
+            });
+            return;
+        }
         if (process.platform !== "win32") {
             resolve({
                 success: false,

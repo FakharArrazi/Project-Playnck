@@ -1,0 +1,141 @@
+# Builds Playnck for Windows and Linux on their own native runners
+# (electron-builder can't reliably cross-build a real Fedora RPM from
+# Windows, or a trustworthy NSIS installer from Linux, so each
+# platform gets its own GitHub-hosted machine instead of one runner
+# trying to do both) and, for an actual release, combines both
+# outputs into a single GitHub Release.
+#
+# Three jobs:
+#   build-windows  -> Playnck-<version> Setup.exe
+#   build-linux    -> playnck-<version>.x86_64.rpm
+#   publish        -> downloads both, uploads them to one release,
+#                      publishes it (see build-scripts/publish-release.js
+#                      for why this is a separate step instead of
+#                      letting each build job publish for itself)
+#
+# build-windows/build-linux always run, on every push/PR against main,
+# as a "does this still build" check — the fast, cheap part of "the
+# release is built on the correct operating system" from the project
+# brief. publish only runs for an actual release: a pushed v* tag, or
+# manually via "Run workflow" above.
+#
+# No secrets to configure: publish only ever needs to write releases
+# to this same repository, which the workflow's automatic
+# GITHUB_TOKEN already covers (see the `permissions:` block below).
+# A personal GH_TOKEN is only needed for running `npm run release`
+# from a developer's own machine, exactly as before this workflow
+# existed.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      # --publish never: this job only ever produces a local file.
+      # Publishing (if this run is for an actual release) happens
+      # once, later, in the publish job below — see that job and
+      # build-scripts/publish-release.js for why.
+      - run: npm run build -- --publish never
+
+      - name: Verify the Windows installer was produced
+        shell: bash
+        run: |
+          set -e
+          ls dist/*.exe
+          echo "Windows installer present."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/*.exe
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # electron-builder's rpm target shells out to a bundled `fpm`,
+      # which in turn needs the real `rpmbuild` tool on PATH to
+      # actually produce a .rpm — not installed on GitHub's Ubuntu
+      # runners by default, unlike the Debian/dpkg tooling apt itself
+      # depends on. xz-utils is usually already present; installed
+      # explicitly anyway since rpm's payload compression needs it.
+      - name: Install RPM packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm xz-utils
+
+      - run: npm ci
+
+      - run: npm run build -- --publish never
+
+      - name: Verify the Linux RPM was produced
+        run: |
+          set -e
+          ls dist/*.rpm
+          echo "Linux RPM present."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-rpm
+          path: dist/*.rpm
+          if-no-files-found: error
+
+  publish:
+    needs: [build-windows, build-linux]
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: release-assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-rpm
+          path: release-assets
+
+      - name: List assets about to be published
+        run: ls -la release-assets
+
+      - name: Publish (or update) the GitHub Release for this version
+        run: node build-scripts/publish-release.js release-assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up if a duplicate release slipped through anyway
+        run: node build-scripts/reconcile-github-release.js
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,10 +1,16 @@
 {
     "name": "playnck",
     "version": "1.1.11",
-    "description": "Playnck",
+    "description": "Playnck is a desktop music player with library management, metadata editing, Auto-Tag audio fingerprinting, synced lyrics, a 10-band equalizer, themes, playlists, and audio conversion.",
+    "homepage": "https://github.com/FakharArrazi/Project-Playnck",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/FakharArrazi/Project-Playnck.git"
+    },
     "author": "Arrazi",
     "license": "UNLICENSED",
     "main": "main.js",
+    "desktopName": "playnck.desktop",
     "devDependencies": {
         "electron": "^43.0.0",
         "electron-builder": "^26.15.3",
@@ -51,31 +57,36 @@
                 "ext": "mp3",
                 "name": "MP3 Audio",
                 "role": "Viewer",
-                "icon": "icons/mp3 icon.ico"
+                "icon": "icons/mp3 icon.ico",
+                "mimeType": "audio/mpeg"
             },
             {
                 "ext": "wav",
                 "name": "WAV Audio",
                 "role": "Viewer",
-                "icon": "icons/wav icon.ico"
+                "icon": "icons/wav icon.ico",
+                "mimeType": "audio/wav"
             },
             {
                 "ext": "flac",
                 "name": "FLAC Audio",
                 "role": "Viewer",
-                "icon": "icons/flac icon.ico"
+                "icon": "icons/flac icon.ico",
+                "mimeType": "audio/flac"
             },
             {
                 "ext": "ogg",
                 "name": "OGG Audio",
                 "role": "Viewer",
-                "icon": "icons/ogg icon.ico"
+                "icon": "icons/ogg icon.ico",
+                "mimeType": "audio/ogg"
             },
             {
                 "ext": "m4a",
                 "name": "M4A Audio",
                 "role": "Viewer",
-                "icon": "icons/m4a icon.ico"
+                "icon": "icons/m4a icon.ico",
+                "mimeType": "audio/mp4"
             }
         ],
         "win": {
@@ -91,6 +102,23 @@
             "createStartMenuShortcut": true,
             "runAfterFinish": true,
             "artifactName": "${productName} Setup ${version}.${ext}"
+        },
+        "linux": {
+            "target": [
+                "rpm"
+            ],
+            "icon": "resources/icons/linux",
+            "executableName": "playnck",
+            "category": "AudioVideo;Audio;Player;",
+            "synopsis": "A modern desktop music player",
+            "maintainer": "Arrazi <FakharArrazi@users.noreply.github.com>",
+            "syncDesktopName": true
+        },
+        "rpm": {
+            "fpm": [
+                "--rpm-rpmbuild-define",
+                "_build_id_links none"
+            ]
         }
     }
 }

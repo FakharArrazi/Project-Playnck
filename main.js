@@ -32,6 +32,16 @@ const { autoUpdater } = require("electron-updater");
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 
+// Same owner/repo already configured for electron-builder's GitHub
+// publish target (package.json -> build.publish) — read from there
+// instead of a second hardcoded copy, so the two can never drift.
+// Only used to build the "go check GitHub yourself" message shown on
+// Linux below; unrelated to whether autoUpdater itself can reach it.
+const _publishCfg = (require("./package.json").build || {}).publish || [];
+const _githubPublishCfg = (Array.isArray(_publishCfg) ? _publishCfg : [_publishCfg]).find(p => p && p.provider === "github") || {};
+const UPDATE_REPO_OWNER = _githubPublishCfg.owner || "FakharArrazi";
+const UPDATE_REPO_NAME = _githubPublishCfg.repo || "Project-Playnck";
+
 // Settings > Updates indicator: mirrors autoUpdater's lifecycle
 // events to the renderer over IPC ("update-status") so the Settings
 // modal can show a live dot + status line, including real failures
@@ -316,6 +326,21 @@ ipcMain.handle("auto-tag-track", async (event, filePath, hint, mode) => {
 ipcMain.handle("check-for-updates", async () => {
     if (!app.isPackaged) {
         return { started: false, reason: "Updates only run in the installed app, not in development." };
+    }
+    if (process.platform === "linux") {
+        // electron-updater's in-place replace (what makes "Restart to
+        // install" work on Windows) is built for a self-contained,
+        // user-writable install. The RPM build installs into /opt and
+        // /usr/share like any other system package, owned by root, so
+        // there's nothing here for it to safely overwrite itself. Rather
+        // than have it fail partway through an elevation prompt, Linux
+        // users are pointed at the same GitHub Releases page the RPM
+        // itself came from — a new RPM there supersedes this one on the
+        // next `dnf install`/`dnf upgrade` the normal way.
+        return {
+            started: false,
+            reason: `Playnck on Linux updates like any other RPM package. Check https://github.com/${UPDATE_REPO_OWNER}/${UPDATE_REPO_NAME}/releases/latest for a newer version and install it with your package manager (e.g. "sudo dnf install --allowerasing ./playnck-<version>.x86_64.rpm").`,
+        };
     }
     try {
         await autoUpdater.checkForUpdates();
@@ -753,11 +778,19 @@ function createWindow() {
         // new release without needing a full relaunch.
         if (app.isPackaged && !updateCheckStarted) {
             updateCheckStarted = true;
-            wireUpdateEvents();
-            autoUpdater.checkForUpdates().catch(err => console.error("Update check failed:", err));
-            setInterval(() => {
+            if (process.platform === "linux") {
+                // No in-app auto-update on the RPM build (see the
+                // "check-for-updates" handler above for why) — skip the
+                // background poll entirely rather than have it fail on
+                // the same schedule Windows uses it successfully on.
+                console.log("Linux build: skipping in-app update checks (see check-for-updates handler).");
+            } else {
+                wireUpdateEvents();
                 autoUpdater.checkForUpdates().catch(err => console.error("Update check failed:", err));
-            }, 45 * 60 * 1000);
+                setInterval(() => {
+                    autoUpdater.checkForUpdates().catch(err => console.error("Update check failed:", err));
+                }, 45 * 60 * 1000);
+            }
         }
     });
 
@@ -856,7 +889,8 @@ app.whenReady().then(async () => {
 
 });
 
-// Windows: second instance handling
+// Single-instance handling — cross-platform (Electron implements
+// requestSingleInstanceLock the same way on Windows, macOS and Linux).
 const gotLock = app.requestSingleInstanceLock();
 
 if (!gotLock) {
