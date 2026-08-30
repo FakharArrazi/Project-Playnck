@@ -1,0 +1,132 @@
+  /* ------------------------------------------------------------
+     COVER ART
+     Square artwork with a soft drop shadow. Falls back to a
+     placeholder icon (below) when a track has no embedded art.
+     ------------------------------------------------------------ */
+  .art-wrap{
+    /* The calc(100dvh - 300px) term is the important one for short
+       windows: 300px is a rough budget for everything else in this
+       panel (top/bottom padding, the label, track title/artist/album,
+       the lyrics/love buttons, the seek bar, and the transport
+       controls). Capping the art to "whatever's left after that"
+       means it shrinks itself out of the way instead of overflowing
+       and getting centered up over the label. */
+    width:min(360px,80%,42vh,calc(100dvh - 300px));
+    aspect-ratio:1;border-radius:16px;position:relative;
+    box-shadow:0 20px 60px rgba(var(--accent1-rgb),.22);flex-shrink:0;
+    animation:artGlowPulse 8s ease-in-out infinite alternate;
+    /* Deliberately NOT overflow:hidden — the previous/next slots
+       below are sized and positioned to peek out past this box's own
+       edges (into the panel's side padding), which is what makes the
+       carousel read as three cards in shallow depth instead of one
+       clipped square. See COVER ART CAROUSEL just below. */
+  }
+  .art-wrap img{
+    width:100%;height:100%;border-radius:16px;object-fit:cover;background:var(--elevated);display:block;
+    transition:filter .35s ease;
+  }
+  /* Same slow, subtle idea as the panel's glow drift — just a gentle
+     breathe between a slightly smaller/dimmer and slightly
+     larger/brighter shadow, never both moving in exactly the same
+     rhythm so it doesn't look mechanically synced. */
+  @keyframes artGlowPulse{
+    0%  { box-shadow:0 18px 55px rgba(var(--accent1-rgb),.18); }
+    100%{ box-shadow:0 24px 68px rgba(var(--accent1-rgb),.26); }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .art-wrap{animation:none;}
+  }
+  .art-placeholder{
+    width:100%;height:100%;border-radius:16px;background:var(--elevated);
+    display:flex;align-items:center;justify-content:center;color:var(--text-faint);
+    transition:filter .35s ease;
+  }
+  /* When lyrics are open, the cover art dims + blurs a touch behind
+     them (JS toggles ".lyrics-active" on #artWrap). Only the CURRENT
+     slot needs this — the previous/next slots already fade out
+     entirely below, since the lyrics pane covers the whole card. */
+  .art-wrap.lyrics-active .art-slot[data-role="current"] img,
+  .art-wrap.lyrics-active .art-slot[data-role="current"] .art-placeholder{
+    filter:brightness(.45) blur(6px);
+  }
+  .art-wrap.lyrics-active .art-slot:not([data-role="current"]){opacity:0 !important;}
+
+  /* ------------------------------------------------------------
+     COVER ART CAROUSEL
+     Three permanent ".art-slot" elements (see index.html) sit
+     stacked on top of each other inside ".art-carousel", one square
+     the exact size of the old single cover. Which one currently
+     reads as previous/current/next is purely a matter of its
+     data-role attribute — the rules below are what actually
+     position/scale/dim each role, and since they're plain
+     transform/opacity/filter transitions, script.js's
+     rotateCarousel() (see script.js) can animate a slot from one
+     role to another just by flipping that attribute: change
+     data-role and the browser tweens the rest for free. That's also
+     what makes rapid repeated Next/Previous presses safe — retargeting
+     a transition that's already mid-flight just smoothly redirects it,
+     nothing needs to be manually cancelled or reset.
+
+     The one exception is the "recycle" step every rotation also does
+     (the old previous/next album that's no longer relevant silently
+     becomes the new next/previous, off-screen): script.js jumps that
+     specific slot straight to its resting spot with .art-slot-instant
+     (transition:none) so it never visibly slides across the whole
+     carousel — it should just already be there, exactly like the
+     genuinely-new next/previous album was already sitting in place
+     before the click. See rotateCarousel() in script.js for the full
+     sequence.
+     ------------------------------------------------------------ */
+  .art-carousel{position:relative;width:100%;height:100%;}
+  .art-slot{
+    position:absolute;
+    left:50%;top:50%;
+    width:100%;height:100%;
+    border-radius:16px;
+    overflow:hidden;
+    pointer-events:none;
+    transition:transform .48s cubic-bezier(.22,.61,.36,1),
+               opacity .42s cubic-bezier(.22,.61,.36,1),
+               filter .42s cubic-bezier(.22,.61,.36,1),
+               box-shadow .42s cubic-bezier(.22,.61,.36,1);
+    will-change:transform,opacity;
+  }
+  /* Resting positions. Kept almost perfectly upright on purpose —
+     no rotation, no dramatic perspective — just a size/opacity/
+     brightness/depth difference so the current album is unmistakably
+     the one playing while the side albums stay clearly identifiable,
+     not just barely-there slivers. Percentages inside translate()
+     resolve against the slot's own (unscaled) box, so they compose
+     cleanly with the scale() alongside them — see the comment above. */
+  .art-slot[data-role="current"]{
+    transform:translate(-50%,-50%) scale(1);
+    opacity:1;
+    filter:brightness(1);
+    z-index:3;
+    box-shadow:0 18px 46px rgba(0,0,0,.4);
+  }
+  .art-slot[data-role="prev"]{
+    transform:translate(-90%,-50%) scale(.82);
+    opacity:.62;
+    filter:brightness(.72);
+    z-index:1;
+    box-shadow:0 8px 18px rgba(0,0,0,.3);
+  }
+  .art-slot[data-role="next"]{
+    transform:translate(-10%,-50%) scale(.82);
+    opacity:.62;
+    filter:brightness(.72);
+    z-index:1;
+    box-shadow:0 8px 18px rgba(0,0,0,.3);
+  }
+  /* No track sits in that queue position (start/end of the queue) —
+     fade the slot out completely rather than showing a fake/empty
+     album. Position stays put (so it eases back in from the right
+     spot if the queue later grows) — only visibility changes. */
+  .art-slot.art-slot-empty{opacity:0 !important;box-shadow:none !important;}
+  /* Used only for the instant "recycle" jump described above. */
+  .art-slot.art-slot-instant{transition:none !important;}
+
+  @media (prefers-reduced-motion:reduce){
+    .art-slot{transition:none !important;}
+  }

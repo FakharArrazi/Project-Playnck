@@ -1,0 +1,247 @@
+  /* ------------------------------------------------------------
+     PROGRESS / SEEK BAR
+     ------------------------------------------------------------ */
+  .progress-row{display:flex;align-items:center;gap:10px;width:min(420px,100%);margin-top:clamp(10px,3vh,26px);}
+  .progress-row span{font-size:11.5px;color:var(--text-dim);width:34px;flex-shrink:0;}
+  .progress-row span:last-child{text-align:right;}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;
+    background:var(--elevated);outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#fff;
+    box-shadow:0 0 0 3px rgba(88,101,242,.35);cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#fff;border:none;}
+  #seek{background:linear-gradient(to right,var(--accent1) 0%,var(--accent1) 0%,var(--elevated) 0%);}
+
+
+
+  /* ------------------------------------------------------------
+     TRANSPORT CONTROLS (shuffle / prev / play / next / repeat)
+     ------------------------------------------------------------ */
+  .controls-row{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:clamp(10px,2.5vh,22px);}
+  .ctrl-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:8px;display:flex;position:relative;overflow:visible;border-radius:50%;}
+  .ctrl-btn:hover{color:var(--text);}
+  .ctrl-btn.active{color:var(--accent1);}
+  .ctrl-btn svg{width:20px;height:20px;}
+
+  /* ------------------------------------------------------------
+     TRANSPORT ROW — "ALIVE" MICRO-INTERACTIONS
+     Each button gets its own physical metaphor rather than one
+     generic bounce reused everywhere:
+       • Prev/Next kick their glyph a step in the direction of
+         travel, behind a directional "streak" ping that shoots the
+         same way (not the plain circular ping below) — reinforcing
+         that this is a *directional* move, and echoing the cover
+         art's own swipe.
+       • Shuffle gets a flat, playful full spin (things get mixed
+         up) behind the plain circular ping.
+       • Repeat gets a genuine 3D card-flip on the Y axis (behind
+         the same circular ping) — it's switching between discrete
+         modes, so it "flips over" to the next one rather than just
+         spinning — and its A/1 badge pops back in afterwards.
+     All of it is triggered from script.js (pulseCtrlBtn() /
+     updateRepeatBadge()), which also drives the cover-art swipe
+     above — the two are meant to read as one gesture. #playBtn is
+     untouched by any of this; it keeps its own liquid-glass morph.
+     ------------------------------------------------------------ */
+  .ctrl-btn::before{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle,rgba(var(--accent1-rgb),.38),transparent 70%);
+    opacity:0;transform:scale(.4);pointer-events:none;
+  }
+  .ctrl-btn.ctrl-ping::before{animation:ctrlPing 480ms ease-out both;}
+  @keyframes ctrlPing{
+    0%  { opacity:.55; transform:scale(.3); }
+    100%{ opacity:0; transform:scale(1.55); }
+  }
+
+  /* Directional streak ping for Prev/Next — an elongated glow that
+     shoots the same way the track is skipping, instead of the plain
+     radial ping shuffle/repeat use. */
+  #nextBtn.ctrl-streak::before,#miniNext.ctrl-streak::before{
+    background:linear-gradient(90deg,transparent,rgba(var(--accent1-rgb),.5) 45%,transparent 85%);
+    animation:ctrlStreakRight 420ms ease-out both;
+  }
+  #prevBtn.ctrl-streak::before,#miniPrev.ctrl-streak::before{
+    background:linear-gradient(270deg,transparent,rgba(var(--accent1-rgb),.5) 45%,transparent 85%);
+    animation:ctrlStreakLeft 420ms ease-out both;
+  }
+  @keyframes ctrlStreakRight{
+    0%  { opacity:0; transform:translateX(-35%) scaleX(.4); }
+    35% { opacity:1; }
+    100%{ opacity:0; transform:translateX(70%) scaleX(1.6); }
+  }
+  @keyframes ctrlStreakLeft{
+    0%  { opacity:0; transform:translateX(35%) scaleX(.4); }
+    35% { opacity:1; }
+    100%{ opacity:0; transform:translateX(-70%) scaleX(1.6); }
+  }
+
+  #nextBtn svg.skip-kick,#miniNext svg.skip-kick{animation:skipKickNext 380ms cubic-bezier(.34,1.56,.64,1) both;}
+  #prevBtn svg.skip-kick,#miniPrev svg.skip-kick{animation:skipKickPrev 380ms cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes skipKickNext{
+    0%  { transform:translateX(0) scale(1); }
+    35% { transform:translateX(4px) scale(.86); }
+    62% { transform:translateX(-2px) scale(1.1); }
+    100%{ transform:translateX(0) scale(1); }
+  }
+  @keyframes skipKickPrev{
+    0%  { transform:translateX(0) scale(1); }
+    35% { transform:translateX(-4px) scale(.86); }
+    62% { transform:translateX(2px) scale(1.1); }
+    100%{ transform:translateX(0) scale(1); }
+  }
+
+  #shuffleBtn svg.shuffle-spin{animation:shuffleSpin 520ms cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes shuffleSpin{
+    0%  { transform:rotate(0deg) scale(1); }
+    45% { transform:rotate(190deg) scale(1.2); }
+    100%{ transform:rotate(360deg) scale(1); }
+  }
+
+  /* Repeat "flips" through its modes on the Y axis instead of
+     spinning flat like Shuffle — perspective lives on the button so
+     the flip actually reads as 3D rather than just squashing. */
+  #repeatBtn{perspective:80px;}
+  #repeatBtn svg.repeat-flip{animation:repeatFlip 520ms cubic-bezier(.45,.05,.55,.95) both;}
+  @keyframes repeatFlip{
+    0%  { transform:rotateY(0deg) scale(1); }
+    50% { transform:rotateY(180deg) scale(1.14); }
+    100%{ transform:rotateY(360deg) scale(1); }
+  }
+  /* ------------------------------------------------------------
+     LIQUID GLASS PLAY / PAUSE BUTTON
+     Hit-area-only button — no fill, no radius, no chrome behind it.
+     The glass only exists where the bars/triangle glyph is, clipped
+     to that exact outline (#glassClip below), so it morphs smoothly
+     between "pause" and "play" shapes instead of just swapping icons.
+
+     Every accent-facing value here (glass tint, rim gradient tail,
+     glow) reads rgba(var(--accent1-rgb), <low opacity>) rather than
+     a fixed color, so the button automatically tints itself to
+     match whatever accent color is picked in Settings — no JS
+     needed beyond what already updates --accent1-rgb.
+     ------------------------------------------------------------ */
+  #playBtn.morph-btn{
+    position:relative;
+    width:80px;height:80px;
+    border:none;background:none;
+    cursor:pointer;flex-shrink:0;
+    -webkit-tap-highlight-color:transparent;
+    /* Contains the squish animation's transient overshoot (it hits
+       scale(.87,1.15) mid-animation, i.e. the button is briefly
+       ~92px tall) so it can never bleed past this element and
+       inflate .player-panel's scrollable area — that phantom growth
+       was flipping the panel's scrollbar on/off on every play/pause
+       tap, nudging all the centered content sideways for an instant.
+       box-sizing:content-box + 8px padding gives the squish 8px of
+       slack on every side (96px total) without changing the
+       button's 80x80 footprint in controls-row — the negative
+       margin below cancels the extra size back out for layout
+       purposes — and overflow:hidden caps anything beyond that.
+       .glass-wrap is shifted from inset:0 to inset:8px to match,
+       so it still renders at its original 80x80 size inside here. */
+    box-sizing:content-box;
+    padding:8px;
+    margin:-8px;
+    overflow:hidden;
+  }
+  #playBtn.morph-btn:focus-visible{
+    outline:2px solid rgba(var(--accent1-rgb),.85);outline-offset:4px;
+  }
+
+  .glass-wrap{
+    position:absolute;inset:8px;
+    transform-origin:50% 50%;
+    /* soft depth shadow + a faint halo of the live accent color */
+    filter:drop-shadow(0 4px 10px rgba(0, 0, 0, 0.013)) drop-shadow(0 0 10px rgba(var(--accent1-rgb),.35));
+    animation:playBtnBreathe 3.6s ease-in-out infinite;
+  }
+  .glass-wrap.is-morphing{animation:playBtnSquish 640ms cubic-bezier(.4,0,.2,1) 1;}
+  #playBtn.morph-btn:active .glass-wrap{animation-duration:0s;}
+
+  /* the actual glass body: real backdrop refraction, clipped to the glyph */
+  .glass-shape{
+    position:absolute;inset:0;
+    background:linear-gradient(135deg, rgba(var(--accent1-rgb),.01), rgba(255,255,255,.001));
+    backdrop-filter:blur(6px) saturate(180%);
+    -webkit-backdrop-filter:blur(6px) saturate(180%);
+    clip-path:url(#glassClip);
+    transition:background .28s ease;
+  }
+  #playBtn.morph-btn:hover .glass-shape{background:linear-gradient(135deg, rgba(var(--accent1-rgb),.14), rgba(255,255,255,.04));}
+  #playBtn.morph-btn:active .glass-shape{background:linear-gradient(135deg, rgba(var(--accent1-rgb),.12), rgba(255,255,255,.02));}
+
+  /* soft directional sheen, upper-left light source, same clip as the glass */
+  .glass-highlight{
+    position:absolute;inset:0;
+    background:radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.179), transparent 40%);
+    mix-blend-mode:screen;opacity:.8;
+    clip-path:url(#glassClip);
+  }
+
+  /* crisp + glowing rim strokes, drawn on top so the glass edge catches light */
+  .icon-rim{position:absolute;inset:0;width:100%;height:100%;}
+  .icon-rim path{transition:d 640ms cubic-bezier(.65,0,.35,1);}
+  #glassClipPath{transition:d 640ms cubic-bezier(.65,0,.35,1);}
+  .rim-glow{fill:none;stroke:rgba(255,255,255,.65);stroke-width:2.4;filter:blur(1.5px);}
+  .rim-crisp{fill:none;stroke:url(#rimGrad);stroke-width:1;}
+  #rimGradStart{stop-color:rgba(255,255,255,.95);}
+  #rimGradEnd{stop-color:rgba(var(--accent1-rgb),.55);}
+
+  @keyframes playBtnSquish{
+    0%   { transform:scale(1,1); }
+    18%  { transform:scale(.87,1.15); }
+    38%  { transform:scale(1.09,.9); }
+    58%  { transform:scale(.96,1.06); }
+    78%  { transform:scale(1.02,.98); }
+    100% { transform:scale(1,1); }
+  }
+  @keyframes playBtnBreathe{
+    0%,100% { transform:scale(1); }
+    50%     { transform:scale(1.035); }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .glass-wrap,.glass-shape,.glass-highlight,.icon-rim path,#glassClipPath{
+      animation:none !important;transition-duration:1ms !important;
+    }
+  }
+
+
+
+  /* ------------------------------------------------------------
+     REPEAT MODE BADGE
+     A tiny pill on the corner of the repeat icon showing which
+     repeat mode is active: "A" for repeat-all, "1" for repeat-one.
+     Hidden completely when repeat is off. #repeatBtn needs
+     position:relative so this badge can anchor to its corner
+     (it's placed absolutely, so it doesn't affect the icon's
+     centering inside the button).
+     ------------------------------------------------------------ */
+  #repeatBtn{position:relative;}
+  .repeat-badge{
+    position:absolute;
+    bottom:2px;
+    right:2px;
+    min-width:13px;
+    height:13px;
+    padding:0 3px;
+    border-radius:7px;
+    background:var(--accent1);
+    color:#fff;
+    font-size:9px;
+    font-weight:800;
+    line-height:13px;
+    text-align:center;
+    display:none;                 /* JS toggles the ".show" class below to reveal it */
+    pointer-events:none;          /* clicks always fall through to the button underneath */
+  }
+  .repeat-badge.show{display:block;}
+  .repeat-badge.badge-pop{animation:repeatBadgePop 380ms cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes repeatBadgePop{
+    0%  { transform:scale(0); opacity:0; }
+    60% { transform:scale(1.3); opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }

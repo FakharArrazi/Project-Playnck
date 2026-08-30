@@ -1,0 +1,239 @@
+  /* ------------------------------------------------------------
+     PLAYER PANEL (RIGHT SIDE / "NOW PLAYING")
+     Cover art, track title, lyrics overlay, progress bar and
+     transport controls. position:relative lets us pin the
+     side-menu button + its dropdown to the top-right corner.
+     ------------------------------------------------------------ */
+  .player-panel{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:clamp(16px,4vh,40px) 40px clamp(14px,3vh,30px);
+    min-width:0;
+    min-height:0;                   /* <- same fix as .sidebar: lets this grid item
+                                         shrink below its content height instead of
+                                         overflowing the row when the window gets short */
+    overflow-y:auto;                /* safety net: if content still can't all fit at
+                                         very small heights, it scrolls instead of clipping */
+    position:relative;              /* anchors the side-menu button + dropdown below */
+    background:radial-gradient(circle at center, rgba(var(--accent1-rgb),.15) 0%, var(--bg) 60%);
+    background-size:160% 160%;
+    animation:panelGlowDrift 5s ease-in-out infinite alternate;
+  }
+  .player-panel .close-overlay{display:none;}
+
+  /* ------------------------------------------------------------
+     CUSTOM PLAYER BACKGROUND IMAGE (Settings > Player)
+     Sits behind every other child of .player-panel. z-index:-1
+     (rather than 0) is what actually does that: a negative
+     z-index paints *before* the panel's own non-positioned
+     children (like .now-playing-center), whereas 0 would paint
+     after them and cover the UI.
+
+     *** SCROLL BUG FIX ***
+     .player-bg itself is now the clipping frame: overflow:hidden,
+     sized exactly to the panel via inset:0, with no transform of
+     its own — so it can never expand .player-panel's scrollable
+     area. The actual oversized/blurred artwork lives on the
+     ::before pseudo-element instead. That's the layer carrying
+     transform:scale(1.12) (pushing blurred edges past the frame so
+     blur never reveals a sliver of un-blurred edge) and
+     filter:blur(...). Because ::before is a descendant of
+     .player-bg and .player-bg clips overflow, the scaled pixels get
+     cropped right at the frame instead of spilling into the panel
+     and triggering its overflow-y:auto scrollbar in every direction.
+     background-image is set by JS directly on #playerBg (the frame
+     element); background-image:inherit on ::before just picks that
+     same value up so the artwork paints on the clipped layer.
+     The dark scrim on top keeps text/controls readable over
+     arbitrary user photos in both the light and dark app themes.
+     ------------------------------------------------------------ */
+  .player-bg{
+    position:absolute;
+    inset:0;
+    z-index:-1;
+    overflow:hidden;
+    pointer-events:none;
+  }
+  .player-bg.hidden{display:none;}
+  .player-bg::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image:inherit;
+    background-size:cover;
+    background-position:center;
+    filter:blur(var(--player-bg-blur));
+    transform:scale(1.12);
+    transition:filter .15s ease;
+  }
+  .player-bg::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:var(--bg);
+    opacity:.45;
+  }
+
+  /* ------------------------------------------------------------
+     VISUALIZER
+     Subtle audio-reactive bars pinned to the very bottom edge of
+     the panel — the actual drawing (getByteFrequencyData -> bars)
+     is drawVisualizerFrame() in script.js; this only handles layout
+     and stacking. z-index:-1 (same trick as .player-bg above) keeps
+     it behind every real UI element no matter how short the window
+     gets, and pointer-events:none means it never intercepts clicks
+     even though it visually sits right under the transport controls.
+     ------------------------------------------------------------ */
+  .visualizer-canvas{
+    position:absolute;
+    left:0;right:0;bottom:0;
+    width:100%;
+    height:min(110px,14vh);
+    z-index:-1;
+    pointer-events:none;
+  }
+
+  /* Slowly drifts the radial gradient's center around within the
+     oversized (160%) background, so the glow behind the cover art
+     breathes/wanders instead of sitting perfectly still. Kept to a
+     small range (48%-52% / 45%-55%) so it reads as "alive", not as
+     an obvious back-and-forth swing. */
+  @keyframes panelGlowDrift{
+    0%  { background-position:45% 40%; }
+    50% { background-position:55% 60%; }
+    100%{ background-position:48% 45%; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .player-panel{animation:none;}
+  }
+
+
+
+  /* ------------------------------------------------------------
+     SIDE MENU BUTTON (top-right "☰" on the now-playing panel)
+     Opens a small dropdown with three entries: Info, Edit, and
+     Sync Lyrics. Both the button and its dropdown are positioned
+     absolutely against the .player-panel rule above (which is why
+     that rule needs position:relative).
+     ------------------------------------------------------------ */
+  .side-menu-btn{
+    position:absolute;
+    top:18px;
+    right:18px;
+    z-index:100;
+  }
+
+
+
+  /* ------------------------------------------------------------
+     NOW PLAYING CENTER
+     Wraps everything from the cover art down to the transport
+     controls. flex:1 lets it claim all the vertical space left
+     over below the "Now Playing" label, and its own
+     justify-content:center centers its children within JUST that
+     remaining space — not the whole panel — which is what keeps
+     the cover art/controls block visually centered under the
+     label instead of sitting too high.
+     ------------------------------------------------------------ */
+  .now-playing-center{
+    flex:1;
+    min-height:0;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+  }
+
+
+
+  /* ------------------------------------------------------------
+     SIDE MENU DROPDOWN (Info / Edit)
+     Same floating-panel look as the app menu dropdown near the
+     top of this file, just anchored to the opposite (right) side.
+     ------------------------------------------------------------ */
+  .side-dropdown{
+    position:absolute;
+    top:58px;
+    right:18px;
+    z-index:101;
+    background:var(--elevated);
+    border:1px solid var(--border);
+    border-radius:10px;
+    min-width:160px;
+    padding:6px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .side-dropdown button{
+    width:100%;text-align:left;background:none;border:none;color:var(--text);
+    padding:9px 10px;border-radius:7px;font-size:13.5px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;gap:9px;
+  }
+  .side-dropdown button:hover{background:var(--elevated-hover);}
+  .side-dropdown button svg{width:16px;height:16px;flex-shrink:0;}
+
+
+
+  /* ------------------------------------------------------------
+     VOLUME BUTTON + POPUP
+     Same absolute-positioning trick as .side-menu-btn/.side-dropdown
+     above, just stacked one row lower so it sits directly under the
+     "☰" button instead of overlapping it.
+     ------------------------------------------------------------ */
+  .volume-btn{
+    position:absolute;
+    top:60px;
+    right:18px;
+    z-index:100;
+  }
+  /* No card/box around this on purpose (was here originally, but
+     it looked heavy sitting right under a plain icon button) — just
+     the percentage label and the slider floating in place, centered
+     under volumeBtn the same way the button itself is positioned. */
+  .volume-popup{
+    position:absolute;
+    top:98px;
+    right:16px;
+    z-index:101;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+  }
+  .volume-pct{
+    font-size:11.5px;font-weight:600;color:var(--text-dim);
+    min-width:34px;text-align:center;
+  }
+  /* Fixed-size box the rotated slider sits centered inside — see
+     the #volumeSlider rule below for why the slider itself is
+     wider/shorter than this box looks. */
+  .volume-slider-wrap{
+    width:24px;height:110px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  /* A vertical slider is just a normal horizontal <input type=range>
+     rotated -90deg (counter-clockwise), sized to the *wrap's height*
+     via its own width (110px here == .volume-slider-wrap's height
+     above) — rotating a box doesn't change the space it occupies in
+     the page, only how it's painted, so the wrap's fixed size is
+     what actually reserves the vertical footprint. Rotating -90deg
+     (rather than +90) puts the slider's "max" end (its right side,
+     pre-rotation) at the top and its "min" end at the bottom, which
+     is the direction people expect a volume slider to fill — drag
+     up for louder, down for quieter. flex:none overrides the global
+     input[type=range]{flex:1} rule below, which would otherwise
+     stretch this to the wrap's 24px width instead of respecting the
+     110px set here.
+     Thumb size/color and the track's base color both come from the
+     global input[type=range] rule further down (same one the seek
+     bar uses) — only size/rotation are overridden here. The colored
+     "filled" portion of the track is repainted on top of that by
+     updateVolumeUI() in script.js, exactly the way #seek's fill is. */
+  #volumeSlider{
+    flex:none;
+    width:110px;
+    height:4px;
+    transform:rotate(-90deg);
+    margin:0;
+  }

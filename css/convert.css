@@ -1,0 +1,143 @@
+  /* ------------------------------------------------------------
+     CONVERT TAB
+     A self-contained workspace, entirely separate from the music
+     library — see the CONVERT TAB section in script.js for all the
+     logic behind this. Every piece below deliberately reuses an
+     existing Playnck component rather than inventing a parallel
+     one: .home-stat-box's card look for each section, .lang-chip
+     for every picker (format/bitrate/compression/bit depth/
+     collision handling), .edit-save-btn/.edit-cancel-btn/
+     .amr-add-btn for buttons, .new-playlist-btn's dashed-border
+     language for the drop zone, .add-music-row for queue rows, and
+     the same accent-fill-on-elevated gradient trick #seek already
+     uses for its progress bars.
+     ------------------------------------------------------------ */
+  .convert-view{padding:6px 8px 28px;display:flex;flex-direction:column;gap:16px;max-width:760px;}
+
+  .convert-section{
+    background:var(--elevated);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 20px;
+  }
+  .convert-section .theme-group-label{margin-bottom:14px;}
+
+  /* --- FFmpeg status banner, above every other section --- */
+  .convert-ffmpeg-banner{display:flex;align-items:center;gap:12px;}
+  .convert-ffmpeg-banner.is-ready{justify-content:space-between;background:none;border:none;padding:2px 2px 4px;}
+  .convert-ffmpeg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--text-faint);}
+  .convert-ffmpeg-dot[data-state="checking"],
+  .convert-ffmpeg-dot[data-state="installing"]{background:var(--accent1);animation:updatePulse 1.1s ease-in-out infinite;}
+  .convert-ffmpeg-dot[data-state="ready"]{background:#3ba55d;}
+  .convert-ffmpeg-dot[data-state="missing"],
+  .convert-ffmpeg-dot[data-state="install-failed"]{background:#ed4245;}
+  .convert-ffmpeg-ready-text{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-dim);}
+  .convert-ffmpeg-ready-text b{color:var(--text);font-weight:700;}
+
+  .convert-setup{text-align:center;padding:34px 20px;}
+  .convert-setup svg{width:34px;height:34px;color:var(--text-faint);margin-bottom:14px;}
+  .convert-setup h3{font-size:16px;font-weight:700;margin:0 0 6px;}
+  .convert-setup p{font-size:13px;color:var(--text-dim);max-width:420px;margin:0 auto 18px;line-height:1.55;}
+  .convert-setup .convert-install-error{
+    color:#ed4245;font-size:12.5px;background:rgba(237,66,69,.1);border:1px solid rgba(237,66,69,.28);
+    border-radius:10px;padding:10px 14px;margin:0 auto 16px;max-width:460px;text-align:left;line-height:1.5;
+  }
+  .convert-install-log{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:var(--text-faint);
+    background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;
+    max-height:120px;overflow-y:auto;text-align:left;margin:0 auto 16px;max-width:460px;
+  }
+  .convert-install-log div{white-space:pre-wrap;word-break:break-word;line-height:1.6;}
+
+  /* --- Add Files: drop zone + Browse Files + Add Folder --- */
+  .convert-dropzone{
+    border:2px dashed var(--border);border-radius:14px;padding:34px 20px;text-align:center;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    transition:border-color .16s ease,background .16s ease;cursor:pointer;
+  }
+  .convert-dropzone:hover{border-color:var(--accent1);}
+  .convert-dropzone.drag-over{border-color:var(--accent1);background:rgba(var(--accent1-rgb),.08);}
+  .convert-dropzone svg{width:30px;height:30px;color:var(--text-faint);transition:color .16s ease,transform .16s ease;}
+  .convert-dropzone.drag-over svg{color:var(--accent1);transform:translateY(-3px) scale(1.08);}
+  .convert-dropzone p{font-size:13.5px;color:var(--text-dim);margin:0;}
+  .convert-dropzone .convert-or{font-size:11.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.4px;}
+  .convert-add-row{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
+
+  /* --- Conversion Queue --- */
+  .convert-queue-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .convert-queue-header .theme-group-label{margin-bottom:0;}
+  .convert-queue-list{display:flex;flex-direction:column;max-height:360px;overflow-y:auto;margin:0 -8px;}
+  .convert-queue-row{
+    display:flex;align-items:center;gap:12px;padding:10px 8px;border-radius:8px;
+    border-bottom:1px solid var(--border);transition:background .12s ease;
+  }
+  .convert-queue-row:last-child{border-bottom:none;}
+  .convert-queue-row:hover{background:var(--elevated-hover);}
+  .convert-queue-row.status-completed{opacity:.65;}
+  .convert-queue-row.status-skipped,
+  .convert-queue-row.status-cancelled{opacity:.5;}
+  .convert-queue-icon{
+    width:34px;height:34px;border-radius:8px;background:var(--bg);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-faint);
+  }
+  .convert-queue-icon svg{width:16px;height:16px;}
+  .convert-queue-info{min-width:0;flex:1;}
+  .convert-queue-title{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .convert-queue-sub{font-size:11.5px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .convert-queue-row-progress{
+    height:3px;border-radius:2px;background:var(--border);margin-top:6px;overflow:hidden;max-width:220px;
+  }
+  .convert-queue-row-progress-fill{height:100%;background:var(--accent1);border-radius:2px;transition:width .15s linear;}
+  .convert-queue-status{
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0;
+    padding:4px 9px;border-radius:20px;white-space:nowrap;
+  }
+  .convert-queue-status[data-status="waiting"]{color:var(--text-faint);background:var(--bg);border:1px solid var(--border);}
+  .convert-queue-status[data-status="converting"]{color:var(--accent1);background:rgba(var(--accent1-rgb),.12);}
+  .convert-queue-status[data-status="completed"]{color:#3ba55d;background:rgba(59,165,93,.12);}
+  .convert-queue-status[data-status="failed"]{color:#ed4245;background:rgba(237,66,69,.12);}
+  .convert-queue-status[data-status="skipped"],
+  .convert-queue-status[data-status="cancelled"]{color:var(--text-faint);background:var(--bg);border:1px solid var(--border);}
+  .convert-queue-remove{
+    background:none;border:none;color:var(--text-faint);cursor:pointer;padding:6px;flex-shrink:0;
+    border-radius:50%;display:flex;transition:color .12s ease,background .12s ease;
+  }
+  .convert-queue-remove:hover{color:var(--text);background:var(--bg);}
+  .convert-queue-remove svg{width:14px;height:14px;}
+  .convert-queue-row-error{font-size:11px;color:#ed4245;margin-top:3px;}
+
+  /* --- Conversion Settings / Output --- */
+  .convert-field-label{font-size:12.5px;font-weight:600;color:var(--text-dim);margin:0 0 10px;}
+  .convert-chip-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .convert-settings-grid{display:flex;flex-direction:column;gap:18px;}
+  .convert-lossless-note{font-size:12px;color:var(--text-faint);margin:0;}
+
+  .convert-output-path-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .convert-output-path{
+    flex:1;min-width:200px;font-size:12.5px;color:var(--text-dim);background:var(--bg);
+    border:1px solid var(--border);border-radius:8px;padding:9px 12px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
+  }
+  .convert-collision-row{margin-top:16px;}
+
+  /* --- Progress --- */
+  .convert-progress-block{display:flex;flex-direction:column;gap:16px;}
+  .convert-progress-label-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;gap:12px;}
+  .convert-progress-label-row span:first-child{font-size:13px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .convert-progress-label-row span:last-child{font-size:11.5px;color:var(--text-dim);flex-shrink:0;}
+  .convert-progress-track{height:8px;border-radius:5px;background:var(--elevated-hover);overflow:hidden;}
+  .convert-progress-fill{height:100%;border-radius:5px;background:var(--accent1);transition:width .18s linear;}
+  #convertOverallFill{background:var(--accent-grad);}
+
+  /* --- Controls --- */
+  .convert-controls-row{display:flex;gap:10px;justify-content:flex-end;margin-top:4px;flex-wrap:wrap;}
+
+  /* --- Completion state --- */
+  .convert-complete{text-align:center;padding:8px 4px;}
+  .convert-complete-icon{
+    width:52px;height:52px;border-radius:50%;background:rgba(59,165,93,.12);color:#3ba55d;
+    display:flex;align-items:center;justify-content:center;margin:0 auto 14px;
+  }
+  .convert-complete-icon svg{width:24px;height:24px;}
+  .convert-complete h3{font-size:16px;font-weight:700;margin:0 0 6px;}
+  .convert-complete p{font-size:13px;color:var(--text-dim);margin:0 0 4px;}
+  .convert-complete .convert-complete-path{font-size:12px;color:var(--text-faint);margin:6px 0 18px;word-break:break-all;}
+  .convert-complete-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}

@@ -1,0 +1,23 @@
+  /* ------------------------------------------------------------
+     CONTEXT / DROPDOWN MENU
+     Shared floating-menu style used for TWO things: the per-song
+     "⋮" menu (favorite / add to playlist / remove) and the new
+     sort menu opened from the sort icon button. Only one of these
+     is ever open at a time (see the JS "openMenuEl" variable).
+     ------------------------------------------------------------ */
+  .ctx-menu{
+    position:fixed;background:var(--elevated);border:1px solid var(--border);
+    border-radius:10px;padding:6px;min-width:190px;z-index:200;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .ctx-menu button{
+    width:100%;text-align:left;background:none;border:none;color:var(--text);
+    padding:8px 10px;border-radius:7px;font-size:13px;cursor:pointer;
+    display:flex;align-items:center;gap:8px;
+  }
+  .ctx-menu button:hover{background:var(--elevated-hover);}
+  .ctx-menu button.selected{color:var(--accent1);font-weight:700;}   /* marks the active sort option */
+  .ctx-menu button.danger{color:var(--heart);}                       /* marks a destructive action, e.g. Delete */
+  .ctx-menu button.danger:hover{background:rgba(239,68,99,.12);}
+  .ctx-menu .divider{height:1px;background:var(--border);margin:5px 2px;}
+  .ctx-menu .submenu-label{color:var(--text-faint);font-size:11px;padding:6px 10px 2px;text-transform:uppercase;letter-spacing:.5px;}

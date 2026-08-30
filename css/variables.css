@@ -1,0 +1,26 @@
+  /* ============================================================
+     DESIGN TOKENS
+     Every reusable value the rest of the stylesheet leans on —
+     colors, spacing, radius, gradients — lives here. Change a
+     value in this one spot and it updates everywhere it's used.
+     ============================================================ */
+  :root{
+    --bg:#000000;                 /* page background — pitch black (default theme) */
+    --panel:#000000;              /* sidebar background, same pitch black as bg */
+    --elevated:#141414;           /* cards, buttons, inputs sitting "above" the panel */
+    --elevated-hover:#1e1e1e;     /* hover state for anything using --elevated */
+    --border:#242424;             /* hairline borders/dividers everywhere */
+    --text:#f2f2f6;               /* primary (brightest) text color */
+    --text-dim:#96969f;           /* secondary text, e.g. artist names, sub-labels */
+    --text-faint:#5c5c66;         /* tertiary text, e.g. placeholder icons, empty states */
+    --accent1:#5865f2;            /* primary brand/accent color (blurple) */
+    --accent1-rgb:88,101,242;     /* same as --accent1, as r,g,b for rgba() glows */
+    --accent2:#8a5cf6;            /* secondary accent, paired with accent1 in gradients */
+    --accent-grad:linear-gradient(135deg,var(--accent1),var(--accent2));
+    --heart:#ef4463;              /* color used only for the "loved" heart icon */
+    --radius:12px;                /* corner radius shared by cards/menus/modals */
+    --sidebar-w:40vw;            /* width of the left library panel (widened per request) */
+    --rail-w:42px;                 /* collapsed width of the far-left icon rail */
+    --rail-w-expanded:150px;       /* expanded width, once the rail's menu button is clicked */
+    --player-bg-blur:0px;          /* blur amount for the custom now-playing background image, Settings > Player */
+  }

@@ -1,0 +1,215 @@
+  /* ------------------------------------------------------------
+     DRAG-AND-DROP-TO-PLAY OVERLAY
+     Shown full-screen the moment a file is dragged over the app
+     window (see wireDragAndDropPlay() in script.js) and hidden
+     again on dragleave/drop. z-index is above the modal overlay
+     (300) since it can legitimately appear while a modal is open.
+     ------------------------------------------------------------ */
+  .drag-drop-overlay{
+    position:fixed;inset:0;z-index:400;
+    background:rgba(12,12,17,.85);
+    display:flex;align-items:center;justify-content:center;
+    pointer-events:none; /* never intercept the actual drop — the window-level listeners handle it */
+  }
+  .drag-drop-message{
+    display:flex;flex-direction:column;align-items:center;gap:14px;
+    padding:40px 56px;border-radius:var(--radius);
+    border:2px dashed var(--accent1);
+    background:var(--elevated);
+    color:var(--text);font-size:16px;font-weight:700;
+  }
+  .drag-drop-message svg{color:var(--accent1);}
+
+
+
+  /* ------------------------------------------------------------
+     INFO / EDIT MODAL
+     One shared popup used by both the "Info" and "Edit" entries
+     in the side menu. JS swaps the title + body content depending
+     on which one was clicked (see openModal() in the script).
+     ------------------------------------------------------------ */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.6);
+    display:flex;align-items:center;justify-content:center;
+    z-index:300;padding:20px;
+  }
+  .modal-box{
+    background:var(--elevated);border:1px solid var(--border);border-radius:var(--radius);
+    width:min(420px,100%);max-height:80vh;overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .modal-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 18px;border-bottom:1px solid var(--border);
+    position:sticky;top:0;background:var(--elevated);z-index:2;
+  }
+  .modal-header h3{margin:0;font-size:15px;font-weight:700;}
+  .modal-body{padding:16px 18px;}
+
+
+
+  /* ------------------------------------------------------------
+     INFO MODAL CONTENT (key / value rows)
+     Used only for the "Info" entry — a simple label-on-the-left,
+     value-on-the-right row per fact about the song/file.
+     ------------------------------------------------------------ */
+  .info-grid{display:flex;flex-direction:column;gap:2px;}
+  .info-row{display:flex;justify-content:space-between;gap:16px;padding:9px 2px;border-bottom:1px solid var(--border);}
+  .info-row:last-child{border-bottom:none;}
+  .info-key{color:var(--text-dim);font-size:12.5px;font-weight:600;flex-shrink:0;}
+  .info-val{color:var(--text);font-size:12.5px;text-align:right;word-break:break-word;}
+  .info-empty{color:var(--text-faint);font-size:13px;text-align:center;padding:20px 0;}
+
+
+
+  /* ------------------------------------------------------------
+     ABOUT MODAL CONTENT
+     Tagline + build version (reuses .info-grid/.info-row above)
+     + a Telegram community link + a Binance Pay support/donation
+     block. Used by openAboutModal().
+     ------------------------------------------------------------ */
+  .about-body{display:flex;flex-direction:column;gap:16px;}
+  .about-tagline{margin:0;font-size:13px;line-height:1.6;color:var(--text-dim);}
+  .about-community{
+    display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--border);
+  }
+  .about-community-text{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-dim);}
+  /* Shared pill-style CTA for external links in the About modal
+     (Telegram group, Binance Pay donation, ...). */
+  .about-action-btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--accent-grad);color:#fff;text-decoration:none;
+    border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;
+    transition:filter .15s ease;
+  }
+  .about-action-btn:hover{filter:brightness(1.08);}
+  .about-action-btn svg{flex-shrink:0;}
+
+  .about-support{
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    padding-top:14px;border-top:1px solid var(--border);text-align:center;
+  }
+  .about-support-title{margin:0;font-size:13.5px;font-weight:700;color:var(--text);align-self:flex-start;}
+  .about-support-text{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-dim);align-self:flex-start;text-align:left;}
+  .about-qr-link{
+    display:block;border-radius:10px;overflow:hidden;line-height:0;
+    border:1px solid var(--border);transition:filter .15s ease;
+  }
+  .about-qr-link:hover{filter:brightness(1.08);}
+  .about-qr-img{display:block;width:168px;height:auto;border-radius:9px;}
+  .about-qr-caption{margin:-2px 0 2px;font-size:11.5px;color:var(--text-faint);}
+  .about-support .about-action-btn{width:100%;}
+
+
+
+  /* ------------------------------------------------------------
+     EDIT MODAL CONTENT
+     Lets the user retag a track: title / artist / album text
+     fields plus a swappable cover image. Used by openEditModal()
+     in the script.
+     ------------------------------------------------------------ */
+  .edit-form{display:flex;flex-direction:column;gap:16px;}
+  .edit-cover-row{display:flex;align-items:center;gap:14px;}
+  .edit-cover-preview{
+    width:72px;height:72px;border-radius:10px;overflow:hidden;flex-shrink:0;
+    background:var(--panel);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;color:var(--text-faint);
+  }
+  .edit-cover-preview img{width:100%;height:100%;object-fit:cover;display:block;}
+  .edit-cover-actions{display:flex;flex-direction:column;gap:6px;}
+  .edit-cover-btn{
+    background:var(--elevated-hover);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;text-align:center;
+  }
+  .edit-cover-btn:hover{border-color:var(--accent1);}
+  .edit-cover-btn.secondary{background:none;color:var(--text-dim);}
+
+  /* Cover candidates Auto-tag found for the currently-selected match
+     — clickable thumbnails so the user can pick the right edition's
+     art directly instead of cycling through them one at a time. */
+  .edit-cover-gallery{display:flex;flex-wrap:wrap;gap:8px;}
+  .edit-cover-thumb{
+    width:44px;height:44px;flex-shrink:0;padding:0;border-radius:8px;cursor:pointer;
+    background-color:var(--panel);background-size:cover;background-position:center;
+    border:2px solid var(--border);
+  }
+  .edit-cover-thumb:hover{border-color:var(--text-dim);}
+  .edit-cover-thumb.selected{border-color:var(--accent1);}
+
+  .edit-autotag-row{display:flex;flex-direction:column;gap:6px;}
+  .edit-autotag-buttons{display:flex;gap:8px;}
+  .edit-autotag-btn{
+    flex:1;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--panel);border:1px dashed var(--border);color:var(--text);
+    border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;
+  }
+  .edit-autotag-btn:hover{border-color:var(--accent1);border-style:solid;}
+  .edit-autotag-btn:disabled{opacity:.65;cursor:default;}
+  .edit-autotag-status{margin:0;font-size:12px;color:var(--text-dim);}
+
+  /* Dropdown for picking between several plausible Auto-tag matches
+     (ambiguous fingerprint hits, or a text search that found more
+     than one confident candidate). */
+  .edit-autotag-matches{display:flex;flex-direction:column;gap:6px;}
+  .edit-autotag-select{cursor:pointer;}
+  .edit-field{display:flex;flex-direction:column;gap:6px;}
+  .edit-label{font-size:12px;font-weight:600;color:var(--text-dim);}
+  .edit-input{
+    width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:9px 11px;font-size:13.5px;font-family:inherit;
+  }
+  .edit-input:focus{border-color:var(--accent1);outline:none;}
+  .edit-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:2px;}
+  .edit-cancel-btn,.edit-save-btn{
+    border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid transparent;
+  }
+  .edit-cancel-btn{background:none;border-color:var(--border);color:var(--text-dim);}
+  .edit-cancel-btn:hover{color:var(--text);}
+  .edit-save-btn{background:var(--accent-grad);color:#fff;}
+  .edit-save-btn:hover{filter:brightness(1.08);}
+  .edit-save-btn:disabled{opacity:.7;cursor:default;filter:none;}
+  .edit-status{margin:0;font-size:12px;color:var(--text-dim);text-align:right;}
+  /* Shown when the actual file write fails verification (see the
+     Edit modal's Save handler in script.js) — left-aligned and in
+     the app's existing "heart" red rather than the muted default,
+     since this one needs to actually be noticed and doesn't
+     auto-dismiss the way a success message does. */
+  .edit-status.is-error{color:var(--heart);text-align:left;line-height:1.4;}
+  .edit-status-actions{display:flex;justify-content:flex-end;margin-top:8px;}
+  .edit-lib-only-btn{
+    border-radius:8px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;
+    background:none;border:1px solid var(--border);color:var(--text-dim);
+  }
+  .edit-lib-only-btn:hover{color:var(--text);border-color:var(--text-dim);}
+
+
+
+  /* ------------------------------------------------------------
+     SYNC LYRICS MODAL CONTENT
+     Lets the user nudge a track's lyric timing forward/backward in
+     milliseconds until it matches playback. Used by openSyncModal()
+     in the script. Reuses .edit-actions/.edit-cancel-btn/
+     .edit-save-btn from the Edit modal above for its button row.
+     ------------------------------------------------------------ */
+  .sync-form{display:flex;flex-direction:column;gap:16px;}
+  .sync-hint{margin:0;font-size:12.5px;color:var(--text-dim);line-height:1.5;}
+  .sync-offset-display{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    padding:6px 0;
+  }
+  .sync-offset-input{
+    width:110px;text-align:center;font-size:28px;font-weight:700;color:var(--text);
+    font-variant-numeric:tabular-nums;background:var(--elevated-hover);
+    border:1px solid var(--border);border-radius:8px;padding:4px 6px;
+    font-family:inherit;
+  }
+  .sync-offset-input:focus{outline:none;border-color:var(--accent1);}
+  .sync-offset-unit{font-size:15px;font-weight:600;color:var(--text-dim);}
+  .sync-nudge-row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;}
+  .sync-nudge-btn{
+    background:var(--elevated-hover);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;
+    font-variant-numeric:tabular-nums;min-width:52px;
+  }
+  .sync-nudge-btn:hover{border-color:var(--accent1);}

@@ -1,0 +1,113 @@
+  /* ------------------------------------------------------------
+     TRACK TITLE / ARTIST / ALBUM TEXT
+     ------------------------------------------------------------ */
+  .track-meta{text-align:center;margin-top:clamp(10px,3vh,24px);max-width:420px;}
+  .track-meta .t-title{font-size:20px;font-weight:700;margin:0 0 4px;}
+  .track-meta .t-artist{font-size:14px;color:var(--text-dim);margin:0;}
+  .track-meta .t-album{font-size:12.5px;color:var(--text-faint);margin:2px 0 0;}
+
+  /* ------------------------------------------------------------
+     NOW-PLAYING MARQUEE (title / artist / album overflow)
+     Purely additive on top of the block above — font, size, color,
+     margin and (for text that fits) alignment are all untouched.
+     Classes are toggled by player-marquee.js and apply ONLY inside
+     the Player Panel's .track-meta; nothing else in the app uses
+     .marquee-line/.marquee-track/.marquee-active.
+       - .marquee-line: added permanently to all three lines. Clips
+         to one line instead of ever letting text wrap to a 2nd.
+       - .marquee-track: the actual text, moved by the animation —
+         plain inline-block so with no transform it's exactly the
+         width of the text and sits centered (inheriting
+         .track-meta's text-align:center) whenever it fits.
+       - .marquee-active: added only while a line is genuinely
+         overflowing and scrolling. Switches that ONE line to left
+         alignment, which is what makes "show the start first, then
+         scroll left to reveal the end" make sense. Lines that fit
+         never get this class, so they stay centered exactly like
+         before.
+     ------------------------------------------------------------ */
+  .player-panel .track-meta .marquee-line{overflow:hidden;white-space:nowrap;max-width:100%;}
+  .player-panel .track-meta .marquee-line .marquee-track{display:inline-block;white-space:nowrap;}
+  .player-panel .track-meta .marquee-line.marquee-active{text-align:left;}
+
+  /* While a line is actively scrolling, fade its two edges instead
+     of hard-clipping them. Without this, whatever frame you happen
+     to catch mid-scroll shows text sheared off mid-glyph on both
+     sides (e.g. "...Furi|ous..." missing its tail) — which reads as
+     a rendering bug rather than a text marquee, especially in a
+     screenshot. The fade makes the same frame unambiguously read as
+     "there's more text just out of view" on both sides. Only
+     applied during .marquee-active so static, fully-visible text is
+     never masked. */
+  .player-panel .track-meta .marquee-line.marquee-active{
+    -webkit-mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+    mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  }
+
+
+
+  /* ------------------------------------------------------------
+     LYRICS / LOVE PILL BUTTONS
+     ------------------------------------------------------------ */
+  .meta-actions{display:flex;gap:10px;margin-top:clamp(8px,2vh,16px);}
+  .meta-actions button{
+    display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;
+    border:1px solid var(--border);background:var(--elevated);color:var(--text-dim);
+    font-size:12.5px;font-weight:600;cursor:pointer;
+  }
+  .meta-actions button svg{width:15px;height:15px;}
+  .meta-actions button.active{color:var(--text);border-color:var(--accent1);}
+  .meta-actions #loveBtn.active{color:var(--heart);border-color:var(--heart);}
+  .meta-actions #loveBtn.active svg{fill:var(--heart);}
+
+  /* ------------------------------------------------------------
+     LOVE BUTTON — "RISES AND DESPAIRS"
+     Liking a track sends the heart up on a little bouncy overshoot,
+     blooms a soft red glow behind it, and scatters a handful of tiny
+     hearts/sparks that float off and fade (see animateLoveIcon()/
+     spawnHeartSparks() in script.js). Unliking it gives a completely
+     different motion — no glow, no sparks — just the heart visibly
+     wilting: it shrinks, dips, and wobbles side to side twice like a
+     deflating balloon before settling back down. The instant color/
+     fill swap from .active above still happens immediately — this
+     layer only adds the motion (and, on liking, the glow) on top.
+     ------------------------------------------------------------ */
+  #loveBtn{position:relative;}
+  #loveBtn svg{transform-origin:50% 55%;}
+  #loveBtn::before{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle,rgba(239,68,99,.5),transparent 70%);
+    opacity:0;transform:scale(.4);pointer-events:none;
+  }
+  #loveBtn.heart-glow::before{animation:ctrlPing 640ms ease-out both;}
+
+  @keyframes heartRise{
+    0%  { transform:scale(1) translateY(0) rotate(0deg); }
+    30% { transform:scale(1.45) translateY(-6px) rotate(-10deg); }
+    55% { transform:scale(.92) translateY(1px) rotate(7deg); }
+    78% { transform:scale(1.12) translateY(-2px) rotate(-3deg); }
+    100%{ transform:scale(1) translateY(0) rotate(0deg); }
+  }
+  @keyframes heartSink{
+    0%  { transform:scale(1) translateY(0) rotate(0deg); }
+    28% { transform:scale(.72) translateY(4px) rotate(-9deg); }
+    48% { transform:scale(.88) translateY(3px) rotate(7deg); }
+    68% { transform:scale(.8) translateY(3.5px) rotate(-4deg); }
+    86% { transform:scale(.9) translateY(1.5px) rotate(2deg); }
+    100%{ transform:scale(1) translateY(0) rotate(0deg); }
+  }
+  #loveBtn svg.heart-rise{animation:heartRise 640ms cubic-bezier(.22,1,.36,1) both;}
+  #loveBtn svg.heart-sink{animation:heartSink 620ms ease-out both;}
+
+  .heart-spark{
+    position:absolute;left:50%;top:40%;
+    transform:translate(-50%,-50%);
+    font-size:11px;line-height:1;color:var(--heart);
+    pointer-events:none;z-index:5;
+    animation:heartSparkFloat 760ms ease-out both;
+  }
+  @keyframes heartSparkFloat{
+    0%  { opacity:0; transform:translate(-50%,-50%) translate(0,0) scale(.4) rotate(0deg); }
+    18% { opacity:1; }
+    100%{ opacity:0; transform:translate(-50%,-50%) translate(var(--dx,0px),-34px) scale(1) rotate(var(--rot,0deg)); }
+  }
