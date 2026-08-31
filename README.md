@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎵 Playnck
+#  Playnck
 
 **A native-feeling, self-healing music player for people who actually care about their local library.**
 
@@ -19,7 +19,7 @@ Built with Electron. Writes real ID3/metadata back to your files. Fingerprints a
 
 ---
 
-## ✨ Features
+##  Features
 
 ### 🎧 Playback & library
 - Plays MP3, WAV, FLAC, OGG, M4A/AAC, and Opus straight from disk — no import/transcode step, no library database bloat.
@@ -33,11 +33,11 @@ Built with Electron. Writes real ID3/metadata back to your files. Fingerprints a
 
 <p align="center"><img src="docs/screenshots/Library.png" alt="Songs library view" width="850"></p>
 
-### 🏠 Home dashboard
+###  Home dashboard
 - Library stats at a glance, a **Recently Played** rail, and a **Top Songs** list ranked by real play count.
 - Play counts only increment after a track has actually played for **30 seconds** — skips and accidental clicks don't inflate your stats.
 
-### 🗂️ Organize your way
+###  Organize your way
 - Dedicated tabs for **Songs, Albums, Artists, Playlists, and Folders**, each with its own sort order.
 - Multi-select across every tab (songs, albums, artists, playlists, folders) for bulk actions.
 - Create playlists and **export them as standard `.m3u`** files that other players can read.
@@ -54,7 +54,7 @@ Built with Electron. Writes real ID3/metadata back to your files. Fingerprints a
 </tr>
 </table>
 
-### 🎚️ A real audio engine, not just an `<audio>` tag
+###  A real audio engine, not just an `<audio>` tag
 - **10-band graphic equalizer** (32 Hz → 16 kHz) built on the Web Audio API with live `BiquadFilterNode` chaining, ±12 dB per band.
 - One-click presets: **Flat, Bass Boost, Treble Boost, Vocal Boost** — or drag your own curve.
 - **Gapless playback**: a short automatic crossfade smooths the transition between songs instead of a hard cut (skipped on repeat-one).
@@ -62,43 +62,43 @@ Built with Electron. Writes real ID3/metadata back to your files. Fingerprints a
 
 <p align="center"><img src="docs/screenshots/Audio.png" alt="10-band equalizer and gapless playback settings" width="850"></p>
 
-### 🏷️ Metadata that actually writes back to the file
+###  Metadata that actually writes back to the file
 This is the feature that gets the most engineering attention in the codebase, and it shows:
 - Edit title, artist, album, genre, track number, and cover art, and Playnck writes it into the **real file on disk** — ID3 tags via `node-id3` for MP3, FFmpeg-backed tagging for everything else — then re-reads the file to verify the write actually landed.
 - Windows loves to lock files that are mid-playback, so before any rename/write, Playnck **detaches the audio element from the file, performs the write, and re-attaches it**, seeking back to the exact playback position.
 - If a write still hits `EPERM`/`EBUSY`/`EACCES` because something else has the handle open, it **retries with backoff** instead of silently failing or corrupting the tag.
 - Cover art can be added, replaced, or pulled automatically (see Auto-Tag below).
 
-### 🔎 Auto-Tag (audio fingerprinting)
+###  Auto-Tag (audio fingerprinting)
 For that folder of `Track 03.mp3` files with no metadata at all:
 - Generates an **audio fingerprint** of the file using a bundled Chromaprint (`fpcalc`) binary.
 - Looks the fingerprint up against **AcoustID**, falls back to a text-based **MusicBrainz** search if there's no fingerprint match, and pulls cover art from the **Cover Art Archive**.
 - Shows you the match before writing anything, so you're never surprised by an auto-tag result.
 
-### 🎤 Synced lyrics
+###  Synced lyrics
 - Fetches time-synced (LRC-format) lyrics from lrclib.net and highlights the current line in real time as the track plays, over a blurred version of the album art.
 - Lyrics are cached locally so repeat plays don't re-fetch, and you can nudge the sync offset if a particular file's timing is slightly off.
 
-### 🎨 Deep personalization
+###  Deep personalization
 - **6 background themes × 12 accent colors** — 72 total combinations — all switchable live from the swatch grid.
 - On Windows, the custom title bar overlay recolors itself to match your theme automatically (Linux uses your desktop environment's native window decorations instead).
 - English and French UI translations out of the box.
 
 <p align="center"><img src="docs/screenshots/Themes.png" alt="Theme picker with background and accent swatches" width="850"></p>
 
-### 🔁 Format conversion studio
+###  Format conversion studio
 - A dedicated **Convert** tab batches files or whole folders through a bundled FFmpeg install.
 - Converts to **MP3, AAC, Opus, FLAC, ALAC, or WAV**, correctly marking which targets are lossless and which support embedded cover art.
 - On Windows, FFmpeg installs itself on first use via `winget` — no separate download-and-PATH dance. On Linux, Playnck detects an existing `ffmpeg` on your `$PATH` and uses it directly; if it's missing, the Convert tab tells you the exact command for your distro (e.g. Fedora needs RPM Fusion for the full codec set — `ffmpeg-free` alone can't encode MP3).
 
 <p align="center"><img src="docs/screenshots/Convert.png" alt="Convert tab with FFmpeg ready" width="850"></p>
 
-### ⚙️ Settings, all in one place
+###  Settings, all in one place
 Everything above is configurable from a single Settings panel, organized into **Theme, Updates, Audio, Player, Backup & Restore, and Language** — no digging through nested menus to find a toggle.
 
 <p align="center"><img src="docs/screenshots/Setting.png" alt="Settings panel with Theme, Updates, Audio, Player, Backup & Restore, and Language sections" width="850"></p>
 
-### 🛡️ Reliability & housekeeping
+###  Reliability & housekeeping
 - Optional **sleep timer** (15/30/45/60/90 minutes) that fades out and stops playback.
 - **Backup & Restore** built into Settings, so your library/tags/preferences aren't stranded on one machine.
 - Ships an EULA and third-party notices, with a locally vendored copy of `jsmediatags` and a strict Content-Security-Policy — the app doesn't reach out to arbitrary remote scripts.
@@ -106,7 +106,7 @@ Everything above is configurable from a single Settings panel, organized into **
 
 ---
 
-## 🧰 Tech stack
+##  Tech stack
 
 | Layer | What's used |
 |---|---|
@@ -121,7 +121,7 @@ Everything above is configurable from a single Settings panel, organized into **
 
 ---
 
-## 📦 Installation
+##  Installation
 
 Grab the latest build for your platform from the [**Releases**](https://github.com/FakharArrazi/Project-Playnck/releases/latest) page.
 
@@ -152,7 +152,7 @@ sudo dnf install ffmpeg
 
 Auto-Tag's audio fingerprinting works out of the box — a Linux `fpcalc` binary ships inside the RPM, no separate Chromaprint install needed.
 
-## 🏗️ Building from source
+##  Building from source
 
 ```bash
 git clone https://github.com/FakharArrazi/Project-Playnck.git
@@ -177,7 +177,7 @@ npm run release
 
 Both `Setup.exe` and `.x86_64.rpm` always share the exact same version number, read from `package.json` — there's only one version to bump.
 
-## ⚙️ Requirements
+##  Requirements
 
 **Windows**
 - Windows 10/11
@@ -193,7 +193,7 @@ Both `Setup.exe` and `.x86_64.rpm` always share the exact same version number, r
 
 ---
 
-## 📁 Project structure
+##  Project structure
 
 ```
 Project-Playnck/
@@ -218,13 +218,13 @@ Project-Playnck/
 
 ---
 
-## 💬 Community
+##  Community
 
 Playnck ships with an in-app **About** screen — current build version, a short description of the app, and a one-click link to join the project's Telegram group for update announcements, feature requests, and support.
 
 <p align="center"><img src="docs/screenshots/About.png" alt="About Us screen with build version and Telegram community link" width="850"></p>
 
-## ❤️ Support Playnck
+##  Support Playnck
 
 Enjoying Playnck? If you'd like to support the project and its future
 development, you can donate through Binance Pay.
@@ -241,11 +241,11 @@ development, you can donate through Binance Pay.
 
 Scan the QR code or click the link above to make a donation.
 
-## 🧑‍💻 Credits
+##  Credits
 
 Built and maintained by **[Arrazi](https://github.com/Arrazi-w140)**.
 
-## 📄 License
+##  License
 
 Playnck is **source-available, not open source**. It's distributed under a custom End-User License Agreement (see [`LICENSE`](LICENSE)) — you're licensed to install and use the compiled app for personal/internal use, but redistribution, modification, and reverse engineering are restricted. See the LICENSE file for the full terms.
 
