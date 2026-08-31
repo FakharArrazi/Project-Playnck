@@ -176,58 +176,91 @@ function backfillFolderPaths(){
 // metadata-bridge.js). Electron only; callers already guard on
 // window.electronAPI before this is ever reached.
 // Returns true if anything was actually added.
+// How many getAudioMetadata() IPC calls are allowed in flight at once.
+// Was a hard 1-at-a-time loop — fine for a handful of files, but on a
+// big folder (tens of thousands of tracks) that serial round-trip
+// dominated import time. 25 keeps the main process from being flooded
+// while still running well ahead of the old fully-sequential version.
+const INGEST_CONCURRENCY=25;
+
 async function ingestDiscoveredPaths(paths, folderId){
   if(!paths.length) return false;
   let addedAny=false;
 
-  for(const filePath of paths){
+  // Built once, up front, instead of re-scanning the entire
+  // state.tracks array (via .some()) for every single path — that was
+  // O(paths.length * state.tracks.length), which is what actually made
+  // big-library imports/rescans crawl, not the disk/IPC work itself.
+  // Excludes unpersisted external tracks (see ingestFiles()) on
+  // purpose: a file living inside a library folder shouldn't stay
+  // unimported forever just because it was previously opened
+  // externally — the next rescan should still pick it up for real.
+  const knownPaths=new Set(
+    state.tracks.filter(t=>!t.external).map(t=>t.filePath)
+  );
+
+  for(let i=0;i<paths.length;i+=INGEST_CONCURRENCY){
     // Defensive re-check — the caller already filters against tracks
-    // it knew about at scan time, but this loop can run long on a big
-    // folder, so guard against the rare case of the same path getting
-    // added some other way (e.g. drag/drop) while this was still going.
-    // Excludes unpersisted external tracks (see ingestFiles()) on
-    // purpose: a file living inside a library folder shouldn't stay
-    // unimported forever just because it was previously opened
-    // externally — the next rescan should still pick it up for real.
-    if(state.tracks.some(t=>t.filePath===filePath && !t.external)) continue;
+    // it knew about at scan time, but this can run long on a big
+    // folder, so guard against the same path getting added some other
+    // way (e.g. drag/drop) while this was still going. Claiming a path
+    // in knownPaths as soon as it's picked also stops two copies of
+    // the same path landing twice within this same call.
+    const batch=paths.slice(i,i+INGEST_CONCURRENCY).filter(filePath=>{
+      if(knownPaths.has(filePath)) return false;
+      knownPaths.add(filePath);
+      return true;
+    });
+    if(!batch.length) continue;
 
-    let meta=null;
-    try{ meta=await window.electronAPI.getAudioMetadata(filePath); }
-    catch(e){ console.warn("ingestDiscoveredPaths: getAudioMetadata failed for",filePath,e); }
-    if(!meta) continue;
+    // The metadata reads themselves are independent of each other, so
+    // they go out together instead of one full IPC round-trip at a
+    // time; the track objects are still built and pushed in the same
+    // order paths came in, one at a time, right below.
+    const metas=await Promise.all(batch.map(filePath=>
+      window.electronAPI.getAudioMetadata(filePath).catch(e=>{
+        console.warn("ingestDiscoveredPaths: getAudioMetadata failed for",filePath,e);
+        return null;
+      })
+    ));
 
-    const fileName=filePath.split(/[\\/]/).pop();
-    const guess=guessFromName(fileName);
-    const title=meta.title || guess.title;
-    const artist=meta.artist || guess.artist;
-    const artBlob=(meta.picture && meta.picture.data)
-      ? new Blob([new Uint8Array(meta.picture.data)],{type:meta.picture.format||"image/jpeg"})
-      : null;
+    batch.forEach((filePath,idx)=>{
+      const meta=metas[idx];
+      if(!meta) return;
 
-    const track={
-      id:uid(),
-      title,
-      artist,
-      album: meta.album || "Unknown Album",
-      trackNum: meta.trackNum ?? null,
-      duration: meta.duration || 0,
-      folderId,
-      dateAdded: Date.now(),
-      fileBlob:null,
-      artBlob,
-      filePath
-    };
-    hydrateTrack(track);
-    state.tracks.push(track);
-    addedAny=true;
+      const fileName=filePath.split(/[\\/]/).pop();
+      const guess=guessFromName(fileName);
+      const title=meta.title || guess.title;
+      const artist=meta.artist || guess.artist;
+      const artBlob=(meta.picture && meta.picture.data)
+        ? new Blob([new Uint8Array(meta.picture.data)],{type:meta.picture.format||"image/jpeg"})
+        : null;
 
-    const storeCopy={
-      id:track.id, title:track.title, artist:track.artist, album:track.album,
-      trackNum:track.trackNum,
-      duration:track.duration, folderId:track.folderId, dateAdded:track.dateAdded,
-      fileBlob:track.fileBlob, artBlob:track.artBlob, filePath:track.filePath
-    };
-    idbPut("tracks",storeCopy);
+      const track={
+        id:uid(),
+        title,
+        artist,
+        album: meta.album || "Unknown Album",
+        trackNum: meta.trackNum ?? null,
+        duration: meta.duration || 0,
+        folderId,
+        dateAdded: Date.now(),
+        fileBlob:null,
+        artBlob,
+        filePath
+      };
+      hydrateTrack(track);
+      state.tracks.push(track);
+      addedAny=true;
+
+      const storeCopy={
+        id:track.id, title:track.title, artist:track.artist, album:track.album,
+        trackNum:track.trackNum,
+        duration:track.duration, folderId:track.folderId, dateAdded:track.dateAdded,
+        fileBlob:track.fileBlob, artBlob:track.artBlob, filePath:track.filePath
+      };
+      idbPut("tracks",storeCopy);
+    });
   }
   return addedAny;
 }
