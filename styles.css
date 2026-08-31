@@ -1,12 +1,8 @@
-/*
-  MY MUSIC PLAYER — STYLES
-  Part of a 3-file split: index.html, styles.css (this file), script.js
-  Keep all three in the same folder.
-*/
-
 
   /* ================================================================
-                                                                          
+                                   
+  
+  
                                                                         ░██████    ░██████     ░██████   
                                                                       ░██   ░██  ░██   ░██   ░██   ░██  
                                                                       ░██        ░██         ░██         
@@ -15,18 +11,9 @@
                                                                       ░██   ░██  ░██   ░██   ░██   ░██  
                                                                         ░██████    ░██████     ░██████   
                                    
-                                                             
-     PART 1: CSS — STYLES (how the app looks)
-     ----------------------------------------------------------------
-     Read top to bottom in this order:
-       design tokens -> global resets -> app shell/layout
-       -> sidebar (brand, folder toolbar, tabs, list header, search,
-          the scrollable list itself, song rows, album cards,
-          artist/playlist/folder rows, context + sort menu)
-       -> player panel (cover art, lyrics, track text, controls,
-          the side menu, the info/edit modal)
-       -> mobile-only overrides at the very bottom.
-     ================================================================ */
+
+   ================================================================*/
+
 
 
 @import url("css/variables.css");

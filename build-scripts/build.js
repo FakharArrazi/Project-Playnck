@@ -31,7 +31,11 @@ const NODE_FILES = ["main.js", "preload.js", "metadata-bridge.js", "autotag-brid
 // index.html, no direct Node access). Obfuscated with
 // target:"browser-no-eval" — same strength, but avoids eval()-based
 // tricks that a Content-Security-Policy could otherwise block.
-const BROWSER_FILES = ["script.js", "renderer-bridge.js"];
+const BROWSER_FILES = ["script.js", "renderer-bridge.js", "state.js", "utils.js", "i18n.js",
+  "init.js", "metadata.js", "drag-drop.js", "library-view.js", "folders.js", "menus.js",
+  "convert.js", "playlists.js", "queue.js", "crossfade.js", "equalizer.js", "visualizer.js",
+  "player.js", "now-playing-ui.js", "volume.js", "lyrics.js", "modal.js", "side-menu.js",
+  "metadata-edit.js", "theme.js", "settings.js", "backup.js", "sleep-timer.js", "bindings.js"];
 
 // Toggle: SKIP_OBFUSCATION=1 npm run release
 // Publishes with the source completely untouched, to test in
