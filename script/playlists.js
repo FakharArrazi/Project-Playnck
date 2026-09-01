@@ -1,7 +1,7 @@
 import { state, $, idbPut, idbDelete, audioEl, uid, nextOrder, selectToggle } from "./state.js";
 import { tr, plural, SELECT_TYPE_PLURAL_KEY } from "./i18n.js";
-import { escapeHTML, el, replayMotion } from "./utils.js";
-import { renderTab, computeAlbums, computeArtists } from "./library-view.js";
+import { escapeHTML, el, replayMotion, debounce } from "./utils.js";
+import { renderTab, computeAlbums, computeArtists, matchQuery } from "./library-view.js";
 import { closeMenu, setOpenMenuEl } from "./menus.js";
 import { libraryTracks } from "./metadata.js";
 import { openModal, closeModal, promptModal } from "./modal.js";
@@ -223,46 +223,125 @@ function addToPlaylist(playlistId,trackId){
 
 
 
+// The sort orders offered in the "Add Music to <playlist>" modal's
+// own sort dropdown — a small, single-purpose list (unlike the
+// Songs tab's SORT_OPTIONS in library-view.js, this one is never
+// written to state, so picking one here can never change how the
+// library itself is sorted elsewhere). "value" mirrors the same
+// value strings sortTracks()/sortGroups() use for the equivalent
+// field so the two stay easy to compare; "key" reuses existing
+// i18n strings where one already says the right thing.
+const ADD_MUSIC_SORT_OPTIONS=[
+  {value:"title-asc",  key:"sort.titleAsc"},
+  {value:"artist-asc", key:"sort.artistAsc"},
+  {value:"album-asc",  key:"sort.albumAsc"},
+  {value:"date-desc",  key:"sort.dateNewest"}
+];
+
+// Orders a list of tracks for display in the Add Music modal only —
+// same comparator style as sortTracks()/sortGroups() in
+// library-view.js (localeCompare for text fields, missing dateAdded
+// treated as 0/oldest), but reading its own local "sortBy" argument
+// instead of state.sortBy so the library's real sort order is never
+// touched. Never mutates the array it's given.
+function sortAddMusicTracks(tracks,sortBy){
+  const sorted=[...tracks];
+  switch(sortBy){
+    case "artist-asc": sorted.sort((a,b)=>a.artist.localeCompare(b.artist)); break;
+    case "album-asc":  sorted.sort((a,b)=>a.album.localeCompare(b.album)); break;
+    case "date-desc":  sorted.sort((a,b)=>(b.dateAdded||0)-(a.dateAdded||0)); break;
+    case "title-asc":
+    default:           sorted.sort((a,b)=>a.title.localeCompare(b.title)); break;
+  }
+  return sorted;
+}
+
+// Builds one "add-music-row" for a track, reading its "already in
+// this playlist?" state fresh from p.trackIds every time it's drawn
+// — so the very same markup/logic the row always used still applies
+// no matter how the list around it was searched or sorted first.
+function addMusicRowHTML(t,p){
+  const already=p.trackIds.includes(t.id);
+  return `<div class="add-music-row${already?" added":""}" data-track-id="${t.id}">
+    <div class="amr-text">
+      <div class="amr-title">${escapeHTML(t.title)}</div>
+      <div class="amr-artist">${escapeHTML(t.artist)}</div>
+    </div>
+    <button class="amr-add-btn" ${already?"disabled":""}>${already?escapeHTML(tr("btn.added")):escapeHTML(tr("btn.add"))}</button>
+  </div>`;
+}
+
 // Opens the shared modal with a full list of every song in the
 // library so the user can add any of them to the given playlist.
 // Rows already in the playlist show a disabled "Added" state;
 // clicking "Add" on any other row adds it immediately and flips
 // that row to "Added" too, without closing the modal — so several
-// songs can be added in one go.
+// songs can be added in one go. A search field and sort dropdown
+// sit above the list to help find something in a big library; both
+// only ever change what's drawn here (via allTracks/renderRows
+// below) — the library and the playlist's own trackIds/order are
+// never reordered or filtered by them.
 function openAddMusicModal(playlistId){
   const p=state.playlists.find(pl=>pl.id===playlistId);
   if(!p) return;
 
-  if(!libraryTracks().length){
+  const allTracks=libraryTracks();
+  if(!allTracks.length){
     openModal(tr("modal.addMusic"), `<p class='info-empty'>${escapeHTML(tr("empty.noLibraryForAddMusic"))}</p>`);
     return;
   }
 
-  const sorted=libraryTracks().sort((a,b)=>a.title.localeCompare(b.title));
-  const bodyHTML="<div class='add-music-list' id='addMusicList'>"+sorted.map(t=>{
-    const already=p.trackIds.includes(t.id);
-    return `<div class="add-music-row${already?" added":""}" data-track-id="${t.id}">
-      <div class="amr-text">
-        <div class="amr-title">${escapeHTML(t.title)}</div>
-        <div class="amr-artist">${escapeHTML(t.artist)}</div>
-      </div>
-      <button class="amr-add-btn" ${already?"disabled":""}>${already?escapeHTML(tr("btn.added")):escapeHTML(tr("btn.add"))}</button>
-    </div>`;
-  }).join("")+"</div>";
+  const bodyHTML=`
+    <div class="add-music-controls">
+      <input type="text" class="edit-input add-music-search" id="addMusicSearch" placeholder="${escapeHTML(tr("search.placeholder"))}" autocomplete="off">
+      <select class="edit-input add-music-sort" id="addMusicSort" title="${escapeHTML(tr("sort.sortSongsBy"))}">
+        ${ADD_MUSIC_SORT_OPTIONS.map(opt=>`<option value="${opt.value}">${escapeHTML(tr(opt.key))}</option>`).join("")}
+      </select>
+    </div>
+    <div class="add-music-list" id="addMusicList"></div>`;
 
   openModal(tr("modal.addMusicToNamed",{name:p.name}), bodyHTML);
 
-  // Wire up each row's Add button after the HTML is in the DOM.
-  $("addMusicList").querySelectorAll(".add-music-row").forEach(row=>{
-    const trackId=row.dataset.trackId;
-    const addBtn=row.querySelector(".amr-add-btn");
-    addBtn.addEventListener("click",()=>{
-      addToPlaylist(playlistId,trackId);
-      row.classList.add("added");
-      addBtn.textContent=tr("btn.added");
-      addBtn.disabled=true;
+  const searchInput=$("addMusicSearch");
+  const sortSelect=$("addMusicSort");
+  const listEl=$("addMusicList");
+
+  // Redraws #addMusicList from allTracks, applying whatever search
+  // text/sort order are currently set in the controls above — this
+  // is the ONLY place that reads them. Re-run after every keystroke,
+  // every sort change, and every successful Add so an already-added
+  // row can never fall out of sync with p.trackIds.
+  function renderRows(){
+    const q=(searchInput.value||"").toLowerCase().trim();
+    const visible=sortAddMusicTracks(q?allTracks.filter(t=>matchQuery(t,q)):allTracks, sortSelect.value);
+
+    if(!visible.length){
+      listEl.innerHTML=`<p class="info-empty">${escapeHTML(tr("empty.noAddMusicResults"))}</p>`;
+      return;
+    }
+
+    listEl.innerHTML=visible.map(t=>addMusicRowHTML(t,p)).join("");
+
+    // Wire up each row's Add button after the HTML is in the DOM.
+    listEl.querySelectorAll(".add-music-row").forEach(row=>{
+      const trackId=row.dataset.trackId;
+      const addBtn=row.querySelector(".amr-add-btn");
+      addBtn.addEventListener("click",()=>{
+        addToPlaylist(playlistId,trackId);
+        row.classList.add("added");
+        addBtn.textContent=tr("btn.added");
+        addBtn.disabled=true;
+      });
     });
-  });
+  }
+
+  // Same 120ms debounce as the main library search box (see
+  // searchInput's "input" listener in bindings.js) so fast typing
+  // doesn't rebuild the list on every single keystroke.
+  searchInput.addEventListener("input",debounce(renderRows,120));
+  sortSelect.addEventListener("change",renderRows);
+
+  renderRows();
 }
 
 

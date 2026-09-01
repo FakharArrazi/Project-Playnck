@@ -181,8 +181,15 @@
      Reuses the shared modal to show every song in the library so
      the user can add any of them to the playlist they're viewing.
      Rows for tracks already in the playlist are dimmed and their
-     button disabled/labeled "Added".
+     button disabled/labeled "Added". The search box + sort dropdown
+     sit in their own row above the list (see openAddMusicModal() in
+     script/playlists.js) — reusing .edit-input's existing look
+     (see dialogs.css) so they read as native app controls rather
+     than a bolted-on widget.
      ------------------------------------------------------------ */
+  .add-music-controls{display:flex;gap:8px;margin-bottom:12px;}
+  .add-music-search{flex:1;min-width:0;}
+  .add-music-sort{flex-shrink:0;width:150px;cursor:pointer;}
   .add-music-list{display:flex;flex-direction:column;gap:2px;}
   .add-music-row{
     display:flex;align-items:center;justify-content:space-between;gap:12px;

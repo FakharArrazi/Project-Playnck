@@ -260,7 +260,10 @@ function renderTab(){
 
 
 // True if a track's title, artist or album contains the search
-// query (case-insensitive).
+// query (case-insensitive). Exported so other search boxes over the
+// library — e.g. the "Add Music to <playlist>" modal's search field
+// in playlists.js — filter with the exact same rules as the main
+// Songs/Albums/Artists search instead of a second, drifting copy.
 function matchQuery(t,q){
   return t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q) || t.album.toLowerCase().includes(q);
 }
@@ -834,5 +837,5 @@ function renderFolderList(){
 export {
   renderTab, renderSongList, refreshPlayingHighlight, scrollToNowPlaying,
   updateSelectionBar, toggleSelectMode, computeAlbums, computeArtists,
-  SORT_OPTIONS, currentSortKey
+  SORT_OPTIONS, currentSortKey, matchQuery
 };
