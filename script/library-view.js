@@ -9,6 +9,7 @@ import { openFolderMenu } from "./folders.js";
 import { renderConvertTab } from "./convert.js";
 import { openTrackMenu } from "./menus.js";
 import { createPlaylistPrompt, openPlaylistMenu } from "./playlists.js";
+import { createPlaylistFolderPrompt, openPlaylistFolder, openPlaylistFolderMenu, countPlaylistsInFolder } from "./playlist-folders.js";
 
 /* ================================================================
    GROUPING
@@ -236,7 +237,15 @@ function renderTab(){
     if(q) artists=artists.filter(a=>a.artist.toLowerCase().includes(q));
     renderArtistList(artists);
   } else if(state.currentTab==="playlists"){
-    listTitle.textContent=tr("nav.playlists");
+    // A folder we were browsing may have just been deleted (e.g. via
+    // its own "⋮" menu) — fall back to root rather than rendering a
+    // view for a folder that no longer exists.
+    if(state.playlistFolderId && !state.playlistFolders.find(f=>f.id===state.playlistFolderId)){
+      state.playlistFolderId=null;
+    }
+    const currentFolder = state.playlistFolderId ? state.playlistFolders.find(f=>f.id===state.playlistFolderId) : null;
+    listTitle.textContent = currentFolder ? currentFolder.name : tr("nav.playlists");
+    backBtn.classList.toggle("hidden", !currentFolder);
     renderPlaylistList();
   } else if(state.currentTab==="folders"){
     listTitle.textContent=tr("nav.folders");
@@ -662,14 +671,18 @@ function renderArtistList(artists){
 
 
 
-// Draws the Playlists tab: a "+ New Playlist" button followed by
-// one row per existing playlist (Favorites is always first, since
-// it's unshifted onto state.playlists in init()). In select mode
-// every playlist except the built-in Favorites gets a checkbox —
-// Favorites can't be deleted so it's excluded from bulk selection
-// too, and stays tap-to-open even while selecting.
+// Draws the Playlists tab: a "+ New Playlist"/"+ New Folder"
+// toolbar followed by the current level's folders and playlists —
+// root by default, or whatever folder state.playlistFolderId points
+// at (see openPlaylistFolder() in playlist-folders.js) — sorted
+// together by their shared "order" field, file-manager style.
+// Favorites is always at root (it never gets a "⋮" menu, so it can
+// never be moved into a folder) and unselectable even in select
+// mode, same as before; folders are never selectable at all, since
+// bulk-select on this tab only ever targets playlists.
 function renderPlaylistList(){
-  const btn=el("button","new-playlist-btn",tr("playlists.newPlaylist"));
+  const toolbar=el("div","playlist-toolbar");
+  const newPlaylistBtn=el("button","new-playlist-btn",tr("playlists.newPlaylist"));
   // NOTE: wrapped in an arrow function rather than passed directly
   // (`btn.addEventListener("click",createPlaylistPrompt)`) — passed
   // directly, the click's native Event object becomes
@@ -679,38 +692,88 @@ function renderPlaylistList(){
   // trackIds. That Event object can't be saved to IndexedDB (it's
   // not structured-cloneable), so the playlist would render fine in
   // this session but silently fail to persist — gone on next launch.
-  btn.addEventListener("click",()=>createPlaylistPrompt());
-  listContainer.appendChild(btn);
-  state.playlists.forEach(p=>{
-    const tracks=p.trackIds.map(id=>state.tracks.find(t=>t.id===id)).filter(Boolean);
-    const isFavorites=p.id===state.favoritesId;
-    const selectableRow=state.selectMode && !isFavorites;
-    const selected=selectableRow && state.selectedIds.has(p.id);
-    const line=el("div","list-line"+(selectableRow?" selectable":"")+(selected?" selected":""));
-    line.dataset.selectId=p.id; // lets refreshSelectionHighlight() find this row later without a full re-render
-    if(selectableRow) line.appendChild(el("div","row-check"));
-    const img=document.createElement("img");
-    img.loading="lazy"; img.decoding="async";
-    img.src=(tracks[0]&&getTrackArtURL(tracks[0]))||fallbackArt();
-    line.appendChild(img);
-    const wrap=el("div","wrap");
-    wrap.appendChild(el("div","name",escapeHTML(p.name)));
-    wrap.appendChild(el("div","sub",plural(tracks.length,"song")));
-    line.appendChild(wrap);
-    // The built-in Favorites playlist can't be renamed or
-    // deleted, so it doesn't get a "⋮" menu button — every other,
-    // user-created playlist does.
-    if(!isFavorites){
-      const menuBtn=el("button","menu-btn","&#8942;");
-      menuBtn.addEventListener("click",(e)=>{ e.stopPropagation(); openPlaylistMenu(e,p); });
-      line.appendChild(menuBtn);
-    }
-    line.addEventListener("click",()=>{
-      if(selectableRow) toggleItemSelected(p.id);
-      else{ state.filter={type:"playlist",title:p.name,tracks,playlistId:p.id}; renderTab(); }
-    });
-    listContainer.appendChild(line);
+  newPlaylistBtn.addEventListener("click",()=>createPlaylistPrompt());
+  const newFolderBtn=el("button","new-playlist-btn",tr("playlists.newFolder"));
+  newFolderBtn.addEventListener("click",()=>createPlaylistFolderPrompt());
+  toolbar.appendChild(newPlaylistBtn);
+  toolbar.appendChild(newFolderBtn);
+  listContainer.appendChild(toolbar);
+
+  const parentId=state.playlistFolderId||null;
+  const folders=state.playlistFolders.filter(f=>(f.parentId||null)===parentId);
+  const playlists=state.playlists.filter(p=>(p.parentId||null)===parentId);
+  const items=folders.map(data=>({kind:"folder",data}))
+    .concat(playlists.map(data=>({kind:"playlist",data})))
+    .sort((a,b)=>(a.data.order??0)-(b.data.order??0));
+
+  // Only a folder can ever end up genuinely empty — the root level
+  // always has at least Favorites.
+  if(parentId && !items.length){
+    listContainer.appendChild(el("div","empty-state",tr("empty.emptyPlaylistFolder")));
+    return;
+  }
+
+  items.forEach(({kind,data})=>{
+    listContainer.appendChild(kind==="folder" ? renderPlaylistFolderRow(data) : renderPlaylistRow(data));
   });
+}
+
+
+
+// One playlist-folder row — a ".folder-line" row with the same
+// square icon treatment renderFolderList() uses for library folders,
+// so folders read as folders wherever they appear. Always drills in
+// on click, select mode or not; see renderPlaylistList() above for
+// why folders never get a checkbox.
+function renderPlaylistFolderRow(f){
+  const line=el("div","list-line folder-line");
+  const iconWrap=el("div","icon-wrap","<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2'><path d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z'/></svg>");
+  line.appendChild(iconWrap);
+  const wrap=el("div","wrap");
+  wrap.appendChild(el("div","name",escapeHTML(f.name)));
+  wrap.appendChild(el("div","sub",plural(countPlaylistsInFolder(f.id),"playlist")));
+  line.appendChild(wrap);
+  const menuBtn=el("button","menu-btn","&#8942;");
+  menuBtn.addEventListener("click",(e)=>{ e.stopPropagation(); openPlaylistFolderMenu(e,f); });
+  line.appendChild(menuBtn);
+  line.addEventListener("click",()=>openPlaylistFolder(f));
+  return line;
+}
+
+
+
+// One playlist row — pulled out of renderPlaylistList() so a
+// playlist nested inside a folder renders exactly like a root-level
+// one; logic and markup are unchanged from before folders existed.
+function renderPlaylistRow(p){
+  const tracks=p.trackIds.map(id=>state.tracks.find(t=>t.id===id)).filter(Boolean);
+  const isFavorites=p.id===state.favoritesId;
+  const selectableRow=state.selectMode && !isFavorites;
+  const selected=selectableRow && state.selectedIds.has(p.id);
+  const line=el("div","list-line"+(selectableRow?" selectable":"")+(selected?" selected":""));
+  line.dataset.selectId=p.id; // lets refreshSelectionHighlight() find this row later without a full re-render
+  if(selectableRow) line.appendChild(el("div","row-check"));
+  const img=document.createElement("img");
+  img.loading="lazy"; img.decoding="async";
+  img.src=(tracks[0]&&getTrackArtURL(tracks[0]))||fallbackArt();
+  line.appendChild(img);
+  const wrap=el("div","wrap");
+  wrap.appendChild(el("div","name",escapeHTML(p.name)));
+  wrap.appendChild(el("div","sub",plural(tracks.length,"song")));
+  line.appendChild(wrap);
+  // The built-in Favorites playlist can't be renamed, moved or
+  // deleted, so it doesn't get a "⋮" menu button — every other,
+  // user-created playlist does.
+  if(!isFavorites){
+    const menuBtn=el("button","menu-btn","&#8942;");
+    menuBtn.addEventListener("click",(e)=>{ e.stopPropagation(); openPlaylistMenu(e,p); });
+    line.appendChild(menuBtn);
+  }
+  line.addEventListener("click",()=>{
+    if(selectableRow) toggleItemSelected(p.id);
+    else{ state.filter={type:"playlist",title:p.name,tracks,playlistId:p.id}; renderTab(); }
+  });
+  return line;
 }
 
 

@@ -8,6 +8,7 @@ import "./script/folders.js";
 import "./script/menus.js";
 import "./script/convert.js";
 import "./script/playlists.js";
+import "./script/playlist-folders.js";
 import "./script/queue.js";
 import "./script/crossfade.js";
 import "./script/equalizer.js";

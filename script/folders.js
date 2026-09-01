@@ -3,7 +3,8 @@ import { el, replayMotion } from "./utils.js";
 import { tr, plural } from "./i18n.js";
 import { renderTab } from "./library-view.js";
 import { closeMenu, openMenuEl, setOpenMenuEl } from "./menus.js";
-import { promptModal, notifyTracksDeleted, removeTrackData } from "./playlists.js";
+import { promptModal } from "./modal.js";
+import { notifyTracksDeleted, removeTrackData } from "./playlists.js";
 
 /* ================================================================
    FOLDERS — RENAME / DELETE / FORGET

@@ -8,11 +8,11 @@ import { openModal } from "./modal.js";
 /* ================================================================
    LIBRARY BACKUP / RESTORE
    Everything the app knows — tracks (as metadata + real file paths,
-   never the raw audio itself), playlists, folders, cached lyrics,
-   and settings — as one portable JSON file. This is the only way to
-   carry a library between machines or recover it after a reinstall,
-   since none of it is otherwise exported anywhere; it all just lives
-   in this browser profile's IndexedDB.
+   never the raw audio itself), playlists, playlist folders, folders,
+   cached lyrics, and settings — as one portable JSON file. This is
+   the only way to carry a library between machines or recover it
+   after a reinstall, since none of it is otherwise exported
+   anywhere; it all just lives in this browser profile's IndexedDB.
 
    Deliberately excluded from the backup:
      - fileBlob: the actual audio bytes, kept only for tracks picked
@@ -56,11 +56,12 @@ function base64ToBlob(dataURL){
 // one-time migration/theme/first-run "Favorites" playlist logic here
 // too (none of that is relevant mid-session).
 async function reloadLibraryFromDB(){
-  const [tracksRaw, playlistsRaw, foldersRaw] = await Promise.all([
-    idbGetAll("tracks"), idbGetAll("playlists"), idbGetAll("folders")
+  const [tracksRaw, playlistsRaw, foldersRaw, playlistFoldersRaw] = await Promise.all([
+    idbGetAll("tracks"), idbGetAll("playlists"), idbGetAll("folders"), idbGetAll("playlistFolders")
   ]);
   state.folders=foldersRaw||[];
   state.playlists=playlistsRaw||[];
+  state.playlistFolders=playlistFoldersRaw||[];
   state.tracks=(tracksRaw||[]).map(hydrateTrack);
   renderTab();
 }
@@ -75,8 +76,8 @@ async function exportLibraryBackup(){
     return {saved:false, reason:tr("backup.desktopOnly")};
   }
 
-  const [tracks,playlists,folders,lyrics,settingsRows]=await Promise.all([
-    idbGetAll("tracks"), idbGetAll("playlists"), idbGetAll("folders"),
+  const [tracks,playlists,folders,playlistFolders,lyrics,settingsRows]=await Promise.all([
+    idbGetAll("tracks"), idbGetAll("playlists"), idbGetAll("folders"), idbGetAll("playlistFolders"),
     idbGetAll("lyrics"), idbGetAll("settings")
   ]);
 
@@ -94,7 +95,7 @@ async function exportLibraryBackup(){
 
   const payload={
     format:"playnck-backup", version:BACKUP_FORMAT_VERSION, exportedAt:new Date().toISOString(),
-    tracks:trackRows, playlists, folders, lyrics, settings:settingsRows
+    tracks:trackRows, playlists, folders, playlistFolders, lyrics, settings:settingsRows
   };
 
   const filename=`playnck-backup-${new Date().toISOString().slice(0,10)}.json`;
@@ -139,6 +140,7 @@ async function importLibraryBackup(){
   }
   for(const p of (payload.playlists||[])) await idbPut("playlists",p);
   for(const f of (payload.folders||[])) await idbPut("folders",f);
+  for(const pf of (payload.playlistFolders||[])) await idbPut("playlistFolders",pf);
   for(const l of (payload.lyrics||[])) await idbPut("lyrics",l);
   for(const s of (payload.settings||[])) await idbPut("settings",s);
 

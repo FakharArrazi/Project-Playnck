@@ -397,8 +397,14 @@
   /* ------------------------------------------------------------
      "NEW PLAYLIST" DASHED BUTTON
      The big dashed call-to-action shown at the top of the
-     Playlists tab.
+     Playlists tab. .playlist-toolbar wraps it together with the
+     matching "+ New Folder" button so the two sit side by side
+     instead of one being full-width — .new-playlist-btn keeps
+     working unwrapped too, its own margin only gets overridden
+     when it's inside the toolbar.
      ------------------------------------------------------------ */
+  .playlist-toolbar{display:flex;gap:8px;margin:6px 8px 10px;}
+  .playlist-toolbar .new-playlist-btn{margin:0;flex:1;}
   .new-playlist-btn{
     display:flex;align-items:center;gap:10px;width:100%;background:none;
     border:1px dashed var(--border);color:var(--text-dim);border-radius:10px;

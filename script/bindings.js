@@ -116,6 +116,7 @@ function bindEvents(){
       btn.classList.add("active");
       state.currentTab=btn.dataset.tab;
       state.filter=null;
+      state.playlistFolderId=null; // always land on the Playlists tab's root, same as every other tab resetting to its own top level
       searchInput.value="";
       renderTab();
     });
@@ -123,7 +124,23 @@ function bindEvents(){
 
 
   // --- Back button + search toggle/input ---
-  backBtn.addEventListener("click",()=>{ state.filter=null; searchInput.value=""; renderTab(); });
+  // Two things can be "backed out of" on the Playlists tab: a
+  // drilled-into playlist's song list (state.filter, same as
+  // albums/artists/library folders), or a nested playlist folder
+  // (state.playlistFolderId, which has no such filter). A song list
+  // always backs out to whichever of those it was opened from, so
+  // clearing state.filter first and falling through to
+  // playlistFolderId naturally lands back on the right folder.
+  backBtn.addEventListener("click",()=>{
+    if(state.filter){
+      state.filter=null;
+    } else if(state.currentTab==="playlists" && state.playlistFolderId){
+      const current=state.playlistFolders.find(f=>f.id===state.playlistFolderId);
+      state.playlistFolderId=current ? (current.parentId||null) : null;
+    }
+    searchInput.value="";
+    renderTab();
+  });
   searchToggle.addEventListener("click",()=>{
     searchRow.classList.toggle("hidden");
     if(!searchRow.classList.contains("hidden")) searchInput.focus();

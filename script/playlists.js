@@ -1,10 +1,10 @@
-import { state, $, idbPut, idbDelete, audioEl, uid, selectToggle } from "./state.js";
+import { state, $, idbPut, idbDelete, audioEl, uid, nextOrder, selectToggle } from "./state.js";
 import { tr, plural, SELECT_TYPE_PLURAL_KEY } from "./i18n.js";
 import { escapeHTML, el, replayMotion } from "./utils.js";
 import { renderTab, computeAlbums, computeArtists } from "./library-view.js";
 import { closeMenu, setOpenMenuEl } from "./menus.js";
 import { libraryTracks } from "./metadata.js";
-import { openModal, closeModal } from "./modal.js";
+import { openModal, closeModal, promptModal } from "./modal.js";
 import { resetShuffleNextPick } from "./queue.js";
 import { refreshNextPreview, updateNowPlayingUI, updateLoveButton } from "./now-playing-ui.js";
 
@@ -14,71 +14,15 @@ import { refreshNextPreview, updateNowPlayingUI, updateLoveButton } from "./now-
    and from them (including the special built-in Favorites list).
    ================================================================ */
 
-// Stand-in for window.prompt(), which Electron's renderer never
-// implements — unlike alert()/confirm(), which show a real native
-// dialog, prompt() silently does nothing and the call returns right
-// away with no dialog ever appearing on screen (this has been true
-// since Electron's earliest releases: https://github.com/electron/electron/issues/472).
-// Every call site that used to call prompt() for a text value
-// (new playlist name, rename playlist, rename folder) now calls
-// this instead. Reuses the same modal overlay and .edit-* styling
-// as the Edit Track modal so it looks native to the app. Resolves
-// with the trimmed text, or null if the user cancels/submits empty.
-function promptModal(title, label, defaultValue){
-  return new Promise(resolve=>{
-    const bodyHTML=`
-      <div class="edit-form">
-        <div class="edit-field">
-          <label class="edit-label" for="promptModalInput">${escapeHTML(label)}</label>
-          <input type="text" class="edit-input" id="promptModalInput" autocomplete="off">
-        </div>
-        <div class="edit-actions">
-          <button type="button" class="edit-cancel-btn" id="promptModalCancelBtn">${escapeHTML(tr("modal.cancel"))}</button>
-          <button type="button" class="edit-save-btn" id="promptModalOkBtn">${escapeHTML(tr("modal.ok"))}</button>
-        </div>
-      </div>`;
-    openModal(title, bodyHTML);
-
-    const input=$("promptModalInput");
-    input.value=defaultValue||"";
-    input.focus();
-    input.select();
-
-    let settled=false;
-    function finish(value){
-      if(settled) return;
-      settled=true;
-      $("modalCloseBtn").removeEventListener("click",onOutsideCancel);
-      $("modalOverlay").removeEventListener("click",onOverlayClick);
-      closeModal();
-      resolve(value);
-    }
-    function onOutsideCancel(){ finish(null); }
-    function onOverlayClick(e){ if(e.target.id==="modalOverlay") finish(null); }
-
-    $("promptModalCancelBtn").addEventListener("click",()=>finish(null));
-    $("promptModalOkBtn").addEventListener("click",()=>finish(input.value.trim()||null));
-    input.addEventListener("keydown",(e)=>{
-      if(e.key==="Enter"){ e.preventDefault(); finish(input.value.trim()||null); }
-      else if(e.key==="Escape"){ e.preventDefault(); finish(null); }
-    });
-    // Also resolve (as a cancel) if the modal gets closed via the
-    // "✕" button or by clicking the dark backdrop, so the promise
-    // never hangs unresolved.
-    $("modalCloseBtn").addEventListener("click",onOutsideCancel);
-    $("modalOverlay").addEventListener("click",onOverlayClick);
-  });
-}
-
-
-
-// Prompts the user for a playlist name and creates it. If
-// trackIdToAdd is given (e.g. from the "+ New playlist" option
-// inside a song's "⋮" menu), that track is added to it immediately.
+// Prompts the user for a playlist name and creates it inside
+// whichever playlist folder is currently open (state.playlistFolderId,
+// null for the Playlists tab root). If trackIdToAdd is given (e.g.
+// from the "+ New playlist" option inside a song's "⋮" menu), that
+// track is added to it immediately.
 async function createPlaylistPrompt(trackIdToAdd){
   const name=await promptModal(tr("prompt.newPlaylistTitle"),tr("prompt.playlistNameLabel"));
   if(!name) return;
-  const p={id:uid(),name,trackIds:trackIdToAdd?[trackIdToAdd]:[]};
+  const p={id:uid(),name,trackIds:trackIdToAdd?[trackIdToAdd]:[],parentId:state.playlistFolderId||null,order:nextOrder()};
   state.playlists.push(p);
   idbPut("playlists",p);
   renderTab();
@@ -96,6 +40,10 @@ function openPlaylistMenu(e,playlist){
   const renameBtn=el("button","",tr("playlist.rename"));
   renameBtn.addEventListener("click",()=>{ closeMenu(); renamePlaylist(playlist); });
   menu.appendChild(renameBtn);
+
+  const moveBtn=el("button","",tr("menu.moveTo"));
+  moveBtn.addEventListener("click",()=>{ closeMenu(); openMoveItemModal(playlist,"playlist"); });
+  menu.appendChild(moveBtn);
 
   const exportBtn=el("button","",tr("playlist.export"));
   exportBtn.addEventListener("click",()=>{ closeMenu(); exportPlaylistAsM3U(playlist); });
@@ -143,6 +91,81 @@ function deletePlaylist(playlist){
     state.filter=null;
   }
   renderTab();
+}
+
+
+
+// Every playlist-folder id nested (at any depth) inside the given
+// folder, plus the folder's own id. Used to keep a folder from being
+// moved into itself or into one of its own descendants, which would
+// otherwise cut it loose from the tree entirely.
+function folderAndDescendantIds(folderId){
+  const ids=new Set([folderId]);
+  let grew=true;
+  while(grew){
+    grew=false;
+    state.playlistFolders.forEach(f=>{
+      const parentId=f.parentId||null;
+      if(parentId && ids.has(parentId) && !ids.has(f.id)){
+        ids.add(f.id);
+        grew=true;
+      }
+    });
+  }
+  return ids;
+}
+
+
+
+// Full "Grandparent / Parent / Name" path for a playlist folder,
+// built by walking parentId pointers up to the root. Used only to
+// label destinations in the "Move to..." picker below.
+function playlistFolderPath(folder){
+  const parts=[folder.name];
+  let cur=folder;
+  while(cur.parentId){
+    const parent=state.playlistFolders.find(f=>f.id===cur.parentId);
+    if(!parent) break;
+    parts.unshift(parent.name);
+    cur=parent;
+  }
+  return parts.join(" / ");
+}
+
+
+
+// Shared "Move to..." destination picker for both playlists and
+// playlist folders (the "⋮" menu's Move entry on each — see
+// openPlaylistMenu() above and openPlaylistFolderMenu() in
+// playlist-folders.js). Lists the Playlists tab root plus every
+// eligible playlist folder; picking one re-parents the item and
+// re-renders. When moving a folder, that folder and everything
+// nested inside it are left out of the list so it can never be
+// dropped into itself.
+function openMoveItemModal(item,kind){
+  const excludedIds = kind==="folder" ? folderAndDescendantIds(item.id) : new Set();
+  const destinations=state.playlistFolders.filter(f=>!excludedIds.has(f.id));
+
+  const rows=[{id:"",label:tr("playlistFolders.rootLevel")}]
+    .concat(destinations.map(f=>({id:f.id,label:playlistFolderPath(f)})));
+
+  const bodyHTML="<div class='add-music-list' id='moveItemList'>"+rows.map(r=>`
+    <div class="add-music-row" data-dest-id="${escapeHTML(r.id)}">
+      <div class="amr-text"><div class="amr-title">${escapeHTML(r.label)}</div></div>
+      <button class="amr-add-btn">${escapeHTML(tr("btn.moveHere"))}</button>
+    </div>`).join("")+"</div>";
+
+  openModal(tr("modal.moveToNamed",{name:item.name}), bodyHTML);
+
+  $("moveItemList").querySelectorAll(".add-music-row").forEach(row=>{
+    const destId=row.dataset.destId||null;
+    row.querySelector(".amr-add-btn").addEventListener("click",()=>{
+      item.parentId=destId;
+      idbPut(kind==="folder" ? "playlistFolders" : "playlists", item);
+      closeModal();
+      renderTab();
+    });
+  });
 }
 
 
@@ -527,7 +550,8 @@ function openAddSelectedToPlaylistModal(){
 }
 
 export {
-  promptModal, createPlaylistPrompt, openPlaylistMenu, addToPlaylist, openAddMusicModal,
+  createPlaylistPrompt, openPlaylistMenu, addToPlaylist, openAddMusicModal,
   removeFromPlaylist, isInFavorites, toggleFavorite, notifyTracksDeleted, removeTrackData,
-  deleteTrack, deleteSelectedItems, openAddSelectedToPlaylistModal
+  deleteTrack, deleteSelectedItems, openAddSelectedToPlaylistModal,
+  folderAndDescendantIds, openMoveItemModal
 };

@@ -21,7 +21,7 @@ Built with Electron. Writes real ID3/metadata back to your files. Fingerprints a
 
 ##  Features
 
-### 🎧 Playback & library
+###  Playback & library
 - Plays MP3, WAV, FLAC, OGG, M4A/AAC, and Opus straight from disk — no import/transcode step, no library database bloat.
 - Audio is streamed through a custom `playnck-file://` Electron protocol with proper HTTP `Range` / `206 Partial Content` support, so seeking is instant even on long tracks.
 - **Self-healing library**: on launch and on demand, Playnck checks every track path against the disk and quietly prunes anything that's been moved, renamed outside the app, or deleted — no dead entries, no manual "clean up library" step.

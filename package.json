@@ -1,6 +1,6 @@
 {
     "name": "playnck",
-    "version": "1.1.11",
+    "version": "1.1.12",
     "description": "Playnck is a desktop music player with library management, metadata editing, Auto-Tag audio fingerprinting, synced lyrics, a 10-band equalizer, themes, playlists, and audio conversion.",
     "homepage": "https://github.com/FakharArrazi/Project-Playnck",
     "repository": {

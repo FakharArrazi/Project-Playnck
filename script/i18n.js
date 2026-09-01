@@ -125,6 +125,7 @@ const I18N={
     "sort.trackNumber":"Track Number",
 
     "playlists.newPlaylist":"+ New Playlist",
+    "playlists.newFolder":"+ New Folder",
     "playlist.rename":"Rename",
     "playlist.delete":"Delete",
     "playlist.export":"Export as .m3u",
@@ -135,6 +136,12 @@ const I18N={
     "prompt.newPlaylistTitle":"New Playlist",
     "prompt.playlistNameLabel":"Playlist name",
     "prompt.renamePlaylistTitle":"Rename Playlist",
+    "prompt.newPlaylistFolderTitle":"New Folder",
+    "menu.moveTo":"Move to...",
+    "modal.moveToNamed":"Move \"{name}\" to...",
+    "playlistFolders.rootLevel":"Playlists (Root)",
+    "btn.moveHere":"Move here",
+    "empty.emptyPlaylistFolder":"This folder is empty.",
 
     "folder.addSongs":"Add Songs",
     "folder.addFolder":"Add Folder",
@@ -453,6 +460,7 @@ const I18N={
     "sort.trackNumber":"Numéro de piste",
 
     "playlists.newPlaylist":"+ Nouvelle playlist",
+    "playlists.newFolder":"+ Nouveau dossier",
     "playlist.rename":"Renommer",
     "playlist.delete":"Supprimer",
     "playlist.export":"Exporter en .m3u",
@@ -463,6 +471,12 @@ const I18N={
     "prompt.newPlaylistTitle":"Nouvelle playlist",
     "prompt.playlistNameLabel":"Nom de la playlist",
     "prompt.renamePlaylistTitle":"Renommer la playlist",
+    "prompt.newPlaylistFolderTitle":"Nouveau dossier",
+    "menu.moveTo":"Déplacer vers...",
+    "modal.moveToNamed":"Déplacer « {name} » vers...",
+    "playlistFolders.rootLevel":"Playlists (Racine)",
+    "btn.moveHere":"Déplacer ici",
+    "empty.emptyPlaylistFolder":"Ce dossier est vide.",
 
     "folder.addSongs":"Ajouter des titres",
     "folder.addFolder":"Ajouter un dossier",

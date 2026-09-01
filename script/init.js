@@ -1,4 +1,4 @@
-import { state, setDb, openDB, idbGetAll, idbGet, idbPut, uid } from "./state.js";
+import { state, setDb, openDB, idbGetAll, idbGet, idbPut, uid, nextOrder } from "./state.js";
 import { applyI18n, LANGUAGES } from "./i18n.js";
 import { applyTheme, cacheThemeForNextBoot, THEME_BG, THEME_ACCENT } from "./theme.js";
 import { renderTab } from "./library-view.js";
@@ -21,12 +21,13 @@ init();
 async function init(){
   setDb(await openDB());
 
-  const [tracksRaw, playlistsRaw, foldersRaw] = await Promise.all([
-    idbGetAll("tracks"), idbGetAll("playlists"), idbGetAll("folders")
+  const [tracksRaw, playlistsRaw, foldersRaw, playlistFoldersRaw] = await Promise.all([
+    idbGetAll("tracks"), idbGetAll("playlists"), idbGetAll("folders"), idbGetAll("playlistFolders")
   ]);
 
   state.folders=foldersRaw||[];
   state.playlists=playlistsRaw||[];
+  state.playlistFolders=playlistFoldersRaw||[];
   state.tracks=(tracksRaw||[]).map(hydrateTrack);
 
   // One-time migration for libraries saved before this version:
@@ -127,6 +128,18 @@ async function init(){
   let fav=state.playlists.find(p=>p.name==="Favorites");
   if(!fav){ fav={id:uid(),name:"Favorites",trackIds:[]}; state.playlists.unshift(fav); idbPut("playlists",fav); }
   state.favoritesId=fav.id;
+
+  // Playlists/folders saved before ordering existed (or freshly
+  // migrated from an older version with no "order" field at all)
+  // get one assigned now, in whatever order they happened to load
+  // in, so the Playlists tab has a stable, restart-proof order from
+  // here on instead of re-deriving one from IndexedDB's own (mostly
+  // meaningless, since ids are random) key order every launch.
+  [ ["playlists",state.playlists], ["playlistFolders",state.playlistFolders] ].forEach(([store,list])=>{
+    list.forEach(item=>{
+      if(typeof item.order!=="number"){ item.order=nextOrder(); idbPut(store,item); }
+    });
+  });
 
   renderTab();
   bindEvents();

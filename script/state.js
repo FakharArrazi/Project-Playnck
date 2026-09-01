@@ -6,7 +6,7 @@
    (songs, playlists, folders) is saved here so it's still there
    next time the page is opened.
    ================================================================ */
-const DB_NAME="music_player_db", DB_VERSION=2;
+const DB_NAME="music_player_db", DB_VERSION=3;
 let db;
 
 function setDb(value){ db=value; return db; }
@@ -14,7 +14,7 @@ function setDb(value){ db=value; return db; }
 
 
 // Opens (and, on first run, creates) the IndexedDB database and
-// its five object stores. Returns a promise that resolves with
+// its object stores. Returns a promise that resolves with
 // the open database connection.
 function openDB(){
   return new Promise((resolve,reject)=>{
@@ -24,6 +24,14 @@ function openDB(){
       if(!d.objectStoreNames.contains("tracks")) d.createObjectStore("tracks",{keyPath:"id"});
       if(!d.objectStoreNames.contains("playlists")) d.createObjectStore("playlists",{keyPath:"id"});
       if(!d.objectStoreNames.contains("folders")) d.createObjectStore("folders",{keyPath:"id"});
+      // Playlist folders — the Playlists tab's own folder hierarchy
+      // (unrelated to "folders" above, which groups imported songs
+      // by their real disk location). A playlist or a playlist
+      // folder points at its parent via parentId, so nesting is just
+      // this one flat store plus that one pointer — see
+      // playlist-folders.js. Bumped DB_VERSION to 3 to add it; the
+      // guard above means every existing store/row is left untouched.
+      if(!d.objectStoreNames.contains("playlistFolders")) d.createObjectStore("playlistFolders",{keyPath:"id"});
       if(!d.objectStoreNames.contains("lyrics")) d.createObjectStore("lyrics",{keyPath:"trackId"});
       if(!d.objectStoreNames.contains("settings")) d.createObjectStore("settings",{keyPath:"key"});   // small key/value store — currently just holds the saved theme
     };
@@ -67,6 +75,18 @@ function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : "id-"+Date.now
 
 
 
+// Hands out a monotonically increasing sort key, used as the
+// "order" field on playlists and playlist folders so sibling items
+// keep a stable, restart-proof order (see playlist-folders.js).
+// Seeded from Date.now() so anything created this session sorts
+// after everything restored from a previous one, then just counts
+// up — simpler and collision-proof compared to calling Date.now()
+// again for every single item.
+let orderSeed=Date.now();
+function nextOrder(){ return orderSeed++; }
+
+
+
 /* ================================================================
    APP STATE
    One plain object holding everything the UI needs to render.
@@ -75,8 +95,10 @@ function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : "id-"+Date.now
    ================================================================ */
 const state={
   tracks:[],              // every imported song: {id,title,artist,album,duration,folderId,dateAdded,fileBlob,artBlob,fileURL,artURL}
-  playlists:[],           // {id,name,trackIds:[]}
+  playlists:[],           // {id,name,trackIds:[],parentId,order} — parentId points at a state.playlistFolders entry (or is null/undefined for a root-level playlist), see playlist-folders.js
   folders:[],             // {id,name}
+  playlistFolders:[],     // {id,name,parentId,order} — the Playlists tab's folder tree; parentId points at another entry here (or is null/undefined for a root-level folder) — see playlist-folders.js
+  playlistFolderId:null,  // id of the playlist folder currently open in the Playlists tab (null = root) — session-only, like state.filter, never persisted
   favoritesId:null,       // id of the auto-created "Favorites" playlist
   currentTab:"songs",      // which sidebar tab is active: home|songs|albums|artists|playlists|folders|convert
   filter:null,            // when drilled into an album/artist/playlist/folder: {type,value,title,tracks}
@@ -158,7 +180,7 @@ const volumePct=$("volumePct");
 const volumeIcon=$("volumeIcon");
 
 export {
-  DB_NAME, DB_VERSION, db, setDb, openDB, tx, idbPut, idbDelete, idbGetAll, idbGet, uid,
+  DB_NAME, DB_VERSION, db, setDb, openDB, tx, idbPut, idbDelete, idbGetAll, idbGet, uid, nextOrder,
   state, AUDIO_EXT,
   $, listContainer, listTitle, backBtn, searchToggle, locatePlayingToggle, searchRow,
   searchInput, addMusicToggle, selectToggle, selectionBar, selCount, audioEl, playerPanel,
