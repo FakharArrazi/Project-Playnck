@@ -211,12 +211,17 @@
 
   /* ------------------------------------------------------------
      HISTORY MODAL CONTENT
-     The "☰" menu's History entry: a read-only, day-grouped log of
-     what's been played in the last 10 days (see history.js). Rows
-     reuse .home-section-title (see sidebar.css) for their day
-     headers, but are otherwise their own thing — no cursor:pointer,
-     no hover highlight, no click handler anywhere on a row — so
-     they never look or behave like a normal clickable .song-row.
+     The "☰" menu's History entry: a day-grouped log of what's been
+     played in the last 10 days (see history.js). Rows reuse
+     .home-section-title (see sidebar.css) for their day headers.
+     Clicking a row plays that track (see bindHistoryRowClicks() in
+     history.js), so it gets cursor:pointer plus the same
+     hover/press/transition treatment as a normal clickable
+     .song-row — --elevated-hover here rather than .song-row's plain
+     --elevated, since this list already sits on an --elevated modal
+     background (see .modal-box in dialogs.css); the shared
+     transform/transition + press-scale + focus-visible outline
+     still come from the same rules in animations.css.
      ------------------------------------------------------------ */
   .history-list{display:flex;flex-direction:column;}
   .history-group{margin-bottom:14px;}
@@ -224,8 +229,10 @@
   .history-row{
     display:flex;align-items:center;gap:12px;
     padding:6px 2px;border-bottom:1px solid var(--border);
+    cursor:pointer;
   }
   .history-row:last-child{border-bottom:none;}
+  .history-row:hover{background:var(--elevated-hover);}
   .history-row .thumb{width:40px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--elevated);}
   .history-row .info{min-width:0;flex:1;}
   .history-row .title{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

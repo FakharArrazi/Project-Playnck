@@ -3,6 +3,7 @@ import { tr } from "./i18n.js";
 import { escapeHTML, fallbackArt } from "./utils.js";
 import { openModal } from "./modal.js";
 import { getTrackArtURL } from "./init.js";
+import { playTrack } from "./player.js";
 
 /* ================================================================
    HISTORY
@@ -118,9 +119,13 @@ function recordHistoryEntry(track){
 
 /* ================================================================
    HISTORY VIEW
-   Read-only by design: rows below carry no click/dblclick listener
-   and no "playable" styling at all (see .history-row in
-   settings.css), so there's nothing for a click to trigger.
+   Rows are clickable: clicking one plays that entry's track through
+   the exact same playTrack() path every other song row in the app
+   uses (see PLAYBACK in player.js), with a single-track queue of
+   just that track — the same [track] queue bindings.js's "Open
+   With" handler and drag-drop.js use for a standalone play with no
+   broader list context, since a History row isn't part of any
+   browsable list/queue either. See bindHistoryRowClicks() below.
    ================================================================ */
 
 // "Today"/"Yesterday" for the last two calendar days (in the
@@ -155,18 +160,18 @@ function groupHistoryByDay(sortedEntries){
   return groups;
 }
 
-// One read-only history row: artwork (resolved live off the
-// original track if it's still in the library, otherwise the
-// generic placeholder), title/artist/album exactly as they were
-// when this was played, and the time played. No data-track-id, no
-// click handler, no "song-row"/"selectable" classes — nothing here
-// participates in play/select/queue behavior anywhere else in the app.
+// One history row: artwork (resolved live off the original track if
+// it's still in the library, otherwise the generic placeholder),
+// title/artist/album exactly as they were when this was played, and
+// the time played. Carries data-track-id so bindHistoryRowClicks()
+// below can find it and know which track to play — nothing else
+// about layout/styling changes based on that.
 function historyRowHTML(entry){
   const track=state.tracks.find(t=>t.id===entry.trackId);
   const artURL=(track && getTrackArtURL(track)) || fallbackArt();
   const sub=entry.album ? `${entry.artist} • ${entry.album}` : entry.artist;
   const time=new Date(entry.playedAt).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
-  return `<div class="history-row">
+  return `<div class="history-row" data-track-id="${escapeHTML(entry.trackId)}">
     <img class="thumb" src="${artURL}" loading="lazy" decoding="async" alt="">
     <div class="info">
       <div class="title">${escapeHTML(entry.title)}</div>
@@ -174,6 +179,21 @@ function historyRowHTML(entry){
     </div>
     <span class="history-time">${escapeHTML(time)}</span>
   </div>`;
+}
+
+// Wires up every rendered history row's click, once, right after
+// openHistoryModal() below fills #modalBody with the HTML from
+// historyRowHTML() above. Looks the clicked row's trackId back up in
+// state.tracks and plays it via the same playTrack() used everywhere
+// else; a track that's since been removed from the library has
+// nothing to play, so that row is silently ignored.
+function bindHistoryRowClicks(){
+  $("modalBody").querySelectorAll(".history-row[data-track-id]").forEach(row=>{
+    row.addEventListener("click",()=>{
+      const track=state.tracks.find(t=>t.id===row.dataset.trackId);
+      if(track) playTrack(track,[track]);
+    });
+  });
 }
 
 // Opens the shared modal with everything played in the last
@@ -195,6 +215,7 @@ function openHistoryModal(){
   ).join("")+"</div>";
 
   openModal(tr("history.title"), bodyHTML);
+  bindHistoryRowClicks();
 }
 
 export { openHistoryModal, resetHistoryProgress, pruneHistoryEntries };
