@@ -9,6 +9,7 @@ import { fadeAudioEl, crossfadeState, cancelCrossfade, completeCrossfadeHandoff,
 import { updateVisualizerState } from "./visualizer.js";
 import { updatePlayIcons, updateNowPlayingUI } from "./now-playing-ui.js";
 import { closeLyrics, syncLyrics } from "./lyrics.js";
+import { resetHistoryProgress } from "./history.js";
 
 /* ================================================================
    PLAYBACK
@@ -92,6 +93,7 @@ let playProgress=null; // {trackId, accumMs, lastTs, registered}
 
 function resetPlayProgress(trackId){
   playProgress={trackId, accumMs:0, lastTs:null, registered:false};
+  resetHistoryProgress(trackId); // starts History's own, separate 5-second countdown for the same new play session — see HISTORY PROGRESS in history.js
 }
 
 function trackPlayProgress(){

@@ -9,6 +9,7 @@ import { updateRepeatBadge } from "./now-playing-ui.js";
 import { updateVisualizerState } from "./visualizer.js";
 import { EQ_BANDS } from "./equalizer.js";
 import { bindEvents } from "./bindings.js";
+import { pruneHistoryEntries } from "./history.js";
 
 /* ================================================================
    INIT
@@ -122,6 +123,14 @@ async function init(){
     }
   }
   updateVisualizerState(); // just syncs the canvas's hidden class at this point — nothing plays yet, so the render loop itself won't start until playback does
+
+  // Restore the playback History log (see history.js) and immediately
+  // drop anything already outside its 10-day retention window, same
+  // "settings" key/value store as everything else here — so a long
+  // gap between launches doesn't show stale entries for even one frame.
+  const savedHistory=await idbGet("settings","playHistory");
+  state.playHistory=(savedHistory && Array.isArray(savedHistory.value)) ? savedHistory.value : [];
+  pruneHistoryEntries();
 
   // Every install gets exactly one built-in "Favorites" playlist,
   // created the first time the app ever runs.

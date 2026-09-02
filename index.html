@@ -247,10 +247,11 @@
 
     <!--
       Side menu button (top-right "☰"). Opens a small dropdown with
-      four entries: Info (about the current song + its file), Edit
+      five entries: Info (about the current song + its file), Edit
       (retag title/artist/album/cover), Sync Lyrics (nudge lyric
-      timing forward/backward in ms), and Sleep Timer (pause playback
-      after a set amount of time).
+      timing forward/backward in ms), Sleep Timer (pause playback
+      after a set amount of time), and History (read-only log of
+      what's been played in the last 10 days).
     -->
     <button class="icon-btn side-menu-btn" id="sideMenuBtn" title="More options" data-i18n-title="side.moreOptions">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
@@ -275,6 +276,11 @@
       <button id="menuSleepBtn">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
         <span data-i18n="side.sleepTimer">Sleep Timer</span>
+      </button>
+
+      <button id="menuHistoryBtn">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11a9 9 0 1 1 2.6 6.4"/><polyline points="3 16 3 11 8 11"/><path d="M12 7v5l3.5 2"/></svg>
+        <span data-i18n="side.history">History</span>
       </button>
     </div>
 

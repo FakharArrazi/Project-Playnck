@@ -100,6 +100,7 @@ const state={
   playlistFolders:[],     // {id,name,parentId,order} — the Playlists tab's folder tree; parentId points at another entry here (or is null/undefined for a root-level folder) — see playlist-folders.js
   playlistFolderId:null,  // id of the playlist folder currently open in the Playlists tab (null = root) — session-only, like state.filter, never persisted
   favoritesId:null,       // id of the auto-created "Favorites" playlist
+  playHistory:[],         // read-only playback log for the "☰" menu's History view: [{id,trackId,title,artist,album,playedAt}], newest first, pruned to the last HISTORY_RETENTION_DAYS — see history.js. Separate from playCount/lastPlayedAt above: those track one running total per track for Home's Recently Played/Top Songs, this keeps every individual play as its own dated entry.
   currentTab:"songs",      // which sidebar tab is active: home|songs|albums|artists|playlists|folders|convert
   filter:null,            // when drilled into an album/artist/playlist/folder: {type,value,title,tracks}
   sortBy:"title-asc",     // current song sort order everywhere EXCEPT inside a drilled-into album — see the SORTING section below

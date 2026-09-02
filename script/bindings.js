@@ -17,6 +17,7 @@ import { toggleLyrics, openSyncModal } from "./lyrics.js";
 import { openSettingsModal } from "./settings.js";
 import { openAboutModal } from "./backup.js";
 import { openSleepTimerModal } from "./sleep-timer.js";
+import { openHistoryModal } from "./history.js";
 import { openEditModal } from "./metadata-edit.js";
 
 /* ================================================================
@@ -248,6 +249,7 @@ function bindEvents(){
   $("menuEditBtn").addEventListener("click",()=>{ closeSideDropdown(); openEditModal(); });
   $("menuSyncBtn").addEventListener("click",()=>{ closeSideDropdown(); openSyncModal(); });
   $("menuSleepBtn").addEventListener("click",()=>{ closeSideDropdown(); openSleepTimerModal(); });
+  $("menuHistoryBtn").addEventListener("click",()=>{ closeSideDropdown(); openHistoryModal(); });
 
 
   // --- Volume button + its vertical slider popup ---
