@@ -8,17 +8,7 @@ import { openModal, closeModal, promptModal } from "./modal.js";
 import { resetShuffleNextPick } from "./queue.js";
 import { refreshNextPreview, updateNowPlayingUI, updateLoveButton } from "./now-playing-ui.js";
 
-/* ================================================================
-   PLAYLISTS
-   Creating playlists, and adding/removing individual tracks to
-   and from them (including the special built-in Favorites list).
-   ================================================================ */
 
-// Prompts the user for a playlist name and creates it inside
-// whichever playlist folder is currently open (state.playlistFolderId,
-// null for the Playlists tab root). If trackIdToAdd is given (e.g.
-// from the "+ New playlist" option inside a song's "⋮" menu), that
-// track is added to it immediately.
 async function createPlaylistPrompt(trackIdToAdd){
   const name=await promptModal(tr("prompt.newPlaylistTitle"),tr("prompt.playlistNameLabel"));
   if(!name) return;
@@ -30,9 +20,6 @@ async function createPlaylistPrompt(trackIdToAdd){
 
 
 
-// Opens the "⋮" menu for a single playlist row (Rename /
-// Delete). Reuses the exact same ".ctx-menu" popup styling and
-// single-menu-at-a-time behavior as openTrackMenu()/openSortMenu().
 function openPlaylistMenu(e,playlist){
   closeMenu();
   const menu=el("div","ctx-menu");
@@ -67,7 +54,6 @@ function openPlaylistMenu(e,playlist){
 
 
 
-// Prompts for a new name and renames the playlist in place.
 async function renamePlaylist(playlist){
   const name=await promptModal(tr("prompt.renamePlaylistTitle"),tr("prompt.playlistNameLabel"),playlist.name);
   if(!name) return;
@@ -78,15 +64,10 @@ async function renamePlaylist(playlist){
 
 
 
-// Confirms, then removes the playlist entirely (its tracks
-// stay in the library — only the playlist itself is deleted).
 function deletePlaylist(playlist){
   if(!confirm(tr("confirm.deleteNamed",{name:playlist.name}))) return;
   state.playlists=state.playlists.filter(p=>p.id!==playlist.id);
   idbDelete("playlists",playlist.id);
-  // If the person is currently looking inside the playlist that
-  // was just deleted, back out to the Playlists list instead of
-  // showing a now-broken filtered view.
   if(state.filter&&state.filter.type==="playlist"&&state.filter.playlistId===playlist.id){
     state.filter=null;
   }
@@ -95,10 +76,6 @@ function deletePlaylist(playlist){
 
 
 
-// Every playlist-folder id nested (at any depth) inside the given
-// folder, plus the folder's own id. Used to keep a folder from being
-// moved into itself or into one of its own descendants, which would
-// otherwise cut it loose from the tree entirely.
 function folderAndDescendantIds(folderId){
   const ids=new Set([folderId]);
   let grew=true;
@@ -117,9 +94,6 @@ function folderAndDescendantIds(folderId){
 
 
 
-// Full "Grandparent / Parent / Name" path for a playlist folder,
-// built by walking parentId pointers up to the root. Used only to
-// label destinations in the "Move to..." picker below.
 function playlistFolderPath(folder){
   const parts=[folder.name];
   let cur=folder;
@@ -134,14 +108,6 @@ function playlistFolderPath(folder){
 
 
 
-// Shared "Move to..." destination picker for both playlists and
-// playlist folders (the "⋮" menu's Move entry on each — see
-// openPlaylistMenu() above and openPlaylistFolderMenu() in
-// playlist-folders.js). Lists the Playlists tab root plus every
-// eligible playlist folder; picking one re-parents the item and
-// re-renders. When moving a folder, that folder and everything
-// nested inside it are left out of the list so it can never be
-// dropped into itself.
 function openMoveItemModal(item,kind){
   const excludedIds = kind==="folder" ? folderAndDescendantIds(item.id) : new Set();
   const destinations=state.playlistFolders.filter(f=>!excludedIds.has(f.id));
@@ -170,15 +136,6 @@ function openMoveItemModal(item,kind){
 
 
 
-// Exports a playlist as a standard Extended M3U (.m3u8) file — just
-// file-path references, not the actual audio — so it opens directly
-// in VLC/Winamp/foobar2000/etc, or can be re-imported into another
-// player entirely. Electron-only (needs a native Save dialog and a
-// real path per track). Tracks with no filePath (picked via a plain
-// <input type=file>/drag-drop with nothing real on disk behind them
-// — see hydrateTrack()) can't be referenced this way and are skipped,
-// with a count reported back so the person knows some were left out
-// rather than silently getting a shorter playlist than expected.
 async function exportPlaylistAsM3U(playlist){
   if(!(window.electronAPI && window.electronAPI.saveTextFile)){
     alert(tr("playlist.exportUnavailable"));
@@ -208,7 +165,6 @@ async function exportPlaylistAsM3U(playlist){
 
 
 
-// Adds a track to a playlist (no-op if it's already in there).
 function addToPlaylist(playlistId,trackId){
   const p=state.playlists.find(pl=>pl.id===playlistId);
   if(!p) return;
@@ -223,14 +179,6 @@ function addToPlaylist(playlistId,trackId){
 
 
 
-// The sort orders offered in the "Add Music to <playlist>" modal's
-// own sort dropdown — a small, single-purpose list (unlike the
-// Songs tab's SORT_OPTIONS in library-view.js, this one is never
-// written to state, so picking one here can never change how the
-// library itself is sorted elsewhere). "value" mirrors the same
-// value strings sortTracks()/sortGroups() use for the equivalent
-// field so the two stay easy to compare; "key" reuses existing
-// i18n strings where one already says the right thing.
 const ADD_MUSIC_SORT_OPTIONS=[
   {value:"title-asc",  key:"sort.titleAsc"},
   {value:"artist-asc", key:"sort.artistAsc"},
@@ -238,12 +186,6 @@ const ADD_MUSIC_SORT_OPTIONS=[
   {value:"date-desc",  key:"sort.dateNewest"}
 ];
 
-// Orders a list of tracks for display in the Add Music modal only —
-// same comparator style as sortTracks()/sortGroups() in
-// library-view.js (localeCompare for text fields, missing dateAdded
-// treated as 0/oldest), but reading its own local "sortBy" argument
-// instead of state.sortBy so the library's real sort order is never
-// touched. Never mutates the array it's given.
 function sortAddMusicTracks(tracks,sortBy){
   const sorted=[...tracks];
   switch(sortBy){
@@ -256,10 +198,6 @@ function sortAddMusicTracks(tracks,sortBy){
   return sorted;
 }
 
-// Builds one "add-music-row" for a track, reading its "already in
-// this playlist?" state fresh from p.trackIds every time it's drawn
-// — so the very same markup/logic the row always used still applies
-// no matter how the list around it was searched or sorted first.
 function addMusicRowHTML(t,p){
   const already=p.trackIds.includes(t.id);
   return `<div class="add-music-row${already?" added":""}" data-track-id="${t.id}">
@@ -271,16 +209,6 @@ function addMusicRowHTML(t,p){
   </div>`;
 }
 
-// Opens the shared modal with a full list of every song in the
-// library so the user can add any of them to the given playlist.
-// Rows already in the playlist show a disabled "Added" state;
-// clicking "Add" on any other row adds it immediately and flips
-// that row to "Added" too, without closing the modal — so several
-// songs can be added in one go. A search field and sort dropdown
-// sit above the list to help find something in a big library; both
-// only ever change what's drawn here (via allTracks/renderRows
-// below) — the library and the playlist's own trackIds/order are
-// never reordered or filtered by them.
 function openAddMusicModal(playlistId){
   const p=state.playlists.find(pl=>pl.id===playlistId);
   if(!p) return;
@@ -306,11 +234,6 @@ function openAddMusicModal(playlistId){
   const sortSelect=$("addMusicSort");
   const listEl=$("addMusicList");
 
-  // Redraws #addMusicList from allTracks, applying whatever search
-  // text/sort order are currently set in the controls above — this
-  // is the ONLY place that reads them. Re-run after every keystroke,
-  // every sort change, and every successful Add so an already-added
-  // row can never fall out of sync with p.trackIds.
   function renderRows(){
     const q=(searchInput.value||"").toLowerCase().trim();
     const visible=sortAddMusicTracks(q?allTracks.filter(t=>matchQuery(t,q)):allTracks, sortSelect.value);
@@ -322,7 +245,6 @@ function openAddMusicModal(playlistId){
 
     listEl.innerHTML=visible.map(t=>addMusicRowHTML(t,p)).join("");
 
-    // Wire up each row's Add button after the HTML is in the DOM.
     listEl.querySelectorAll(".add-music-row").forEach(row=>{
       const trackId=row.dataset.trackId;
       const addBtn=row.querySelector(".amr-add-btn");
@@ -335,9 +257,6 @@ function openAddMusicModal(playlistId){
     });
   }
 
-  // Same 120ms debounce as the main library search box (see
-  // searchInput's "input" listener in bindings.js) so fast typing
-  // doesn't rebuild the list on every single keystroke.
   searchInput.addEventListener("input",debounce(renderRows,120));
   sortSelect.addEventListener("change",renderRows);
 
@@ -347,8 +266,6 @@ function openAddMusicModal(playlistId){
 
 
 
-// Removes a track from a playlist, and — if that playlist is the
-// one currently being viewed — updates the on-screen list too.
 function removeFromPlaylist(playlistId,trackId){
   const p=state.playlists.find(pl=>pl.id===playlistId);
   if(!p) return;
@@ -362,7 +279,6 @@ function removeFromPlaylist(playlistId,trackId){
 
 
 
-// True if a track is currently inside the Favorites playlist.
 function isInFavorites(track){
   const fav=state.playlists.find(p=>p.id===state.favoritesId);
   return fav && fav.trackIds.includes(track.id);
@@ -370,7 +286,6 @@ function isInFavorites(track){
 
 
 
-// Adds/removes a track from Favorites and refreshes the heart icon.
 function toggleFavorite(track){
   const fav=state.playlists.find(p=>p.id===state.favoritesId);
   if(!fav) return;
@@ -384,11 +299,6 @@ function toggleFavorite(track){
 
 
 
-// The heart's reaction to actually being toggled by the user (as
-// opposed to updateLoveButton() elsewhere just silently syncing its
-// resting state on a track change) — liking sends it up on a bouncy
-// overshoot with a little scatter of hearts/sparks; unliking lets it
-// visibly droop and sag back down instead.
 function animateLoveIcon(liked){
   const btn=$("loveBtn");
   if(!btn) return;
@@ -400,9 +310,6 @@ function animateLoveIcon(liked){
   }
 }
 
-// Scatters a handful of tiny hearts/sparks off the Love button that
-// float up and fade, each on a slightly randomized drift/rotation/
-// delay so the burst doesn't look mechanically identical every time.
 function spawnHeartSparks(btn){
   const glyphs=["♥","✦","♥","✦","♥","♥"];
   glyphs.forEach(g=>{
@@ -414,24 +321,12 @@ function spawnHeartSparks(btn){
     spark.style.animationDelay=Math.round(Math.random()*80)+"ms";
     btn.appendChild(spark);
     spark.addEventListener("animationend",()=>spark.remove(),{once:true});
-    setTimeout(()=>spark.remove(),900); // fail-safe in case animationend doesn't fire
+    setTimeout(()=>spark.remove(),900);
   });
 }
 
 
 
-// Fires a plain DOM event listing the real disk paths of tracks
-// that are being PERMANENTLY deleted (not just removed from the
-// library). Called only from actual "Delete" actions (deleteTrack,
-// deleteFolder, and the bulk "Delete" selection below) — deliberately
-// NOT from forgetFolder(), which only ever removes library entries
-// and must leave files on disk untouched.
-//
-// This is a generic, platform-agnostic hook: it doesn't reference
-// window.electronAPI or anything Electron-specific, and is a no-op
-// with zero listeners on a web/Android build. Right now only
-// renderer-bridge.js listens for it, to send those files to the
-// Recycle Bin/Trash on Electron.
 function notifyTracksDeleted(tracks){
   const paths=tracks.map(t=>t.filePath).filter(Boolean);
   if(paths.length) document.dispatchEvent(new CustomEvent("playnck:tracks-deleted",{detail:{paths}}));
@@ -439,13 +334,6 @@ function notifyTracksDeleted(tracks){
 
 
 
-// Shared cleanup used by both deleteTrack() (single song,
-// below) and deleteFolder() (a whole batch of songs at once, see
-// the FOLDERS section further down): strips the track out of
-// every playlist it's in, out of the current play queue, stops
-// playback if it's the track currently loaded, and removes it
-// from both the in-memory library and IndexedDB. Doesn't confirm
-// or re-render — callers are responsible for both.
 function removeTrackData(track){
   if(state.currentTrack && state.currentTrack.id===track.id){
     audioEl.pause();
@@ -465,16 +353,10 @@ function removeTrackData(track){
   if(qIdx!==-1){
     state.queue.splice(qIdx,1);
     if(state.queueIndex>qIdx) state.queueIndex--;
-    // Any memoized shuffle pick (see shuffleNextPick above) stored a
-    // raw queue *index* — if the removed track sat before that index,
-    // the number now points at a different track entirely. Safer to
-    // just force a fresh roll than risk a wrong-but-in-range index.
     resetShuffleNextPick();
     refreshNextPreview();
   }
 
-  // Release its temporary blob: URLs — nothing else is using them
-  // once the track record itself is gone.
   if(track.fileURL) URL.revokeObjectURL(track.fileURL);
   if(track.artURL) URL.revokeObjectURL(track.artURL);
 
@@ -485,32 +367,16 @@ function removeTrackData(track){
 
 
 
-// Permanently deletes a single track from the library, after
-// confirming with the user first since this can't be undone.
 function deleteTrack(track){
   if(!confirm(tr("confirm.deleteNamed",{name:track.title}))) return;
   notifyTracksDeleted([track]);
   removeTrackData(track);
-  // If we're currently drilled into a view that included this
-  // track (album/artist/playlist/folder), drop it from there too.
   if(state.filter) state.filter.tracks=state.filter.tracks.filter(t=>t.id!==track.id);
   renderTab();
 }
 
 
 
-// Resolves the currently checked ids into an actual list of track
-// ids to act on, based on what kind of thing is selected:
-//   track   -> the checked ids ARE track ids already
-//   albums  -> every track belonging to each checked album
-//   artists -> every track belonging to each checked artist
-//   folders -> every track belonging to each checked folder
-//   playlists -> not applicable (a playlist selection acts on the
-//                playlists themselves, never on their songs — see
-//                deleteSelectedItems())
-// Used by both the bulk "Delete" and "Add to Playlist" actions so
-// selecting 3 albums and hitting Delete removes every song in them,
-// the same way selecting songs directly would.
 function getSelectedTrackIds(){
   const ids=[...state.selectedIds];
   if(state.selectType==="track") return ids;
@@ -530,17 +396,6 @@ function getSelectedTrackIds(){
 
 
 
-// Permanently deletes everything currently checked (the selection
-// bar's "Delete" button), with wording and behavior that adapt to
-// what's actually selected:
-//   track/albums/artists -> deletes every underlying song
-//   folders   -> deletes the folders AND every song inside them
-//                (same as the per-folder "Delete folder" menu entry)
-//   playlists -> deletes just the playlists themselves; their songs
-//                stay in the library, same as the per-playlist
-//                "Delete" menu entry
-// Same one-time confirmation pattern throughout, then drops out of
-// select mode and refreshes the list.
 function deleteSelectedItems(){
   const ids=[...state.selectedIds];
   if(!ids.length) return;
@@ -584,15 +439,6 @@ function deleteSelectedItems(){
 
 
 
-// Opens a modal listing every playlist so the checked songs (or,
-// for an album/artist/folder selection, every song inside those)
-// can be added to one in a single tap (the selection bar's "Add to
-// Playlist" button — hidden entirely when selecting playlists,
-// since adding a playlist "to a playlist" isn't a real action).
-// Reuses the same visual style as the per-song "Add to Playlist"
-// submenu, but each row adds ALL resolved tracks at once and the
-// modal stays open so you can add to more than one playlist before
-// closing it.
 function openAddSelectedToPlaylistModal(){
   const trackIds=getSelectedTrackIds();
   if(!trackIds.length) return;

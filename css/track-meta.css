@@ -1,44 +1,12 @@
-  /* ------------------------------------------------------------
-     TRACK TITLE / ARTIST / ALBUM TEXT
-     ------------------------------------------------------------ */
   .track-meta{text-align:center;margin-top:clamp(10px,3vh,24px);max-width:420px;}
   .track-meta .t-title{font-size:20px;font-weight:700;margin:0 0 4px;}
   .track-meta .t-artist{font-size:14px;color:var(--text-dim);margin:0;}
   .track-meta .t-album{font-size:12.5px;color:var(--text-faint);margin:2px 0 0;}
 
-  /* ------------------------------------------------------------
-     NOW-PLAYING MARQUEE (title / artist / album overflow)
-     Purely additive on top of the block above — font, size, color,
-     margin and (for text that fits) alignment are all untouched.
-     Classes are toggled by player-marquee.js and apply ONLY inside
-     the Player Panel's .track-meta; nothing else in the app uses
-     .marquee-line/.marquee-track/.marquee-active.
-       - .marquee-line: added permanently to all three lines. Clips
-         to one line instead of ever letting text wrap to a 2nd.
-       - .marquee-track: the actual text, moved by the animation —
-         plain inline-block so with no transform it's exactly the
-         width of the text and sits centered (inheriting
-         .track-meta's text-align:center) whenever it fits.
-       - .marquee-active: added only while a line is genuinely
-         overflowing and scrolling. Switches that ONE line to left
-         alignment, which is what makes "show the start first, then
-         scroll left to reveal the end" make sense. Lines that fit
-         never get this class, so they stay centered exactly like
-         before.
-     ------------------------------------------------------------ */
   .player-panel .track-meta .marquee-line{overflow:hidden;white-space:nowrap;max-width:100%;}
   .player-panel .track-meta .marquee-line .marquee-track{display:inline-block;white-space:nowrap;}
   .player-panel .track-meta .marquee-line.marquee-active{text-align:left;}
 
-  /* While a line is actively scrolling, fade its two edges instead
-     of hard-clipping them. Without this, whatever frame you happen
-     to catch mid-scroll shows text sheared off mid-glyph on both
-     sides (e.g. "...Furi|ous..." missing its tail) — which reads as
-     a rendering bug rather than a text marquee, especially in a
-     screenshot. The fade makes the same frame unambiguously read as
-     "there's more text just out of view" on both sides. Only
-     applied during .marquee-active so static, fully-visible text is
-     never masked. */
   .player-panel .track-meta .marquee-line.marquee-active{
     -webkit-mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
     mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
@@ -46,9 +14,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     LYRICS / LOVE PILL BUTTONS
-     ------------------------------------------------------------ */
   .meta-actions{display:flex;gap:10px;margin-top:clamp(8px,2vh,16px);}
   .meta-actions button{
     display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;
@@ -60,18 +25,6 @@
   .meta-actions #loveBtn.active{color:var(--heart);border-color:var(--heart);}
   .meta-actions #loveBtn.active svg{fill:var(--heart);}
 
-  /* ------------------------------------------------------------
-     LOVE BUTTON — "RISES AND DESPAIRS"
-     Liking a track sends the heart up on a little bouncy overshoot,
-     blooms a soft red glow behind it, and scatters a handful of tiny
-     hearts/sparks that float off and fade (see animateLoveIcon()/
-     spawnHeartSparks() in script.js). Unliking it gives a completely
-     different motion — no glow, no sparks — just the heart visibly
-     wilting: it shrinks, dips, and wobbles side to side twice like a
-     deflating balloon before settling back down. The instant color/
-     fill swap from .active above still happens immediately — this
-     layer only adds the motion (and, on liking, the glow) on top.
-     ------------------------------------------------------------ */
   #loveBtn{position:relative;}
   #loveBtn svg{transform-origin:50% 55%;}
   #loveBtn::before{

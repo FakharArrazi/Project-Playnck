@@ -7,13 +7,6 @@ import { sanitizeFilename } from "./metadata.js";
 import { renderTab } from "./library-view.js";
 import { updateNowPlayingUI } from "./now-playing-ui.js";
 
-// Builds the "Edit" modal: lets the user retag a track — change
-// its title, artist, album, and cover art. Pass a specific track
-// (e.g. from a song row's "⋮" menu) to edit that song; called with
-// no argument (e.g. from the player panel's side menu) it falls
-// back to whatever's currently playing. Holds the picked cover
-// file (if any) in a closure variable until Save is clicked, so
-// nothing is written to the track/DB until the user confirms.
 function openEditModal(track){
   const t=track||state.currentTrack;
 
@@ -23,11 +16,11 @@ function openEditModal(track){
   }
   const originalArtURL=getTrackArtURL(t);
 
-  let pendingArtFile=null;   // newly picked cover image, staged until Save
-  let removeArt=false;       // true if the user chose to remove the cover
-  let coverCandidates=[];    // cover options for whichever match is selected, for the gallery
+  let pendingArtFile=null;
+  let removeArt=false;
+  let coverCandidates=[];
   let coverCandidateIndex=0;
-  let matchCandidates=[];    // every song Auto-tag found plausible, for the match dropdown
+  let matchCandidates=[];
 
   const bodyHTML=`
     <div class="edit-form">
@@ -74,9 +67,6 @@ function openEditModal(track){
 
   openModal(tr("edit.modalTitle"), bodyHTML);
 
-  // Set values via .value instead of baking them into the HTML
-  // above, so quotes/special characters in existing tags never
-  // need escaping into an attribute.
   $("editTitleInput").value=t.title||"";
   $("editArtistInput").value=t.artist||"";
   $("editAlbumInput").value=t.album||"";
@@ -85,11 +75,6 @@ function openEditModal(track){
   const galleryEl=$("editCoverGallery");
   const matchesEl=$("editAutoTagMatches");
 
-  // Applies cover candidate #idx from whatever match is currently
-  // selected as the preview/pendingArtFile, and highlights the
-  // matching thumbnail in the gallery. Shared by the initial
-  // Auto-tag result, every subsequent match selection, and clicking
-  // a different thumbnail directly.
   function applyCoverCandidate(idx){
     if(!coverCandidates.length) return;
     coverCandidateIndex=((idx%coverCandidates.length)+coverCandidates.length)%coverCandidates.length;
@@ -106,12 +91,6 @@ function openEditModal(track){
     }
   }
 
-  // Renders the cover options for whichever match is currently
-  // selected as clickable thumbnails, so the user can pick the right
-  // one directly instead of committing to whatever came back first.
-  // Hidden entirely when there's nothing to choose between (0 or 1
-  // image) — the single image, if any, is still applied as the
-  // preview via applyCoverCandidate(0) below.
   function renderCoverGallery(images){
     coverCandidates=images||[];
     if(!galleryEl) return;
@@ -130,10 +109,6 @@ function openEditModal(track){
     if(coverCandidates.length){
       applyCoverCandidate(0);
     } else {
-      // This match didn't turn up any cover art of its own — fall
-      // back to the track's original cover (if any) instead of
-      // leaving a previous match's cover on screen, which would no
-      // longer correspond to the song now selected.
       pendingArtFile=null;
       removeArt=false;
       $("editCoverPreview").innerHTML=originalArtURL
@@ -150,10 +125,6 @@ function openEditModal(track){
     });
   }
 
-  // Applies candidate match #idx (a whole title/artist/album + cover
-  // set) to the form fields and gallery — used both for the initial
-  // best guess and whenever the user picks a different option from
-  // the dropdown below.
   function applyMatch(idx){
     if(!matchCandidates.length) return;
     idx=Math.max(0,Math.min(idx,matchCandidates.length-1));
@@ -164,10 +135,6 @@ function openEditModal(track){
     renderCoverGallery(m.images||[]);
   }
 
-  // Renders the "which song is it?" dropdown when Auto-tag found
-  // more than one plausible match (ambiguous fingerprint hit, or
-  // several confident title/artist search results) — hidden when
-  // there's only one, since there's nothing to choose between.
   function renderMatchOptions(matches){
     matchCandidates=matches||[];
     if(!matchesEl) return;
@@ -176,14 +143,6 @@ function openEditModal(track){
       matchesEl.innerHTML="";
       return;
     }
-    // "Song — Artist — Album (Year)" — album gets its own clearly
-    // visible segment rather than being buried in parentheses, since
-    // with several candidates for the same song, the album (which
-    // release/edition it is) is usually the only thing actually
-    // telling them apart — see the fingerprint-tier fix in
-    // autotag-bridge.js's acoustidLookup(), which is what makes
-    // m.album reliably populated for fingerprint matches too now,
-    // not just text-search ones.
     const optionLabel=(m)=>[
       m.title||"?",
       m.artist,
@@ -206,7 +165,7 @@ function openEditModal(track){
     if(!file) return;
     pendingArtFile=file;
     removeArt=false;
-    coverCandidates=[]; // manual pick overrides whatever Auto-tag found
+    coverCandidates=[];
     if(galleryEl){ galleryEl.classList.add("hidden"); galleryEl.innerHTML=""; }
     const previewURL=URL.createObjectURL(file);
     $("editCoverPreview").innerHTML=`<img id="editCoverImg" src="${previewURL}" alt="cover">`;
@@ -215,27 +174,11 @@ function openEditModal(track){
   $("editCoverRemoveBtn").addEventListener("click",()=>{
     pendingArtFile=null;
     removeArt=true;
-    coverCandidates=[]; // manual removal overrides whatever Auto-tag found
+    coverCandidates=[];
     if(galleryEl){ galleryEl.classList.add("hidden"); galleryEl.innerHTML=""; }
     $("editCoverPreview").innerHTML=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><path d="M9.5 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg>`;
   });
 
-  // --- Auto-tag: identify the song and fill in title/artist/album
-  // (+ cover, if one was found) for the user to review before Save.
-  // Nothing is written anywhere until Save is clicked — this only
-  // populates the same form fields/pendingArtFile the user could've
-  // filled in by hand. Electron-only (needs a real file on disk to
-  // fingerprint or a running main process to talk to the lookup
-  // APIs); on plain web the buttons explain that instead of trying.
-  //
-  // Two separate buttons/tiers instead of one combined Auto-tag
-  // button: "identify from audio" (fingerprint only) and "search by
-  // title/artist" (MusicBrainz text search only) — each runs just its
-  // own tier via autoTagTrack's mode param, so a fingerprint miss is
-  // reported as a miss instead of silently turning into a (less
-  // trustworthy) text-search guess the user didn't ask for, and the
-  // text search can be re-run on demand after editing the
-  // title/artist fields without re-fingerprinting the file.
   const autoTagFingerprintBtn=$("editAutoTagFingerprintBtn");
   const autoTagTextBtn=$("editAutoTagTextBtn");
   const autoTagStatus=$("editAutoTagStatus");
@@ -248,9 +191,6 @@ function openEditModal(track){
       return;
     }
 
-    // Disable both buttons while either is running — they share the
-    // same form fields/matchCandidates/coverCandidates state, so
-    // letting one fire mid-flight of the other would race.
     autoTagFingerprintBtn.disabled=true;
     autoTagTextBtn.disabled=true;
     autoTagStatus.classList.remove("hidden");
@@ -261,12 +201,6 @@ function openEditModal(track){
     const artistField=$("editArtistInput");
     const albumField=$("editAlbumInput");
 
-    // guessFromName() (used at import time for untagged files) fills
-    // in the literal string "Unknown Artist" when there's no real
-    // artist to read — sending that through as a search hint would
-    // make the lookup go looking for a recording actually credited to
-    // an artist named "Unknown Artist" and (correctly) find nothing.
-    // Treat that placeholder the same as no artist hint at all.
     const artistHint=artistField.value.trim()||t.artist||"";
     const cleanArtistHint=/^unknown artist$/i.test(artistHint) ? "" : artistHint;
 
@@ -287,16 +221,8 @@ function openEditModal(track){
     if(result.artist) artistField.value=result.artist;
     if(result.album) albumField.value=result.album;
 
-    // Several plausible songs? Show the dropdown so the user can pick
-    // the actual right one instead of just getting the top guess.
     renderMatchOptions(result.matches||[]);
 
-    // Uint8Array data arrives as-is over IPC (Buffer isn't
-    // structured-cloneable as itself) — renderCoverGallery()/
-    // applyCoverCandidate() wrap each candidate into a File on
-    // demand, exactly like a user-picked cover file, so the rest of
-    // the Save flow (writeAudioTags' imageData/imageMime) doesn't
-    // need to know the difference.
     if(Array.isArray(result.images) && result.images.length){
       renderCoverGallery(result.images);
     }
@@ -318,13 +244,6 @@ function openEditModal(track){
     const newArtist=$("editArtistInput").value.trim()||t.artist;
     const newAlbum=$("editAlbumInput").value.trim()||t.album;
 
-    // Applies the edit to Playnck's own library/UI. For a real
-    // path-backed track this only ever runs AFTER the actual file on
-    // disk has been written and verified further down (or, via the
-    // "Save inside Playnck only" fallback, after the user explicitly
-    // chooses to keep the edit despite the file write failing) — the
-    // whole point being that the library is a reflection of what's
-    // really on disk, not a separate, possibly-stale copy of it.
     async function applyToLibrary(){
       t.title=newTitle;
       t.artist=newArtist;
@@ -340,13 +259,6 @@ function openEditModal(track){
         t.artURL=null;
       }
 
-      // Persist a plain copy to IndexedDB — same shape used when a
-      // track is first imported (see ingestFiles() above), deliberately
-      // without the temporary fileURL/artURL blob: URLs. Saving an edit
-      // always persists (there's no "temporary" edit), so an externally
-      // opened track reached via the player panel's Edit menu (see
-      // openEditModal()'s comment) gets promoted into the real library
-      // here too — same idea as ingestFiles()'s re-import promotion.
       if(t.external) t.external=false;
       const storeCopy={
         id:t.id, title:t.title, artist:t.artist, album:t.album,
@@ -363,50 +275,20 @@ function openEditModal(track){
     const isRealFileTrack=!!(window.electronAPI && window.electronAPI.writeAudioTags && t.filePath);
 
     if(!isRealFileTrack){
-      // No known file on disk to be the source of truth for (plain
-      // web build, or a track Playnck never learned a real path for)
-      // — Save behaves exactly as it always has: the library copy is
-      // the only thing that changes, and there's no "file wasn't
-      // updated" implication because there was never a file to update.
       await applyToLibrary();
       closeModal();
       return;
     }
 
-    // --- If this exact track is the one currently loaded in the
-    // player, Playnck's OWN open read stream on it (see the
-    // playnck-file:// protocol handler in main.js — it reads straight
-    // off disk via fs.createReadStream, it never buffers the whole
-    // file into memory first) is, by itself, enough for Windows to
-    // refuse the rename that swaps the freshly-tagged copy in. That's
-    // a real lock, not a false alarm, and it has nothing to do with
-    // any other program — releasing it before writing is what
-    // actually fixes it, rather than just retrying blindly. Detach
-    // <audio> from the file first, restore playback afterward either
-    // way.
     let resumePlayback=null;
     const wasCurrentlyLoaded=!!(state.currentTrack && state.currentTrack.id===t.id && audioEl.src);
     if(wasCurrentlyLoaded){
       resumePlayback={ time: audioEl.currentTime, wasPlaying: !audioEl.paused };
       audioEl.pause();
-      // removeAttribute (not src="") + load(): per spec this drops
-      // networkState to NETWORK_EMPTY without firing 'error' or
-      // 'ended' — setting src="" instead would fire a real 'error'
-      // event, which the "error" listener further down treats as a
-      // sign the file went missing on disk and would incorrectly
-      // trigger handleMissingTrack() on a file that's actually fine.
       audioEl.removeAttribute("src");
       audioEl.load();
     }
 
-    // --- Real file on disk: write the tags/artwork into it FIRST,
-    // and verify the write actually stuck (see metadata-bridge.js /
-    // ffmpeg-bridge.js) — before touching Playnck's own library or UI
-    // at all. This is what makes the file the source of truth instead
-    // of Playnck's database: nothing here is "saved" from the user's
-    // point of view until the bytes on disk actually carry it,
-    // because that's the copy that survives a phone transfer, a
-    // reimport, or opening the file in any other player.
     let imageData=null;
     if(pendingArtFile) imageData=await pendingArtFile.arrayBuffer();
 
@@ -417,28 +299,13 @@ function openEditModal(track){
     }).catch(err=>({written:false, reason:String((err&&err.message)||err)}));
 
     const status=$("editStatus");
-    // Clear out any "Save inside Playnck only" row left over from a
-    // previous failed attempt in this same modal session — it's a
-    // sibling of #editStatus, not part of its text, so it wouldn't
-    // otherwise go away just because this retry took a different path.
     const leftoverActions=$("editSaveLibraryOnlyBtn");
     if(leftoverActions) leftoverActions.closest(".edit-status-actions").remove();
 
     if(!(result && result.written)){
-      // The write failed, or wrote something that didn't verify back
-      // correctly — either way the real file was NOT changed
-      // (metadata-bridge.js / ffmpeg-bridge.js only ever swap in a
-      // copy they've already confirmed matches). So the library isn't
-      // touched either: no optimistic title/artist/album/art change,
-      // no idbPut. The modal stays open (no auto-close) so this can't
-      // be missed, the reason is shown, Save is re-enabled so the
-      // user can just retry after fixing the cause, and the fallback
-      // button below is the only way to keep the edit anyway.
       saveBtn.disabled=false;
       saveBtn.textContent=tr("edit.saveChanges");
 
-      // Nothing on disk changed, so restoring playback just means
-      // pointing back at the exact same fileURL it already had.
       if(wasCurrentlyLoaded){
         audioEl.src=t.fileURL;
         audioEl.currentTime=resumePlayback.time;
@@ -468,11 +335,6 @@ function openEditModal(track){
       return;
     }
 
-    // --- Write verified. Rename the real file to match the edited
-    // title/artist too (best-effort, cosmetic — the embedded tags are
-    // already correct either way), THEN reflect all of it — tags,
-    // artwork, and the (possibly new) path — in the library/UI in one
-    // go, so nothing in between is ever half-updated.
     let renameFailedReason=null;
     if(window.electronAPI.renameFile){
       const desiredBase=sanitizeFilename(`${newArtist} - ${newTitle}`);
@@ -480,9 +342,6 @@ function openEditModal(track){
         .catch(err=>({renamed:false, reason:String((err&&err.message)||err)}));
       if(renameResult && renameResult.renamed && renameResult.newPath){
         t.filePath=renameResult.newPath;
-        // fileURL now points at disk by path (see hydrateTrack()),
-        // so a rename has to refresh it too, or the next play/seek
-        // would 404 against the old, now-moved filename.
         t.fileURL=filePathToURL(t.filePath);
       } else {
         renameFailedReason=(renameResult && renameResult.reason) || tr("edit.couldntRenameGeneric");
@@ -491,10 +350,6 @@ function openEditModal(track){
 
     await applyToLibrary();
 
-    // Restore playback now that the swap is complete — using t.fileURL
-    // AFTER applyToLibrary() specifically, since a successful rename
-    // just above may have changed it. Restoring any earlier would
-    // point <audio> at a path that briefly doesn't exist anymore.
     if(wasCurrentlyLoaded){
       audioEl.src=t.fileURL;
       audioEl.currentTime=resumePlayback.time;

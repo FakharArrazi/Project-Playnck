@@ -1,17 +1,9 @@
-  /* ------------------------------------------------------------
-     APP SHELL
-     Two-column CSS Grid: the library sidebar on the left, the
-     now-playing panel filling the rest. Locked to the viewport
-     height so nothing on the page can grow taller than the
-     screen — that's what lets the panels scroll internally
-     instead of the whole page growing.
-     ------------------------------------------------------------ */
   .app{
     display:grid;
     grid-template-columns:var(--rail-w) var(--sidebar-w) 1fr;
     transition:grid-template-columns .22s ease;
     height:100vh;
-    height:100dvh;                   /* dvh accounts for mobile browser chrome */
+    height:100dvh;
   }
   html.native-titlebar-enabled .app{height:calc(100vh - 32px);height:calc(100dvh - 32px);}
   .app.rail-expanded{

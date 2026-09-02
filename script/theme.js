@@ -1,16 +1,5 @@
 import { state, $, idbPut } from "./state.js";
 
-/* ================================================================
-   THEME
-   Two independent choices — an app background (bg) and an accent
-   color (accent) — each just a small lookup of CSS variable values
-   that get pushed onto :root when chosen. Everything else in the
-   stylesheet already reads from these same variables (--bg,
-   --panel, --accent1, etc.), so flipping them here is all it takes
-   to reskin the whole app. Theme choice lives only in memory for
-   this session (state.theme), matching how the rest of the app's
-   data already works.
-   ================================================================ */
 
 const THEME_BG={
   dark:{
@@ -60,9 +49,6 @@ const THEME_ACCENT={
   rose:  {label:"Rose",   a1:"#f43f5e", a2:"#fb7185", rgb:"244,63,94"}
 };
 
-// Pushes the currently-chosen bg + accent onto :root as CSS
-// variables. Called once on startup and again every time either
-// choice changes in the Settings modal.
 function applyTheme(){
   const bg=THEME_BG[state.theme.bg]||THEME_BG.pitchblack;
   const ac=THEME_ACCENT[state.theme.accent]||THEME_ACCENT.blue;
@@ -86,18 +72,9 @@ function syncNativeTitleBar(backgroundColor){
   window.electronAPI.setTitleBarAppearance("#"+normalized, luminance>160 ? "#1b1b1b" : "#f2f2f6").catch(()=>{});
 }
 
-// Switches the background or accent choice, re-applies the theme,
-// and re-renders the swatch rows so the checkmark jumps to the new
-// selection (the Settings modal is left open while this happens).
 function setThemeBg(name){ state.theme.bg=name; applyTheme(); renderThemeSwatches(); saveTheme(); }
 function setThemeAccent(name){ state.theme.accent=name; applyTheme(); renderThemeSwatches(); saveTheme(); }
 
-// Persists the current theme choice to IndexedDB so it's still
-// applied next time the app is opened. Also mirrors just the bg/accent
-// keys into localStorage — a synchronous cache that theme-boot.js
-// (see index.html <head>) reads before first paint next launch, since
-// IndexedDB itself can't be read that early. IndexedDB stays the real
-// source of truth; this is purely a startup head-start.
 function saveTheme(){
   idbPut("settings",{key:"theme",value:state.theme});
   cacheThemeForNextBoot();
@@ -106,10 +83,8 @@ function saveTheme(){
 function cacheThemeForNextBoot(){
   try{
     localStorage.setItem("playnck-theme-cache", JSON.stringify({bg:state.theme.bg, accent:state.theme.accent}));
-  }catch(e){ /* private-browsing quota or similar — theme still works, just no head start next launch */ }
+  }catch(e){   }
 }
-// Re-draws just the active/checkmark state of the swatch buttons
-// already in the DOM, without rebuilding the whole modal.
 function renderThemeSwatches(){
   const bgRow=$("bgSwatchRow"), accentRow=$("accentSwatchRow");
   if(!bgRow||!accentRow) return;

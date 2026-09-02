@@ -1,34 +1,11 @@
-<!--
-  ==================================================================
-  MY MUSIC PLAYER — SPLIT INTO 3 FILES
-  ==================================================================
-  This app is now split into three files, all living in the same
-  folder, for easier editing:
-
-    1) styles.css .......... CSS  — how everything LOOKS
-    2) index.html (this file) HTML — what EXISTS on the page
-    3) script.js ........... JavaScript — how everything WORKS
-
-  Just keep all three files together in the same folder and open
-  index.html in a browser — no install, no server, no build step.
-  ==================================================================
--->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- jsmediatags is vendored locally (see vendor/jsmediatags.min.js).
-     The only direct network access this page makes is lrclib.net,
-     for lyrics. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: playnck-file:; media-src 'self' blob: playnck-file:; connect-src 'self' https://lrclib.net playnck-file:; object-src 'none'; base-uri 'none'">
 <title>Playnck</title>
 <link rel="stylesheet" href="styles.css">
-<!-- Applies the last-saved theme colors before the very first paint,
-     so the UI never flashes the default theme and then pops to the
-     user's actual colors — see the big comment at the top of
-     theme-boot.js for why this needs to be its own tiny file instead
-     of living in script.js. -->
 <script src="theme-boot.js"></script>
 </head>
 <body>
@@ -36,35 +13,8 @@
   <img src="icons/icon.ico" alt="">
   <span>Playnck</span>
 </header>
-<!--
-  ================================================================
-                                                                ░██     ░██ ░██████████░███     ░███ ░██         
-                                                                ░██     ░██     ░██    ░████   ░████ ░██         
-                                                                ░██     ░██     ░██    ░██░██ ░██░██ ░██         
-                                                                ░██████████     ░██    ░██ ░████ ░██ ░██         
-                                                                ░██     ░██     ░██    ░██  ░██  ░██ ░██         
-                                                                ░██     ░██     ░██    ░██       ░██ ░██         
-                                                                ░██     ░██     ░██    ░██       ░██ ░██████████ 
-  PART 2: HTML — MARKUP (what exists on the page)
-  ----------------------------------------------------------------
-  APP ROOT — two children, laid out side-by-side by the ".app"
-  CSS grid rule above:
-    1) <aside class="sidebar">      the music library / lists
-    2) <main class="player-panel">  the now-playing view
-  ================================================================
--->
 <div class="app" id="appRoot">
 
-  <!-- ================= NAV RAIL ================= -->
-  <!--
-    Collapsible icon rail, far left of the whole app. Collapsed it's
-    just icons (menu toggle up top, section icons in the middle,
-    Settings/About Us pinned to the bottom). Clicking the toggle adds
-    "rail-expanded" on #appRoot, which is the one class that controls
-    everything: the CSS grid column widens and each .rail-label fades
-    in next to its icon. See the rail listeners in script.js (search
-    "NAV RAIL").
-  -->
   <nav class="rail" id="rail">
     <button class="rail-toggle" id="railToggle" title="Expand menu" data-i18n-title="nav.expandMenu">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
@@ -113,23 +63,8 @@
     </div>
   </nav>
 
-  <!-- ================= SIDEBAR ================= -->
   <aside class="sidebar">
 
-    <!--
-      Brand row: static, non-editable app wordmark.
-
-      The 3rd letter is a plain "A" — same font, same glyph, no
-      rotation/flip. It and the K both carry the blue->purple
-      accent gradient (.bt-accent in styles.css — that's the ONE
-      class controlling the gradient color, size/spacing live on
-      .bt-word right above it); the rest of the word stays plain so
-      the accent doesn't get diluted.
-
-      Wrapped in one aria-label on the <h1> and aria-hidden on the
-      inner spans, so screen readers just hear "PLAYNCK" instead of
-      "P L A Y N C K" spelled out span by span.
-    -->
     <div class="brand">
       <h1 class="brand-title" aria-label="PLAYNCK">
         <span class="bt-word" aria-hidden="true">
@@ -138,29 +73,11 @@
       </h1>
     </div>
 
-    <!--
-      Hidden file inputs used to actually pick files from disk.
-      These stay invisible always — they're triggered
-      programmatically (via .click()) by the "Add Songs" /
-      "Add Folder" buttons which now live inside the Folders tab
-      (built dynamically in renderFolderList() in the script
-      below) instead of sitting up here as visible buttons.
-    -->
     <input type="file" id="filesInput" accept="audio/*" multiple class="hidden">
     <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden">
 
-    <!--
-      Convert tab's own file picker — deliberately separate from
-      filesInput above (never touches the music library, see
-      renderConvertTab()/handleConvertFilesPicked() in script.js).
-      "Add Folder" for this tab uses window.electronAPI.selectFolder()
-      + scanFolder() instead of a webkitdirectory input like
-      folderInput above, since it needs a real folder path back even
-      for an empty folder — see the CONVERT TAB section in script.js.
-    -->
     <input type="file" id="convertFilesInput" accept="audio/*" multiple class="hidden">
 
-    <!-- List header: back button + title on the left, search/sort icons on the right -->
     <div class="list-header">
       <div class="left">
         <button class="back-btn hidden" id="backBtn">
@@ -169,18 +86,15 @@
         <span class="list-title" id="listTitle">Songs</span>
       </div>
       <div class="header-icons">
-        <!-- Add-music button — shown only when viewing a specific playlist -->
         <button class="icon-btn hidden" id="addMusicToggle" title="Add music to this playlist" data-i18n-title="header.addMusicToThisPlaylist">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
         <button class="icon-btn" id="searchToggle" title="Search" data-i18n-title="header.search">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
-        <!-- Locate button — scrolls the list to whichever row is currently playing -->
         <button class="icon-btn" id="locatePlayingToggle" title="Jump to playing song" data-i18n-title="header.jumpToPlaying">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6" fill="currentColor" stroke="none"/></svg>
         </button>
-        <!-- Sort button — opens a menu of Title/Artist/Duration orderings -->
         <button class="icon-btn" id="sortToggle" title="Sort songs" data-i18n-title="header.sortSongs">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="3" y1="6" x2="13" y2="6"/>
@@ -190,7 +104,6 @@
             <polyline points="13 15 17 19 21 15"/>
           </svg>
         </button>
-        <!-- Select button — turns on checkboxes for multi-selecting songs -->
         <button class="icon-btn hidden" id="selectToggle" title="Select songs">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 11l3 3L22 4"/>
@@ -200,21 +113,12 @@
       </div>
     </div>
 
-    <!-- Search input row: hidden until the search icon above is clicked -->
     <div class="search-row hidden" id="searchRow">
       <input type="text" id="searchInput" placeholder="Search…" data-i18n-placeholder="search.placeholder">
     </div>
 
-    <!--
-      The actual scrollable list. Left EMPTY here on purpose — it's
-      filled in entirely by JS (see renderTab() in the script),
-      since its contents change completely depending on the tab.
-    -->
     <div class="list-container" id="listContainer"></div>
 
-    <!-- Bulk-action bar — appears once at least one song is
-         checked while select mode is on. Lets you add every checked
-         song to a playlist, or delete them all, in one go. -->
     <div class="selection-bar hidden" id="selectionBar">
       <span class="sel-count" id="selCount">0 selected</span>
       <div class="sel-actions">
@@ -225,34 +129,16 @@
     </div>
   </aside>
 
-  <!-- ================= PLAYER PANEL ================= -->
   <main class="player-panel" id="playerPanel">
 
-    <!-- Custom background image (Settings > Player), sits behind
-         everything else in this panel — see .player-bg in the CSS.
-         Hidden (no image set) by default; JS toggles it via
-         applyPlayerBg(). -->
     <div class="player-bg hidden" id="playerBg"></div>
 
-    <!-- Subtle audio-reactive bars pinned to the absolute bottom
-         edge of the panel (see .visualizer-canvas in styles.css and
-         the VISUALIZER section in script.js). Hidden by default;
-         shown only when Settings > Player's Visualizer toggle is on. -->
     <canvas class="visualizer-canvas hidden" id="visualizerCanvas"></canvas>
 
-    <!-- Mobile-only: chevron to collapse the full-screen now-playing view -->
     <button class="close-overlay" id="closeOverlay">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
 
-    <!--
-      Side menu button (top-right "☰"). Opens a small dropdown with
-      five entries: Info (about the current song + its file), Edit
-      (retag title/artist/album/cover), Sync Lyrics (nudge lyric
-      timing forward/backward in ms), Sleep Timer (pause playback
-      after a set amount of time), and History (read-only log of
-      what's been played in the last 10 days).
-    -->
     <button class="icon-btn side-menu-btn" id="sideMenuBtn" title="More options" data-i18n-title="side.moreOptions">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
     </button>
@@ -285,17 +171,6 @@
     </div>
 
 
-    <!--
-      Volume button — sits directly under the "☰" side-menu button
-      above. Click toggles the vertical slider popup open/closed
-      (same show/hide pattern as sideMenuBtn/sideDropdown, just one
-      row lower — see toggleVolumePopup() in script.js). The icon
-      itself swaps between muted/low/high glyphs to reflect the
-      current level (see updateVolumeUI()). Muting itself is done
-      with the M key, not by clicking this icon, so this button's
-      click keeps meaning exactly one thing (open/close the slider),
-      same as sideMenuBtn.
-    -->
     <button class="icon-btn volume-btn" id="volumeBtn" title="Volume" data-i18n-title="player.volume">
       <svg id="volumeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="4 9 8 9 12 5 12 19 8 15 4 15" fill="currentColor" stroke="none"/><path d="M16 8a5 5 0 0 1 0 8"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
     </button>
@@ -308,22 +183,7 @@
     </div>
 
 
-    <!-- Everything from the cover art down to the transport
-         controls lives in this wrapper so it centers within the
-         space left over below the label above, instead of the
-         whole panel (see .now-playing-center in the CSS). -->
     <div class="now-playing-center">
-      <!--
-        Three-album carousel: three persistent, identical ".art-slot"
-        elements. Which one currently reads as "previous"/"current"/
-        "next" is decided purely by its data-role attribute (set by
-        script.js's ALBUM CAROUSEL logic), which is what the CSS
-        transitions animate between — see the COVER ART CAROUSEL
-        block in styles.css. Starts with the middle slot as "current"
-        (showing the same default placeholder the old single-image
-        art used) and the other two as empty "prev"/"next" so there's
-        nothing to peek at until a queue actually exists.
-      -->
       <div class="art-wrap" id="artWrap">
         <div class="art-carousel" id="artCarousel">
           <div class="art-slot art-slot-empty" data-role="prev">
@@ -388,10 +248,6 @@
                   <stop offset="0%" id="rimGradStart" />
                   <stop offset="100%" id="rimGradEnd" />
                 </linearGradient>
-                <!-- objectBoundingBox means this clip's 0-1 coordinates always
-                     map onto whatever size #glassShape/#glassHighlight actually
-                     render at, so the glass mask stays correct even if the
-                     button's CSS size ever changes. -->
                 <clipPath id="glassClip" clipPathUnits="objectBoundingBox">
                   <path id="glassClipPath" d=""></path>
                 </clipPath>
@@ -406,7 +262,6 @@
         </button>
         <button class="ctrl-btn" id="repeatBtn" title="Repeat" data-i18n-title="player.repeat">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-          <!-- Small "A" / "1" badge showing the active repeat mode -->
           <span class="repeat-badge" id="repeatBadge"></span>
         </button>
       </div>
@@ -414,7 +269,6 @@
   </main>
 </div>
 
-<!-- Mobile mini player (bottom bar shown only on narrow screens) -->
 <div class="mini-bar" id="miniBar">
   <img id="miniArt" alt="">
   <div class="info" id="miniInfo">
@@ -428,12 +282,6 @@
   </div>
 </div>
 
-<!--
-  Info / Edit modal — one shared popup box. Its title
-  (#modalTitle) and body (#modalBody) are filled in by JS right
-  before it's shown, so this exact same markup serves both the
-  Info and Edit menu entries (see openModal() in the script).
--->
 <div class="modal-overlay hidden" id="modalOverlay">
   <div class="modal-box">
     <div class="modal-header">
@@ -446,12 +294,6 @@
   </div>
 </div>
 
-<!--
-  Drag-and-drop-to-play overlay — hidden by default, shown via JS
-  (see wireDragAndDropPlay() in script.js) the moment a file is
-  dragged anywhere over the window, and hidden again on
-  dragleave/drop. Purely visual, no drop-target logic lives here.
--->
 <div class="drag-drop-overlay hidden" id="dragDropOverlay">
   <div class="drag-drop-message">
     <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
@@ -459,29 +301,11 @@
   </div>
 </div>
 
-<!-- crossorigin="anonymous" is required for the Equalizer (see
-     ensureAudioGraph() in script.js): once this element is routed
-     through a Web Audio AudioContext, Chromium needs this (paired
-     with the Access-Control-Allow-Origin header the playnck-file://
-     protocol handler sends in main.js) or it treats the source as
-     tainted and silently mutes it — plays fine, just no sound. -->
 <audio id="audioEl" preload="metadata" crossorigin="anonymous"></audio>
 
-<!-- Third-party library: reads embedded ID3/metadata tags (title,
-     artist, album, cover art) out of audio files. Used by the
-     readTags() function further down — see the FILE / METADATA
-     HANDLING section of the script. -->
 <script src="vendor/jsmediatags.min.js"></script>
 <script type="module" src="script.js"></script>
-<!-- Electron-only glue: media keys + delete-to-trash. Kept entirely
-     separate from script.js so script.js stays usable as-is on
-     other platforms (web, Android, etc). Safe to omit this one
-     script tag on a non-Electron build. -->
 <script src="renderer-bridge.js"></script>
-<!-- Player Panel now-playing marquee (title/artist/album overflow
-     scroll). Same "reach in from outside" reasoning as
-     renderer-bridge.js above — see player-marquee.js's own header
-     comment for what it does and why it's kept separate. -->
 <script src="player-marquee.js"></script>
 </body>
 </html>

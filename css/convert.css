@@ -1,17 +1,3 @@
-  /* ------------------------------------------------------------
-     CONVERT TAB
-     A self-contained workspace, entirely separate from the music
-     library — see the CONVERT TAB section in script.js for all the
-     logic behind this. Every piece below deliberately reuses an
-     existing Playnck component rather than inventing a parallel
-     one: .home-stat-box's card look for each section, .lang-chip
-     for every picker (format/bitrate/compression/bit depth/
-     collision handling), .edit-save-btn/.edit-cancel-btn/
-     .amr-add-btn for buttons, .new-playlist-btn's dashed-border
-     language for the drop zone, .add-music-row for queue rows, and
-     the same accent-fill-on-elevated gradient trick #seek already
-     uses for its progress bars.
-     ------------------------------------------------------------ */
   .convert-view{padding:6px 8px 28px;display:flex;flex-direction:column;gap:16px;max-width:760px;}
 
   .convert-section{
@@ -20,7 +6,6 @@
   }
   .convert-section .theme-group-label{margin-bottom:14px;}
 
-  /* --- FFmpeg status banner, above every other section --- */
   .convert-ffmpeg-banner{display:flex;align-items:center;gap:12px;}
   .convert-ffmpeg-banner.is-ready{justify-content:space-between;background:none;border:none;padding:2px 2px 4px;}
   .convert-ffmpeg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--text-faint);}
@@ -47,7 +32,6 @@
   }
   .convert-install-log div{white-space:pre-wrap;word-break:break-word;line-height:1.6;}
 
-  /* --- Add Files: drop zone + Browse Files + Add Folder --- */
   .convert-dropzone{
     border:2px dashed var(--border);border-radius:14px;padding:34px 20px;text-align:center;
     display:flex;flex-direction:column;align-items:center;gap:10px;
@@ -61,7 +45,6 @@
   .convert-dropzone .convert-or{font-size:11.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.4px;}
   .convert-add-row{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
 
-  /* --- Conversion Queue --- */
   .convert-queue-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
   .convert-queue-header .theme-group-label{margin-bottom:0;}
   .convert-queue-list{display:flex;flex-direction:column;max-height:360px;overflow-y:auto;margin:0 -8px;}
@@ -104,7 +87,6 @@
   .convert-queue-remove svg{width:14px;height:14px;}
   .convert-queue-row-error{font-size:11px;color:#ed4245;margin-top:3px;}
 
-  /* --- Conversion Settings / Output --- */
   .convert-field-label{font-size:12.5px;font-weight:600;color:var(--text-dim);margin:0 0 10px;}
   .convert-chip-row{display:flex;gap:8px;flex-wrap:wrap;}
   .convert-settings-grid{display:flex;flex-direction:column;gap:18px;}
@@ -118,7 +100,6 @@
   }
   .convert-collision-row{margin-top:16px;}
 
-  /* --- Progress --- */
   .convert-progress-block{display:flex;flex-direction:column;gap:16px;}
   .convert-progress-label-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;gap:12px;}
   .convert-progress-label-row span:first-child{font-size:13px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -127,10 +108,8 @@
   .convert-progress-fill{height:100%;border-radius:5px;background:var(--accent1);transition:width .18s linear;}
   #convertOverallFill{background:var(--accent-grad);}
 
-  /* --- Controls --- */
   .convert-controls-row{display:flex;gap:10px;justify-content:flex-end;margin-top:4px;flex-wrap:wrap;}
 
-  /* --- Completion state --- */
   .convert-complete{text-align:center;padding:8px 4px;}
   .convert-complete-icon{
     width:52px;height:52px;border-radius:50%;background:rgba(59,165,93,.12);color:#3ba55d;

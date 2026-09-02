@@ -3,27 +3,6 @@ import { el } from "./utils.js";
 import { renderTab, updateSelectionBar } from "./library-view.js";
 import { openSettingsModal } from "./settings.js";
 
-/* ================================================================
-   INTERNATIONALIZATION (i18n)
-   A small, self-contained translation layer. Nav labels, menus, the
-   Settings panel, player controls, buttons, empty states, and
-   confirmations are all looked up through tr()/plural() so flipping
-   state.language repaints every bit of the app's chrome at once.
-   Actual library data — song/artist/album/playlist/folder names —
-   is never translated, only the surrounding UI text around it.
-
-   Named tr() rather than the more usual t() because `t` is already
-   used everywhere in this file as the local variable name for
-   "the current track" (see renderSongList, openInfoModal, etc.) —
-   a global t() would silently get shadowed by every one of those.
-
-   Settings > Language starts with just English installed; its
-   "+ Add language" button installs the next entry from LANGUAGES
-   below (today, that's just French) and switches to it right away.
-   Adding another language later is just: add it to LANGUAGES, add
-   its dictionary to I18N, and — only if some UI text counts it
-   ("3 songs") — add its forms to PLURAL_WORDS.
-   ================================================================ */
 const LANGUAGES={
   en:{native:"English"},
   fr:{native:"Français"}
@@ -654,10 +633,6 @@ const I18N={
   }
 };
 
-// Plural noun forms for the handful of "N thing(s)" strings sprinkled
-// through the list/selection UI (e.g. "3 songs", "1 folder"). Kept as
-// its own tiny table rather than jammed into I18N above, since a
-// count needs its own singular/plural pick.
 const PLURAL_WORDS={
   song:    {en:["song","songs"],         fr:["chanson","chansons"]},
   album:   {en:["album","albums"],       fr:["album","albums"]},
@@ -667,14 +642,8 @@ const PLURAL_WORDS={
   play:    {en:["play","plays"],         fr:["écoute","écoutes"]}
 };
 
-// select-mode "kind" (track/albums/artists/playlists/folders) -> the
-// PLURAL_WORDS key describing what one of those actually is.
 const SELECT_TYPE_PLURAL_KEY={track:"song",albums:"album",artists:"artist",playlists:"playlist",folders:"folder"};
 
-// Looks up a translated string for the active language, falling
-// back to English (then the raw key itself) if a translation is
-// somehow missing. `vars`, if given, fills in "{name}"-style
-// placeholders — e.g. tr("confirm.deleteNamed",{name:"Song Title"}).
 function tr(key, vars){
   const dict=I18N[state.language]||I18N.en;
   let str=(dict[key]!=null) ? dict[key] : (I18N.en[key]!=null ? I18N.en[key] : key);
@@ -688,27 +657,15 @@ function pluralForms(key){
   const table=PLURAL_WORDS[key]||PLURAL_WORDS.song;
   return table[state.language]||table.en;
 }
-// "N song"/"N songs" (or whatever the active language's equivalent is).
 function plural(n,key){
   const f=pluralForms(key);
   return n+" "+(n===1?f[0]:f[1]);
 }
-// Just the bare plural word, no count — e.g. for "Select songs".
 function pluralWord(key){ return pluralForms(key)[1]; }
 
-// theme.bg.<key>/theme.accent.<key> lookups for the Settings > Theme
-// swatch titles — every THEME_BG/THEME_ACCENT key has a matching
-// entry in I18N above.
 function themeBgLabel(key){ return tr("theme.bg."+key); }
 function themeAccentLabel(key){ return tr("theme.accent."+key); }
 
-// Repaints every static bit of UI chrome for the active language —
-// nav rail, header icons, player controls, side menu, and anything
-// else marked up with data-i18n(-title/-placeholder/-aria-label) in
-// index.html — then refreshes the handful of dynamic bits that
-// aren't tagged in the HTML because blindly overwriting them could
-// clobber real state (the current track, the selection count) with
-// a translated placeholder instead.
 function applyI18n(){
   document.documentElement.lang=state.language;
   document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent=tr(el.getAttribute("data-i18n")); });
@@ -729,10 +686,6 @@ function applyI18n(){
   }
 }
 
-// Shows the translated "nothing playing yet" placeholder in the
-// now-playing panel and mini-player — but only when nothing has
-// actually been loaded, so switching languages mid-song never
-// overwrites the real track title/artist on screen.
 function applyNowPlayingPlaceholder(){
   if(state.currentTrack) return;
   const ttEl=$("trackTitle"), taEl=$("trackArtist"), mtEl=$("miniTitle");
@@ -741,11 +694,6 @@ function applyNowPlayingPlaceholder(){
   if(mtEl) mtEl.textContent=tr("player.nothingPlaying");
 }
 
-// Switches the active language, remembers it (and every language
-// that's been added so far) in IndexedDB, and repaints the UI in
-// place — including rebuilding the Settings modal if it's the one
-// open right now, so its own labels/section headers switch right
-// along with everything else.
 function setLanguage(code){
   if(!LANGUAGES[code]) return;
   if(!state.installedLanguages.includes(code)) state.installedLanguages.push(code);
@@ -756,11 +704,6 @@ function setLanguage(code){
   if($("acc-language")) openSettingsModal();
 }
 
-// Settings > Language's "+ Add language" button: installs the next
-// language from LANGUAGES that isn't already installed (today,
-// that's just French) and switches to it right away. Once every
-// language in LANGUAGES has been added, this quietly does nothing —
-// buildLanguageBodyHTML() below swaps the button for a note instead.
 function addLanguage(){
   const next=Object.keys(LANGUAGES).find(code=>!state.installedLanguages.includes(code));
   if(!next) return;

@@ -1,50 +1,3 @@
-// ================================================================
-// build-scripts/publish-release.js
-// ----------------------------------------------------------------
-// Only used by .github/workflows/release.yml, as its last job, after
-// the separate Windows and Linux build jobs have both already run
-// `npm run build -- --publish never` on their own runner and uploaded
-// their own output as a build artifact.
-//
-// Why this exists instead of just letting each OS's own
-// `npm run release` publish for itself, the way a single-machine
-// local release already does:
-//
-//   Two *separate* electron-builder processes (one per OS, on two
-//   different GitHub-hosted runners) each trying to publish to the
-//   same tag at close to the same time is exactly the kind of race
-//   build-scripts/reconcile-github-release.js exists to clean up
-//   after (see its own header comment) — except across two whole
-//   runners instead of two targets in one process, the timing gap is
-//   large enough that "clean up afterwards" isn't a great primary
-//   plan. Doing the actual "create the release and attach files"
-//   step exactly ONCE, from a single job that only starts once both
-//   platforms have already finished building, avoids that race
-//   instead of just recovering from it.
-//
-// This does not change what `npm run release` does on a single
-// machine — that command still works exactly as it did before this
-// file existed, electron-builder's own GitHub publish included.
-//
-// What it does:
-//   1. Reads the version from package.json and the owner/repo from
-//      the same build.publish config electron-builder and
-//      reconcile-github-release.js already use, so all three always
-//      agree on where a release for this version belongs.
-//   2. Finds the release for that tag, creating it as a draft
-//      (auto-tagging the current commit) if it doesn't exist yet.
-//   3. Uploads every file directly inside the given directory as a
-//      release asset, replacing any same-named asset already there
-//      first — safe to re-run if a workflow run is retried.
-//   4. Publishes the release (draft -> published).
-//
-// Requires GH_TOKEN or GITHUB_TOKEN in the environment, same
-// convention as reconcile-github-release.js. In CI this is the
-// workflow's own automatic GITHUB_TOKEN (needs `contents: write`
-// permission, set in the workflow) — no separate secret to create.
-//
-// Usage: node build-scripts/publish-release.js <assets-dir>
-// ================================================================
 
 const fs = require("fs");
 const path = require("path");
@@ -81,7 +34,6 @@ async function gh(method, urlPath, body) {
 }
 
 async function uploadAsset(uploadUrlTemplate, name, buffer) {
-    // upload_url looks like ".../releases/12345/assets{?name,label}"
     const uploadUrl = uploadUrlTemplate.replace("{?name,label}", `?name=${encodeURIComponent(name)}`);
     const res = await fetch(uploadUrl, {
         method: "POST",
@@ -117,9 +69,6 @@ async function uploadAssets(owner, repo, release, assetsDir) {
         throw new Error(`No files found in ${assetsDir} — nothing to upload.`);
     }
 
-    // Re-fetch existing assets fresh right before uploading, rather
-    // than trusting release.assets from findOrCreateRelease — that
-    // snapshot can be stale if this script is re-run.
     const current = await gh("GET", `/repos/${owner}/${repo}/releases/${release.id}/assets?per_page=100`);
     const byName = new Map(current.map(a => [a.name, a]));
 

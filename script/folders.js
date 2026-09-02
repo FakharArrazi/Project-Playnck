@@ -6,18 +6,7 @@ import { closeMenu, openMenuEl, setOpenMenuEl } from "./menus.js";
 import { promptModal } from "./modal.js";
 import { notifyTracksDeleted, removeTrackData } from "./playlists.js";
 
-/* ================================================================
-   FOLDERS — RENAME / DELETE / FORGET
-   The "⋮" menu on each folder row, plus the three actions it
-   offers. "Delete" and "Forget" both remove the folder AND every
-   song inside it — "Forget" is kept as a second, identically-
-   behaving entry point to the same cleanup (see forgetFolder()
-   below), while "Delete" remains as-is.
-   ================================================================ */
 
-// Opens the "⋮" menu for a single folder row. Reuses the same
-// shared ".ctx-menu" popup style/behavior as the track and
-// playlist menus above.
 function openFolderMenu(e,folder){
   closeMenu();
   const menu=el("div","ctx-menu");
@@ -49,7 +38,6 @@ function openFolderMenu(e,folder){
 
 
 
-// Prompts for a new name and renames the folder in place.
 async function renameFolder(folder){
   const name=await promptModal(tr("prompt.renameFolderTitle"),tr("prompt.folderNameLabel"),folder.name);
   if(!name) return;
@@ -60,12 +48,6 @@ async function renameFolder(folder){
 
 
 
-// "Forgets" a folder: removes the folder entry itself AND every
-// song that was inside it — same cleanup as deleteFolder() below
-// (reuses removeTrackData() so playlists, queue, playback, blob
-// URLs, and IndexedDB all stay in sync). Kept as a separate
-// function/menu entry from "Delete folder" even though the
-// behavior is now identical.
 function forgetFolder(folder){
   const tracksInFolder=state.tracks.filter(t=>t.folderId===folder.id);
   const label=tracksInFolder.length ? tr("and its")+plural(tracksInFolder.length,"song") : "";
@@ -84,11 +66,6 @@ function forgetFolder(folder){
 
 
 
-// Permanently deletes a folder AND every song inside it — reuses
-// removeTrackData() (defined up in the PLAYLISTS section) for each
-// track so the cleanup (playlists, queue, playback, blob URLs,
-// IndexedDB) stays identical to deleting a single song one at a
-// time from the Songs tab.
 function deleteFolder(folder){
   const tracksInFolder=state.tracks.filter(t=>t.folderId===folder.id);
   const label=tracksInFolder.length ? tr("and its")+plural(tracksInFolder.length,"song") : "";

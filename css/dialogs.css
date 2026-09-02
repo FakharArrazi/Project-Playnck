@@ -1,15 +1,8 @@
-  /* ------------------------------------------------------------
-     DRAG-AND-DROP-TO-PLAY OVERLAY
-     Shown full-screen the moment a file is dragged over the app
-     window (see wireDragAndDropPlay() in script.js) and hidden
-     again on dragleave/drop. z-index is above the modal overlay
-     (300) since it can legitimately appear while a modal is open.
-     ------------------------------------------------------------ */
   .drag-drop-overlay{
     position:fixed;inset:0;z-index:400;
     background:rgba(12,12,17,.85);
     display:flex;align-items:center;justify-content:center;
-    pointer-events:none; /* never intercept the actual drop — the window-level listeners handle it */
+    pointer-events:none;
   }
   .drag-drop-message{
     display:flex;flex-direction:column;align-items:center;gap:14px;
@@ -22,12 +15,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     INFO / EDIT MODAL
-     One shared popup used by both the "Info" and "Edit" entries
-     in the side menu. JS swaps the title + body content depending
-     on which one was clicked (see openModal() in the script).
-     ------------------------------------------------------------ */
   .modal-overlay{
     position:fixed;inset:0;background:rgba(0,0,0,.6);
     display:flex;align-items:center;justify-content:center;
@@ -48,11 +35,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     INFO MODAL CONTENT (key / value rows)
-     Used only for the "Info" entry — a simple label-on-the-left,
-     value-on-the-right row per fact about the song/file.
-     ------------------------------------------------------------ */
   .info-grid{display:flex;flex-direction:column;gap:2px;}
   .info-row{display:flex;justify-content:space-between;gap:16px;padding:9px 2px;border-bottom:1px solid var(--border);}
   .info-row:last-child{border-bottom:none;}
@@ -62,20 +44,12 @@
 
 
 
-  /* ------------------------------------------------------------
-     ABOUT MODAL CONTENT
-     Tagline + build version (reuses .info-grid/.info-row above)
-     + a Telegram community link + a Binance Pay support/donation
-     block. Used by openAboutModal().
-     ------------------------------------------------------------ */
   .about-body{display:flex;flex-direction:column;gap:16px;}
   .about-tagline{margin:0;font-size:13px;line-height:1.6;color:var(--text-dim);}
   .about-community{
     display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--border);
   }
   .about-community-text{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-dim);}
-  /* Shared pill-style CTA for external links in the About modal
-     (Telegram group, Binance Pay donation, ...). */
   .about-action-btn{
     display:flex;align-items:center;justify-content:center;gap:8px;
     background:var(--accent-grad);color:#fff;text-decoration:none;
@@ -102,12 +76,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     EDIT MODAL CONTENT
-     Lets the user retag a track: title / artist / album text
-     fields plus a swappable cover image. Used by openEditModal()
-     in the script.
-     ------------------------------------------------------------ */
   .edit-form{display:flex;flex-direction:column;gap:16px;}
   .edit-cover-row{display:flex;align-items:center;gap:14px;}
   .edit-cover-preview{
@@ -124,9 +92,6 @@
   .edit-cover-btn:hover{border-color:var(--accent1);}
   .edit-cover-btn.secondary{background:none;color:var(--text-dim);}
 
-  /* Cover candidates Auto-tag found for the currently-selected match
-     — clickable thumbnails so the user can pick the right edition's
-     art directly instead of cycling through them one at a time. */
   .edit-cover-gallery{display:flex;flex-wrap:wrap;gap:8px;}
   .edit-cover-thumb{
     width:44px;height:44px;flex-shrink:0;padding:0;border-radius:8px;cursor:pointer;
@@ -148,9 +113,6 @@
   .edit-autotag-btn:disabled{opacity:.65;cursor:default;}
   .edit-autotag-status{margin:0;font-size:12px;color:var(--text-dim);}
 
-  /* Dropdown for picking between several plausible Auto-tag matches
-     (ambiguous fingerprint hits, or a text search that found more
-     than one confident candidate). */
   .edit-autotag-matches{display:flex;flex-direction:column;gap:6px;}
   .edit-autotag-select{cursor:pointer;}
   .edit-field{display:flex;flex-direction:column;gap:6px;}
@@ -170,11 +132,6 @@
   .edit-save-btn:hover{filter:brightness(1.08);}
   .edit-save-btn:disabled{opacity:.7;cursor:default;filter:none;}
   .edit-status{margin:0;font-size:12px;color:var(--text-dim);text-align:right;}
-  /* Shown when the actual file write fails verification (see the
-     Edit modal's Save handler in script.js) — left-aligned and in
-     the app's existing "heart" red rather than the muted default,
-     since this one needs to actually be noticed and doesn't
-     auto-dismiss the way a success message does. */
   .edit-status.is-error{color:var(--heart);text-align:left;line-height:1.4;}
   .edit-status-actions{display:flex;justify-content:flex-end;margin-top:8px;}
   .edit-lib-only-btn{
@@ -185,13 +142,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     SYNC LYRICS MODAL CONTENT
-     Lets the user nudge a track's lyric timing forward/backward in
-     milliseconds until it matches playback. Used by openSyncModal()
-     in the script. Reuses .edit-actions/.edit-cancel-btn/
-     .edit-save-btn from the Edit modal above for its button row.
-     ------------------------------------------------------------ */
   .sync-form{display:flex;flex-direction:column;gap:16px;}
   .sync-hint{margin:0;font-size:12.5px;color:var(--text-dim);line-height:1.5;}
   .sync-offset-display{

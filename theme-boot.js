@@ -1,28 +1,3 @@
-/* ================================================================
-   THEME BOOT
-   Runs in <head>, before styles.css finishes and before script.js
-   even starts loading — its only job is to push the last-saved
-   theme's CSS variables onto :root immediately, so the UI never
-   paints the default theme first and then pops to the user's actual
-   colors a moment later.
-
-   Why this exists as its own tiny file instead of living in
-   script.js: the app's real source of truth for saved settings is
-   IndexedDB (see idbGet/idbPut in script.js), but IndexedDB is
-   asynchronous — it can't be read early enough to affect the very
-   first paint. localStorage can be read synchronously, so this file
-   keeps a small mirrored copy of just the theme choice there
-   (written by saveTheme() in script.js on every change) purely as a
-   startup cache. IndexedDB stays authoritative: script.js's own
-   applyTheme() re-applies the real saved value once the app finishes
-   loading, so if this cache is ever stale or missing (cleared
-   localStorage, first-ever run, etc.) it silently self-corrects a
-   moment later instead of getting stuck wrong.
-
-   Kept dependency-free and defensive (try/catch around everything)
-   on purpose — this runs before anything else exists yet, so it must
-   never be able to break startup, only skip its cosmetic head start.
-   ================================================================ */
 (function(){
   try{
     var THEME_BG={
@@ -53,7 +28,6 @@
       lime:{a1:"#84cc16",a2:"#a3e635",rgb:"132,204,22"},
       rose:{a1:"#f43f5e",a2:"#fb7185",rgb:"244,63,94"}
     };
-    // Keep this key in sync with saveTheme()'s localStorage.setItem() in script.js.
     var raw=localStorage.getItem("playnck-theme-cache");
     if(!raw) return;
     var cached=JSON.parse(raw);
@@ -64,5 +38,5 @@
     root.setProperty("--accent1",ac.a1);
     root.setProperty("--accent2",ac.a2);
     root.setProperty("--accent1-rgb",ac.rgb);
-  }catch(e){ /* cosmetic head start only — never let this block real startup */ }
+  }catch(e){   }
 })();

@@ -1,30 +1,3 @@
-// ================================================================
-// build-scripts/reconcile-github-release.js
-// ----------------------------------------------------------------
-// Works around a known electron-builder bug where publishing several
-// artifacts for one version in one run can create TWO separate GitHub
-// releases for the same tag, splitting the installer, .blockmap, and
-// latest.yml between them.
-// See: https://github.com/electron-userland/electron-builder/issues/6676
-//
-// Run automatically at the end of `npm run release` (build.js calls
-// this after electron-builder, whether or not electron-builder itself
-// reported success — GitHub's side can end up split even on a run
-// that exits non-zero).
-//
-// What it does:
-//   1. Lists releases in the configured GitHub repo.
-//   2. Finds every release whose tag matches the current
-//      package.json version.
-//   3. If there's more than one, treats the one with the most assets
-//      as the keeper, copies over any assets missing from it, then
-//      deletes the extra release(s).
-//
-// Requires GH_TOKEN or GITHUB_TOKEN in the environment — the same
-// token electron-builder uses to publish. Without a token, or
-// without a GitHub publish config, this is a no-op (no network calls
-// made), so it's safe to leave wired into a plain `npm run build`.
-// ================================================================
 
 const path = require("path");
 const pkg = require(path.join(__dirname, "..", "package.json"));
@@ -66,7 +39,6 @@ async function downloadAsset(assetApiUrl) {
 }
 
 async function uploadAsset(uploadUrlTemplate, name, buffer) {
-    // upload_url looks like ".../releases/12345/assets{?name,label}"
     const uploadUrl = uploadUrlTemplate.replace("{?name,label}", `?name=${encodeURIComponent(name)}`);
     const res = await fetch(uploadUrl, {
         method: "POST",
@@ -133,13 +105,6 @@ async function main() {
     await publishRelease(owner, repo, keeper);
 }
 
-// Flips a draft release to published. Safer than asking GitHub to
-// create a release as published from scratch (which produced the
-// original 422 "Published releases must have a valid tag" error) —
-// by this point the tag has existed for a while and every asset is
-// attached, so GitHub has had time to settle it. Still retries a
-// couple of times with a short delay since that error has been
-// reported to be intermittent even here.
 async function publishRelease(owner, repo, release) {
     if (release.draft === false) {
         console.log(`Release ${release.html_url} is already published.`);

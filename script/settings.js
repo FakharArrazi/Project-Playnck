@@ -9,13 +9,6 @@ import { THEME_BG, THEME_ACCENT, setThemeBg, setThemeAccent } from "./theme.js";
 import { onBackupExportClick, onBackupImportClick, buildLanguageBodyHTML } from "./backup.js";
 import { openModal } from "./modal.js";
 
-// Paints (or clears) the custom background image behind the
-// now-playing panel and dials in its blur amount. #playerBg is a
-// plain absolutely-positioned layer sitting behind everything else
-// in .player-panel (see the CSS) — this just points its
-// background-image at the stored data URL and sets the blur var.
-// Safe to call before the panel exists in the DOM (init() calls it
-// before the first render).
 function applyPlayerBg(){
   const layer=$("playerBg");
   if(!layer) return;
@@ -29,9 +22,6 @@ function applyPlayerBg(){
   document.documentElement.style.setProperty("--player-bg-blur",state.playerBg.blur+"px");
 }
 
-// Reads a File the user picked, converts it to a data URL (so it
-// can be stashed in IndexedDB and survive a restart same as
-// everything else here), applies it immediately, and persists it.
 function setPlayerBgImage(file){
   if(!file || !file.type.startsWith("image/")) return;
   const reader=new FileReader();
@@ -44,7 +34,6 @@ function setPlayerBgImage(file){
   reader.readAsDataURL(file);
 }
 
-// Clears the custom background back to the plain panel gradient.
 function clearPlayerBgImage(){
   state.playerBg.image=null;
   applyPlayerBg();
@@ -52,35 +41,23 @@ function clearPlayerBgImage(){
   refreshPlayerBgUI();
 }
 
-// Live-updates the blur amount as the slider is dragged.
 function setPlayerBgBlur(px){
   state.playerBg.blur=Math.max(0,Math.min(20,Number(px)||0));
   applyPlayerBg();
   savePlayerBg();
 }
 
-// Persists the current image + blur to IndexedDB so it's still
-// there next time the app opens.
 function savePlayerBg(){ idbPut("settings",{key:"playerBg",value:state.playerBg}); }
 
-// Re-draws just the Player section's preview thumbnail / empty
-// state / remove button in place, without rebuilding the whole
-// Settings modal — mirrors refreshUpdateUI() below.
 function refreshPlayerBgUI(){
   const preview=$("playerBgPreview");
-  if(!preview) return; // Settings modal (or Player section) isn't open right now
+  if(!preview) return;
   preview.innerHTML=playerBgPreviewHTML();
   const removeBtn=$("playerBgRemoveBtn");
   if(removeBtn) removeBtn.disabled=!state.playerBg.image;
 }
-// Small chevron icon reused by every accordion header — rotates
-// 180° via CSS when its parent .accordion-item gets the "open"
-// class (see toggleAccordionItem below).
 const ACCORDION_CHEVRON_SVG=`<svg class="accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
 
-// Builds one collapsible row of the Settings accordion: a clickable
-// header (label + chevron) and a body that's collapsed by default.
-// bodyHTML is whatever that section should show once expanded.
 function accordionItem(id,label,bodyHTML){
   return `
     <div class="accordion-item" id="acc-${id}">
@@ -94,23 +71,11 @@ function accordionItem(id,label,bodyHTML){
     </div>`;
 }
 
-// Expands/collapses one accordion section in place. Other sections
-// are left exactly as they were — this app doesn't force a
-// single-open-at-a-time behavior, so switching between Theme/Audio/
-// Player never loses whichever one you already had open.
 function toggleAccordionItem(id){
   const item=$("acc-"+id);
   if(item) item.classList.toggle("open");
 }
 
-// Maps the last "update-status" event from main.js (state.updateInfo)
-// into what the Settings > Updates section should show right now: the
-// status dot's color/pulse state, the line of text next to it, the
-// action button's label, whether that button is disabled, and what it
-// should do when clicked. Centralized here so both the initial modal
-// build (updatesBodyHTML) and any later live refresh (refreshUpdateUI,
-// since an update can land while Settings happens to already be open)
-// draw from exactly the same logic.
 function updateSectionView(){
   const info=state.updateInfo||{state:"idle"};
   const version=state.appVersion?`v${state.appVersion}`:"";
@@ -132,10 +97,6 @@ function updateSectionView(){
   }
 }
 
-// Builds the Updates accordion body. On a non-Electron build (plain
-// web, a future Android wrapper) window.electronAPI.checkForUpdates
-// won't exist, so this falls back to a plain placeholder matching the
-// other not-yet-wired sections instead of showing a dead button.
 function updatesBodyHTML(){
   if(!(window.electronAPI && window.electronAPI.checkForUpdates)){
     return `<p class="info-empty">${escapeHTML(tr("updates.onlyDesktop"))}</p>`;
@@ -151,12 +112,6 @@ function updatesBodyHTML(){
     </div>`;
 }
 
-// Re-draws just the dot/text/button of the Updates section in place,
-// without rebuilding the whole Settings modal — used right after a
-// manual "Check for Updates" click, and whenever a live update-status
-// event arrives from main.js while Settings happens to already be
-// open. Safely does nothing if the modal (or this section) isn't
-// currently in the DOM.
 function refreshUpdateUI(){
   const dot=$("updateDot"), text=$("updateStatusText"), btn=$("updateActionBtn");
   if(!dot||!text||!btn) return;
@@ -167,17 +122,13 @@ function refreshUpdateUI(){
   btn.disabled=!!v.disabled;
 }
 
-// Handles the Updates section's single action button, which means
-// one of two different things depending on current state: kick off a
-// fresh check, or (once state:"downloaded" has been reached) install
-// the update that's already sitting there ready to go.
 async function onUpdateActionClick(){
   const v=updateSectionView();
   if(v.action==="install"){
     window.electronAPI.installUpdateNow();
     return;
   }
-  if(v.action!=="check") return; // mid check/download already — button is disabled, but guard anyway
+  if(v.action!=="check") return;
   state.updateInfo={state:"checking"};
   refreshUpdateUI();
   const result=await window.electronAPI.checkForUpdates();
@@ -185,22 +136,14 @@ async function onUpdateActionClick(){
     state.updateInfo={state:"error",message:result.reason||tr("updates.couldntCheck")};
     refreshUpdateUI();
   }
-  // On success, further state (available/downloading/downloaded/
-  // up-to-date) arrives via the onUpdateStatus subscription in init().
 }
 
-// Small thumbnail (or empty placeholder) shown next to the Choose/
-// Remove buttons in Settings > Player, reflecting whatever's
-// currently saved in state.playerBg.image.
 function playerBgPreviewHTML(){
   return state.playerBg.image
     ? `<img src="${state.playerBg.image}" alt="Background preview">`
     : `<div class="player-bg-preview-empty">${escapeHTML(tr("settings.noImage"))}</div>`;
 }
 
-// Builds the Settings > Backup & Restore accordion body. Electron-
-// only (needs a native Save/Open dialog — see saveTextFile/
-// openTextFile in preload.js), same reasoning as updatesBodyHTML.
 function backupBodyHTML(){
   if(!(window.electronAPI && window.electronAPI.saveTextFile)){
     return `<p class="info-empty">${escapeHTML(tr("backup.desktopOnly"))}</p>`;
@@ -216,10 +159,6 @@ function backupBodyHTML(){
     </div>`;
 }
 
-// Builds the Settings modal body: a stack of collapsible sections
-// (Theme, Updates, Audio, Player, Language) — clicking a header
-// reveals that section's controls underneath it. Audio/Language
-// are placeholders ready for whatever gets added next.
 function openSettingsModal(){
   const bgSwatches=Object.entries(THEME_BG).map(([key,cfg])=>
     `<button class="swatch-btn bg-swatch${key==="light"?" on-light":""}${state.theme.bg===key?" active":""}" data-bg="${key}" style="background:${cfg.swatch}" title="${escapeHTML(themeBgLabel(key))}"></button>`
@@ -354,7 +293,7 @@ function openSettingsModal(){
   playerBgFileInput.addEventListener("change",()=>{
     const file=playerBgFileInput.files && playerBgFileInput.files[0];
     if(file) setPlayerBgImage(file);
-    playerBgFileInput.value=""; // lets picking the exact same file again still fire "change"
+    playerBgFileInput.value="";
   });
   $("playerBgRemoveBtn").addEventListener("click",clearPlayerBgImage);
   const blurSlider=$("playerBgBlurSlider");
@@ -369,7 +308,6 @@ function openSettingsModal(){
   const addLangBtn=$("addLanguageBtn");
   if(addLangBtn) addLangBtn.addEventListener("click",addLanguage);
 
-  // --- Settings > Audio: Equalizer ---
   $("eqEnabledToggle").addEventListener("change",(e)=>{
     state.eq.enabled=e.target.checked;
     ensureAudioGraph();
@@ -401,17 +339,15 @@ function openSettingsModal(){
       ensureAudioGraph();
       applyEqGains();
     });
-    slider.addEventListener("change",saveEqSettings); // persist once per drag, not on every tick
+    slider.addEventListener("change",saveEqSettings);
   });
 
-  // --- Settings > Audio: Gapless Playback ---
   $("gaplessEnabledToggle").addEventListener("change",(e)=>{
     state.gapless.enabled=e.target.checked;
     if(!state.gapless.enabled) cancelCrossfade();
     idbPut("settings",{key:"gapless", value:{enabled:state.gapless.enabled}}).catch(()=>{});
   });
 
-  // --- Settings > Player: Visualizer ---
   $("visualizerEnabledToggle").addEventListener("change",(e)=>{
     state.visualizer.enabled=e.target.checked;
     saveVisualizerSettings();
@@ -421,9 +357,6 @@ function openSettingsModal(){
   });
   const visualizerOpacitySlider=$("visualizerOpacitySlider");
   visualizerOpacitySlider.addEventListener("input",()=>{
-    // Live, like a Photoshop layer-opacity slider — no separate "apply"
-    // step, drawVisualizerFrame() just reads state.visualizer.intensity
-    // on its next tick.
     state.visualizer.intensity=Math.max(0,Math.min(2,Number(visualizerOpacitySlider.value)||0));
     $("visualizerOpacityValue").textContent=Math.round(state.visualizer.intensity*100)+"%";
     saveVisualizerSettings();

@@ -5,35 +5,9 @@ import { hydrateTrack } from "./init.js";
 import { renderTab } from "./library-view.js";
 import { openModal } from "./modal.js";
 
-/* ================================================================
-   LIBRARY BACKUP / RESTORE
-   Everything the app knows — tracks (as metadata + real file paths,
-   never the raw audio itself), playlists, playlist folders, folders,
-   cached lyrics, and settings — as one portable JSON file. This is
-   the only way to carry a library between machines or recover it
-   after a reinstall, since none of it is otherwise exported
-   anywhere; it all just lives in this browser profile's IndexedDB.
-
-   Deliberately excluded from the backup:
-     - fileBlob: the actual audio bytes, kept only for tracks picked
-       via a plain <input type=file>/drag-drop with no real path
-       behind them (see hydrateTrack()). Embedding whole songs in a
-       JSON file would make backups enormous, so those particular
-       tracks just can't be carried by this — only path-backed ones
-       (which is everything imported through a folder, the normal
-       desktop flow) can be restored.
-     - fileURL/artURL: session-only blob: URLs, meaningless outside
-       the run that created them — stripped the same way every other
-       idbPut("tracks",...) call site in this file already does.
-
-   Cover art (artBlob) IS included, base64-encoded — unlike audio, a
-   picture won't be re-derivable later by rescanning if the source
-   file's own tags don't happen to have one embedded.
-   ================================================================ */
 
 const BACKUP_FORMAT_VERSION=1;
 
-// Blob -> "data:<mime>;base64,...." string, for embedding in JSON.
 function blobToBase64(blob){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
@@ -43,18 +17,10 @@ function blobToBase64(blob){
   });
 }
 
-// The reverse of blobToBase64 — takes a full "data:...;base64,..."
-// string back out of a restored backup and turns it back into a real
-// Blob suitable for storing in the artBlob field.
 function base64ToBlob(dataURL){
   return fetch(dataURL).then(r=>r.blob());
 }
 
-// Re-reads tracks/playlists/folders fresh from IndexedDB into
-// `state` and re-renders — the same read+hydrate importLibraryBackup
-// needs after writing its restored rows, without repeating init()'s
-// one-time migration/theme/first-run "Favorites" playlist logic here
-// too (none of that is relevant mid-session).
 async function reloadLibraryFromDB(){
   const [tracksRaw, playlistsRaw, foldersRaw, playlistFoldersRaw] = await Promise.all([
     idbGetAll("tracks"), idbGetAll("playlists"), idbGetAll("folders"), idbGetAll("playlistFolders")
@@ -66,11 +32,6 @@ async function reloadLibraryFromDB(){
   renderTab();
 }
 
-// Gathers every store into one JSON-serializable object and asks the
-// main process to show a native Save dialog for it. Returns
-// {saved:true, filePath, skippedNoPath} on success, or
-// {saved:false, reason} — reason:"canceled" if the person just
-// backed out of the dialog, so callers can stay quiet in that case.
 async function exportLibraryBackup(){
   if(!(window.electronAPI && window.electronAPI.saveTextFile)){
     return {saved:false, reason:tr("backup.desktopOnly")};
@@ -104,14 +65,6 @@ async function exportLibraryBackup(){
   return {saved:false, reason:(result&&result.reason)||"canceled"};
 }
 
-// Reads a previously exported backup file back in and MERGES it into
-// the current library: rows with a matching id overwrite what's
-// there now, everything else is left untouched — so restoring a
-// backup never deletes tracks/playlists added since it was made.
-// Tracks with no filePath at export time (see exportLibraryBackup's
-// note above) are skipped here too, since there's no audio for them
-// to point at. Returns {imported:false, reason:"canceled"} if the
-// person backs out of the file picker, so callers can stay quiet.
 async function importLibraryBackup(){
   if(!(window.electronAPI && window.electronAPI.openTextFile)){
     return {imported:false, reason:tr("backup.desktopOnly")};
@@ -179,12 +132,6 @@ async function onBackupImportClick(){
   }
 }
 
-// Settings > Language: a pill button per language that's been added
-// so far (just English at first), plus a "+ Add language" button
-// that installs the next entry from LANGUAGES (currently just
-// French) and switches to it right away. Once every language in
-// LANGUAGES has been installed, the button is swapped for a small
-// note instead of just disappearing silently.
 function buildLanguageBodyHTML(){
   const chips=state.installedLanguages.map(code=>
     `<button type="button" class="lang-chip${state.language===code?" active":""}" data-lang="${code}">${escapeHTML(LANGUAGES[code].native)}</button>`
@@ -202,14 +149,6 @@ function buildLanguageBodyHTML(){
       <p class="theme-note">${escapeHTML(tr("language.note"))}</p>
     </div>`;
 }
-// Builds the "About Us" modal content: what the app is, the
-// current build version (same state.appVersion already fetched via
-// electronAPI.getAppVersion() for the Settings > Updates section —
-// see wireUpdateEvents()/state init near the top of this file, so
-// no extra IPC call is needed here), and a link to the community
-// Telegram group. Falls back to the package.json version baked in
-// at build time if, for some reason, electronAPI hasn't reported
-// back yet (e.g. a non-Electron/web build) — see APP_VERSION_FALLBACK.
 const APP_VERSION_FALLBACK="1.0.11";
 function openAboutModal(){
   const version=state.appVersion||APP_VERSION_FALLBACK;

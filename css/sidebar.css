@@ -1,16 +1,3 @@
-  /* ------------------------------------------------------------
-     SIDEBAR (LEFT LIBRARY PANEL)
-     A vertical flexbox: brand header, tabs, list header/search,
-     and finally the scrollable song/album/playlist list.
-
-     *** SCROLL BUG FIX ***
-     "min-height:0" below is what makes the song list scroll
-     instead of the whole sidebar growing forever. Flex/grid items
-     default to a minimum height equal to their CONTENT's height,
-     so without this line, adding more songs would keep growing
-     the sidebar past the screen edge (and getting clipped) rather
-     than staying locked to 100% height and scrolling internally.
-     ------------------------------------------------------------ */
   .sidebar{
     background:var(--panel);
     border-right:1px solid var(--border);
@@ -18,33 +5,16 @@
     flex-direction:column;
     min-width:0;
     height:100%;
-    min-height:0;                    /* <- allows the sidebar to respect 100% height */
+    min-height:0;
   }
 
 
 
-  /* ------------------------------------------------------------
-     BRAND HEADER (static app title at the very top)
-     flex-shrink:0 pins this row at a fixed height no matter how
-     tall the song list below it gets. This used to also hold a
-     clickable logo-upload button and an editable name input —
-     both were removed in favor of one fixed, non-editable title.
-     ------------------------------------------------------------ */
   .brand{
     padding:18px 20px 4px;
     flex-shrink:0;
   }
 
-  /* PLAYNCK wordmark.
-     Michroma/Exo 2 don't ship with any OS, so the font-family
-     fallback list alone silently fell through to the system font —
-     they need to actually be loaded via @font-face, pointing at
-     real font files. Those files now live in vendor/fonts/ (see
-     THIRD-PARTY-NOTICES.txt for their license — both are SIL OFL,
-     free to bundle). If vendor/fonts/ isn't present for some reason,
-     these two @font-face rules just fail quietly and the stack below
-     drops to 'Segoe UI'/system-ui as before — nothing breaks either
-     way. */
   @font-face{
     font-family:'Michroma';
     font-style:normal;
@@ -63,32 +33,23 @@
     margin:0;
     text-align:center;
   }
-  /* --- SIZE of the whole wordmark: change font-size here. --- */
-  /* --- SPACING between letters: two knobs, both here —
-         letter-spacing (spacing WITHIN each letter's own box) and
-         gap (extra space added BETWEEN letter boxes on top of that).
-         Raise/lower either one independently to taste. --- */
   .bt-word{
     display:inline-flex;
     align-items:center;
-    gap:8px;                          /* <- space added BETWEEN letters */
+    gap:8px;
     font-family:'Michroma','Exo 2','Segoe UI',system-ui,sans-serif;
-    font-size:18px;                   /* <- overall size of the word */
+    font-size:18px;
     font-weight:800;
-    letter-spacing:.7px;              /* <- space added inside/around each letter */
+    letter-spacing:.7px;
     color:var(--text-dim);
   }
   .bt-letter{
     display:inline-block;
-    border-radius:2px;                /* subtle, consistent with the rest of the UI's rounded corners */
+    border-radius:2px;
   }
-  /* Gradient color for the A and K only. Applied to plain text (not
-     an SVG/Unicode substitute), so it's still a normal letter —
-     just recolored the same way .bt-word's color is, via
-     background-clip:text. */
   .bt-accent{
     font-weight:900;
-    background:var(--accent-grad);    /* blue -> purple, same gradient used elsewhere in the UI */
+    background:var(--accent-grad);
     -webkit-background-clip:text;
     background-clip:text;
     color:transparent;
@@ -96,23 +57,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     NAV RAIL (far-left collapsible icon column)
-     Replaces the old horizontal tab row + separate "☰" menu
-     button/dropdown. It's its own column in the .app grid (see
-     --rail-w / --rail-w-expanded above), always visible, with
-     three stacked pieces:
-       1) .rail-toggle   the "☰" button, expands/collapses the rail
-       2) .rail-section  Songs/Albums/Artists/Playlists/Folders —
-                          exactly the old .tabs buttons, just laid
-                          out vertically with an icon each
-       3) .rail-bottom   pinned to the bottom via margin-top:auto —
-                          Settings + About Us
-     Collapsed, only the icons show (rail-label is width:0 and
-     invisible). Toggling "rail-expanded" on #appRoot (done in
-     script.js) widens the grid column AND fades/slides each label
-     into view — the icons themselves never move, so nothing jumps.
-     ------------------------------------------------------------ */
   .rail{
     background:var(--panel);
     border-right:1px solid var(--border);
@@ -165,12 +109,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     LIST HEADER
-     The row above the song list: current section title (or a
-     drilled-into folder/playlist name) on the left, search and
-     the new sort icon buttons on the right.
-     ------------------------------------------------------------ */
   .list-header{
     display:flex;align-items:center;justify-content:space-between;
     padding:12px 20px 6px;gap:10px;flex-shrink:0;
@@ -196,10 +134,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     SEARCH ROW
-     Hidden by default; toggled open by the search icon button.
-     ------------------------------------------------------------ */
   .search-row{padding:0 20px 10px;flex-shrink:0;}
   .search-row input{
     width:100%;background:var(--elevated);border:1px solid var(--border);
@@ -209,24 +143,10 @@
 
 
 
-  /* ------------------------------------------------------------
-     GENERIC "HIDDEN" UTILITY
-     Toggled via JS (classList) to show/hide elements without
-     removing them from the DOM. Used all over the app, including
-     by the new sort menu, side menu and info/edit modal.
-     ------------------------------------------------------------ */
   .hidden{display:none !important;}
 
 
 
-  /* ------------------------------------------------------------
-     LIST CONTAINER (the actual scrolling area)
-     flex:1 makes it fill all remaining vertical space in the
-     sidebar; overflow-y:auto + min-height:0 is what makes IT
-     (and only it) scroll, while brand/tabs/header above stay
-     fixed in place. Extra bottom padding keeps the last song
-     from hiding behind the mobile mini-player bar.
-     ------------------------------------------------------------ */
   .list-container{flex:1;overflow-y:auto;padding:4px 12px 90px;min-height:0;}
   .empty-state{
     padding:40px 20px;text-align:center;color:var(--text-faint);font-size:13px;
@@ -234,20 +154,12 @@
 
 
 
-  /* ------------------------------------------------------------
-     SONG ROW
-     One row per track in the Songs list (and inside album/artist/
-     playlist/folder detail views, which reuse this same markup).
-     ------------------------------------------------------------ */
   .song-row{
     display:flex;align-items:center;gap:12px;padding:8px;border-radius:10px;
     cursor:pointer;position:relative;
   }
   .song-row:hover{background:var(--elevated);}
-  .song-row.playing{background:var(--accent-grad);}         /* highlights the track that's playing */
-  /* One-shot pulse fired by the header's locate/target button (see
-     flashRow() in script.js) so the eye catches where it scrolled to,
-     even on a row that was already tinted by .playing above. */
+  .song-row.playing{background:var(--accent-grad);}
   .song-row.row-locate-flash{animation:rowLocatePulse .9s ease-out;}
   @keyframes rowLocatePulse{
     0%  { box-shadow:0 0 0 2px rgba(var(--accent1-rgb),.9); }
@@ -274,16 +186,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     MULTI-SELECT
-     A round checkbox appears at the start of each row once select
-     mode is on (toggled via the header's checklist icon). Checking
-     one or more items slides the bulk-action bar up from the
-     bottom of the sidebar. Shared by the Songs list (.song-row),
-     the Albums grid (.card), and the Artists/Playlists/Folders
-     rows (.list-line) — every selectable view uses the same round
-     checkbox and the same "selected" highlight.
-     ------------------------------------------------------------ */
   .song-row.selectable .thumb{margin-left:0;}
   .row-check{
     width:20px;height:20px;border-radius:50%;flex-shrink:0;
@@ -322,17 +224,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     ALBUM GRID (Albums tab)
-     A responsive grid of square cover-art cards.
-     ------------------------------------------------------------ */
-  /* ------------------------------------------------------------
-     HOME TAB
-     Three stat boxes (songs/albums/artists) side by side up top,
-     followed by "Recently Played" and "Top Songs" sections, each
-     reusing the same .song-row look the Songs tab uses. See
-     renderHomeTab() in script.js.
-     ------------------------------------------------------------ */
   .home-view{padding:6px 8px 18px;}
   .home-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;}
   .home-stat-box{
@@ -352,24 +243,12 @@
   .card img{width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;background:var(--elevated);display:block;}
   .card .name{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .card .sub{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  /* Selected-state highlight shared by the Albums grid (.card) and
-     the Artists/Playlists/Folders rows (.list-line) — same accent
-     tint the Songs list uses for a selected .song-row. */
   .card.selected,.list-line.selected{background:rgba(124,109,255,.14);}
-  /* The Albums grid's checkbox floats over the corner of the cover
-     art instead of sitting inline like the other tabs, since a card
-     is a vertical block rather than a row. */
   .card-check{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.35);}
   .card.selected .card-check{background:var(--accent1);border-color:var(--accent1);}
 
 
 
-  /* ------------------------------------------------------------
-     LIST LINE (Artists / Playlists / Folders rows)
-     A round-thumbnail row shared by the Artists, Playlists and
-     Folders tabs. Folders swap the round photo for a square
-     folder icon via the ".folder-line" modifier below.
-     ------------------------------------------------------------ */
   .list-line{
     display:flex;align-items:center;gap:12px;padding:10px 8px;border-radius:10px;cursor:pointer;
   }
@@ -382,10 +261,6 @@
   .list-line .wrap{min-width:0;flex:1;}
   .list-line .name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .list-line .sub{font-size:12.5px;color:var(--text-dim);}
-  /* Playlist row "⋮" menu button — same look/behavior as the
-     per-song menu button, just scoped to .list-line rows so it can
-     be reused for playlists (rename/delete) without affecting the
-     Artists/Folders rows that don't add one. */
   .list-line .menu-btn{
     background:none;border:none;color:inherit;opacity:.7;cursor:pointer;
     padding:4px;border-radius:6px;flex-shrink:0;
@@ -394,15 +269,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     "NEW PLAYLIST" DASHED BUTTON
-     The big dashed call-to-action shown at the top of the
-     Playlists tab. .playlist-toolbar wraps it together with the
-     matching "+ New Folder" button so the two sit side by side
-     instead of one being full-width — .new-playlist-btn keeps
-     working unwrapped too, its own margin only gets overridden
-     when it's inside the toolbar.
-     ------------------------------------------------------------ */
   .playlist-toolbar{display:flex;gap:8px;margin:6px 8px 10px;}
   .playlist-toolbar .new-playlist-btn{margin:0;flex:1;}
   .new-playlist-btn{
@@ -414,13 +280,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     FOLDER TAB TOOLBAR ("+ Add Songs" / "+ Add Folder")
-     These two buttons live inside the Folders tab (rather than
-     the sidebar header) since importing music is really a
-     "Folders" concern, and this tab already had its own
-     add-folder affordance — no reason to have it in two places.
-     ------------------------------------------------------------ */
   .folder-toolbar{display:flex;gap:8px;margin:6px 4px 14px;}
   .folder-toolbar button{
     flex:1;padding:10px 10px;border-radius:9px;border:1px solid var(--border);

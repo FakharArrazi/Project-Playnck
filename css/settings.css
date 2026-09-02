@@ -1,12 +1,3 @@
-  /* ------------------------------------------------------------
-     SETTINGS: THEME PICKER
-     Two swatch rows shown inside the Settings modal — one for the
-     overall app background (dark / light) and one for the accent
-     color used throughout the app (buttons, active states, the
-     playing-progress bar, gradients, etc). Each swatch is a plain
-     round color circle; the currently-selected one gets a ring +
-     checkmark drawn on top of it.
-     ------------------------------------------------------------ */
   .theme-picker{display:flex;flex-direction:column;gap:22px;}
   .theme-group-label{font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;}
   .swatch-row{display:flex;flex-wrap:wrap;gap:14px;}
@@ -21,21 +12,11 @@
     content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     font-size:15px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);
   }
-  .swatch-btn.active.on-light::after{color:#2b2b2b;text-shadow:none;}   /* dark check mark reads better on the off-white swatch */
+  .swatch-btn.active.on-light::after{color:#2b2b2b;text-shadow:none;}
   .theme-note{margin:10px 0 0;font-size:11.5px;color:var(--text-faint);}
 
 
 
-  /* ------------------------------------------------------------
-     SETTINGS: LANGUAGE
-     Reuses .swatch-row for layout (flex-wrap + gap), but each
-     language gets its own pill-shaped .lang-chip rather than the
-     circular .swatch-btn used for theme colors above — a language
-     needs room to show its name, not a color dot. The active
-     language gets the accent gradient fill; "+ Add language"
-     reuses .amr-add-btn from the Add-Music rows elsewhere in the
-     app to install the next one.
-     ------------------------------------------------------------ */
   .lang-chip{
     flex-shrink:0;border:1px solid var(--border);background:none;color:var(--text);
     font-size:13px;font-weight:600;padding:8px 16px;border-radius:20px;cursor:pointer;
@@ -46,13 +27,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     SETTINGS: PLAYER > BACKGROUND IMAGE + BLUR
-     Lives inside the Player accordion section. A small square
-     preview thumbnail sits next to Choose/Remove buttons, and a
-     range input below controls the blur amount applied to
-     .player-bg via the --player-bg-blur CSS variable.
-     ------------------------------------------------------------ */
   .player-bg-settings{display:flex;flex-direction:column;gap:14px;}
   .player-bg-row{display:flex;align-items:center;gap:14px;}
   .player-bg-preview{
@@ -65,9 +39,6 @@
   .player-bg-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
   .backup-actions{display:flex;gap:8px;flex-wrap:wrap;}
 
-  /* ------------------------------------------------------------
-     SETTINGS > AUDIO (Equalizer + Gapless Playback)
-     ------------------------------------------------------------ */
   .audio-settings{display:flex;flex-direction:column;gap:18px;}
   .settings-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px;}
   .settings-toggle-row-divider{padding-top:18px;border-top:1px solid var(--border);}
@@ -75,10 +46,6 @@
   .settings-toggle-label .theme-group-label{margin-bottom:4px;}
   .settings-toggle-label .theme-note{margin-top:0;}
 
-  /* A checkbox styled as a pill switch — reused for both the EQ and
-     Gapless Playback on/off toggles. The checkbox itself stays in
-     the DOM (so it's still keyboard/screen-reader operable) but is
-     visually hidden; .toggle-slider is what's actually painted. */
   .toggle-switch{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;}
   .toggle-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1;}
   .toggle-slider{position:absolute;inset:0;background:var(--elevated);border:1px solid var(--border);border-radius:999px;transition:background .15s,border-color .15s;}
@@ -94,8 +61,6 @@
   .eq-band{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:0;}
   .eq-band-value{font-size:10px;color:var(--text-dim);min-width:26px;text-align:center;}
   .eq-band-freq{font-size:10px;color:var(--text-faint);}
-  /* Same "rotate a horizontal slider" trick as #volumeSlider above —
-     see that rule's comment for the full explanation. */
   .eq-band-wrap{width:20px;height:90px;display:flex;align-items:center;justify-content:center;}
   .eq-band-slider{flex:none;width:90px;height:4px;transform:rotate(-90deg);margin:0;}
   .player-bg-blur-row{display:flex;flex-direction:column;gap:8px;}
@@ -105,23 +70,11 @@
   }
   .player-bg-blur-value{font-size:12.5px;color:var(--text-dim);min-width:34px;text-align:right;}
 
-  /* Settings > Player: Visualizer opacity slider — reuses the blur
-     row's layout, just greyed out via .disabled while the Visualizer
-     toggle above it is off (see visualizerEnabledToggle's listener). */
   .visualizer-opacity-row{transition:opacity .15s;}
   .visualizer-opacity-row.disabled{opacity:.4;pointer-events:none;}
 
 
 
-  /* ------------------------------------------------------------
-     SETTINGS: ACCORDION
-     The Settings modal is now a stack of collapsible sections
-     (Theme / Audio / Player, in that order) instead of jumping
-     straight to the color picker. Clicking a section's header
-     expands just that section's body below it — other sections
-     stay in the stack, collapsed. Multiple sections can be open
-     at once; nothing forces the others shut.
-     ------------------------------------------------------------ */
   .settings-accordion{display:flex;flex-direction:column;gap:8px;}
   .accordion-item{
     border:1px solid var(--border);border-radius:10px;
@@ -148,15 +101,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     SETTINGS: UPDATES
-     Lives inside the same accordion as Theme/Audio/Player/Language
-     (see accordionItem() calls in openSettingsModal()). The dot's
-     color/pulse is driven purely by a data-state attribute set from
-     script.js's updateSectionView(), which in turn mirrors whatever
-     main.js's autoUpdater last reported over the "update-status" IPC
-     event (see wireUpdateEvents() in main.js).
-     ------------------------------------------------------------ */
   .update-section{display:flex;flex-direction:column;gap:14px;padding-top:2px;}
   .update-status-row{display:flex;align-items:center;gap:9px;}
   .update-status-text{font-size:13px;color:var(--text-dim);}
@@ -176,17 +120,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     ADD MUSIC MODAL CONTENT
-     Reuses the shared modal to show every song in the library so
-     the user can add any of them to the playlist they're viewing.
-     Rows for tracks already in the playlist are dimmed and their
-     button disabled/labeled "Added". The search box + sort dropdown
-     sit in their own row above the list (see openAddMusicModal() in
-     script/playlists.js) — reusing .edit-input's existing look
-     (see dialogs.css) so they read as native app controls rather
-     than a bolted-on widget.
-     ------------------------------------------------------------ */
   .add-music-controls{display:flex;gap:8px;margin-bottom:12px;}
   .add-music-search{flex:1;min-width:0;}
   .add-music-sort{flex-shrink:0;width:150px;cursor:pointer;}
@@ -209,20 +142,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     HISTORY MODAL CONTENT
-     The "☰" menu's History entry: a day-grouped log of what's been
-     played in the last 10 days (see history.js). Rows reuse
-     .home-section-title (see sidebar.css) for their day headers.
-     Clicking a row plays that track (see bindHistoryRowClicks() in
-     history.js), so it gets cursor:pointer plus the same
-     hover/press/transition treatment as a normal clickable
-     .song-row — --elevated-hover here rather than .song-row's plain
-     --elevated, since this list already sits on an --elevated modal
-     background (see .modal-box in dialogs.css); the shared
-     transform/transition + press-scale + focus-visible outline
-     still come from the same rules in animations.css.
-     ------------------------------------------------------------ */
   .history-list{display:flex;flex-direction:column;}
   .history-group{margin-bottom:14px;}
   .history-group:last-child{margin-bottom:0;}

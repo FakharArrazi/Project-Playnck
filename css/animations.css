@@ -1,9 +1,3 @@
-  /* ------------------------------------------------------------
-     MOTION LAYER
-     These rules preserve every resting visual value. Interaction
-     feedback uses composited properties only, and never targets the
-     bespoke Play/Pause control or its existing animation.
-     ------------------------------------------------------------ */
   html{scroll-behavior:smooth;}
   .list-container,.player-panel,.modal-box{scroll-behavior:smooth;overscroll-behavior:contain;}
   .list-container,.player-panel{-webkit-overflow-scrolling:touch;}
@@ -41,10 +35,6 @@
     html,.list-container,.player-panel,.modal-box{scroll-behavior:auto;}
     .motion-in,.motion-out,.view-enter > *,.track-change{animation:none !important;}
     button:not(#playBtn),.rail-item,.song-row,.history-row,.list-line,.card,.swatch-btn,.theme-btn{transition-duration:1ms;}
-    /* Same "no motion" contract for the transport/heart flourishes
-       below — the cover carousel's own reduced-motion rule lives
-       next to .art-slot, above, since it needs to disable a plain
-       CSS transition rather than an animation. */
     .ctrl-btn.ctrl-ping::before,.mini-controls button.ctrl-ping::before,
     #nextBtn.ctrl-streak::before,#prevBtn.ctrl-streak::before,#miniNext.ctrl-streak::before,#miniPrev.ctrl-streak::before,
     #nextBtn svg.skip-kick,#prevBtn svg.skip-kick,#miniNext svg.skip-kick,#miniPrev svg.skip-kick,

@@ -1,8 +1,3 @@
-  /* ------------------------------------------------------------
-     GLOBAL RESET & BASE ELEMENT STYLES
-     Keeps every element's box-sizing predictable and sets the
-     base font/colors on <body> so we don't repeat them everywhere.
-     ------------------------------------------------------------ */
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
@@ -10,9 +5,9 @@
     background:var(--bg);
     color:var(--text);
     font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-    overflow:hidden;                 /* the app manages its own internal scroll areas */
+    overflow:hidden;
   }
-  button{font-family:inherit;}       /* buttons don't inherit fonts by default in some browsers */
+  button{font-family:inherit;}
   .native-titlebar{display:none;}
   html.native-titlebar-enabled body{padding-top:32px;}
   html.native-titlebar-enabled .native-titlebar{
@@ -25,11 +20,6 @@
 
 
 
-  /* ------------------------------------------------------------
-     SCROLLBAR STYLING
-     Thin, subtle scrollbars (WebKit/Blink only) so scrollable
-     areas like the song list don't look like a plain OS scrollbar.
-     ------------------------------------------------------------ */
   ::-webkit-scrollbar{width:8px;height:8px;}
   ::-webkit-scrollbar-thumb{background:var(--elevated);border-radius:4px;}
   ::-webkit-scrollbar-track{background:transparent;}
