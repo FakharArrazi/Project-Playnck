@@ -1,104 +1,21 @@
-PLAYNCK - END-USER LICENSE AGREEMENT
+MIT License
 
-Copyright (c) 2026 Arrazi. All rights reserved.
+Copyright (c) 2026 Fakhar Arrazi
 
-This End-User License Agreement ("Agreement") is a legal agreement
-between you (an individual or a single entity, "you") and Arrazi
-("the Author") for the software product PLAYNCK, including its
-executable files, associated media, and any related documentation
-("the Software"). By installing, copying, or otherwise using the
-Software, you agree to be bound by the terms of this Agreement. If
-you do not agree, do not install or use the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-1. LICENSE GRANT
-Subject to your compliance with this Agreement, the Author grants
-you a personal, non-exclusive, non-transferable, revocable license
-to install and use the Software, in compiled/binary form only, on
-devices you own or control, for your own personal or internal use.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-2. WHAT YOU MAY NOT DO
-Except to the extent expressly permitted by this Agreement or by
-applicable law notwithstanding this limitation, you may not:
-  a. Reverse engineer, decompile, disassemble, or otherwise attempt
-     to derive the source code, underlying structure, or algorithms
-     of the Software, whether in whole or in part;
-  b. Remove, circumvent, disable, damage, or otherwise interfere
-     with any obfuscation, license-verification, or other protective
-     measures included in the Software;
-  c. Modify, adapt, translate, or create derivative works based on
-     the Software;
-  d. Sell, rent, lease, sublicense, distribute, publish, or
-     otherwise make the Software (or copies of it) available to any
-     third party, whether for profit or not, except by sharing the
-     Author's own official, unmodified distribution channel/link;
-  e. Use the Software for any unlawful purpose, or in any way that
-     violates applicable local, national, or international law.
-
-3. OWNERSHIP
-The Software is licensed, not sold. The Author retains all right,
-title, and interest in and to the Software, including all
-intellectual property rights therein. This Agreement does not grant
-you any rights to trademarks, service marks, or logos of the Author.
-
-4. THIRD-PARTY COMPONENTS
-The Software includes certain third-party open-source components,
-each provided under its own license and not under the terms of this
-Agreement. See THIRD-PARTY-NOTICES.txt, distributed alongside the
-Software, for the full list of components and their license texts.
-Nothing in this Agreement limits the rights granted to you under
-those separate open-source licenses with respect to those specific
-components.
-
-5. YOUR DATA
-The Software is designed to run entirely offline and does not
-transmit your music library, file contents, or usage data to the
-Author or any third party. Any files you import, edit, rename, or
-delete using the Software are modified directly on your own device,
-at your own direction and risk (see Section 7).
-
-6. UPDATES
-The Author may, but is under no obligation to, provide updates,
-patches, or new versions of the Software. Any such updates are
-subject to this Agreement unless accompanied by a separate license.
-
-7. DISCLAIMER OF WARRANTY
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND
-NON-INFRINGEMENT. THE AUTHOR DOES NOT WARRANT THAT THE SOFTWARE
-WILL BE UNINTERRUPTED, ERROR-FREE, OR THAT ANY FILES YOU MODIFY,
-RENAME, OR DELETE USING THE SOFTWARE (INCLUDING VIA ITS "MOVE TO
-TRASH" OR TAG-WRITING FEATURES) WILL BE FREE FROM DATA LOSS OR
-CORRUPTION. YOU ARE SOLELY RESPONSIBLE FOR MAINTAINING BACKUPS OF
-YOUR OWN FILES.
-
-8. LIMITATION OF LIABILITY
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT
-SHALL THE AUTHOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
-CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF DATA, PROFITS,
-OR GOODWILL, ARISING OUT OF OR RELATED TO YOUR USE OF OR INABILITY
-TO USE THE SOFTWARE, EVEN IF THE AUTHOR HAS BEEN ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGES. THE AUTHOR'S TOTAL LIABILITY ARISING
-OUT OF OR RELATED TO THIS AGREEMENT SHALL NOT EXCEED THE AMOUNT, IF
-ANY, YOU PAID FOR THE SOFTWARE.
-
-9. TERMINATION
-This Agreement is effective until terminated. Your rights under
-this Agreement will terminate automatically without notice if you
-fail to comply with any of its terms. Upon termination, you must
-stop using the Software and destroy all copies in your possession.
-
-10. GOVERNING LAW
-This Agreement is governed by the laws of Algeria/Setif,
-without regard to its conflict-of-laws principles. Fill in your own
-jurisdiction here before publishing — this is left as a placeholder
-since it materially affects how this Agreement would be enforced.
-
-11. ENTIRE AGREEMENT
-This Agreement constitutes the entire agreement between you and the
-Author regarding the Software and supersedes any prior agreements,
-whether written or oral, relating to its subject matter. If any
-provision of this Agreement is held unenforceable, the remaining
-provisions will remain in full effect.
-
-Contact: Fakhararraziaidoudi@gmail.com
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
