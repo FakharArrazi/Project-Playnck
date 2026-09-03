@@ -107,6 +107,7 @@ function sortTracks(tracks){
 function renderTab(){
   listContainer.innerHTML="";
   virtualSongList=null;
+  if(virtualScrollFrame){ cancelAnimationFrame(virtualScrollFrame); virtualScrollFrame=null; }
   const q=(searchInput.value||"").toLowerCase().trim();
 
   const selType=currentSelectType();
@@ -188,12 +189,14 @@ const SONG_ROW_HEIGHT=60;
 const SONG_LIST_OVERSCAN=12;
 let virtualSongList=null;
 let virtualScrollFrame=null;
+let virtualScrollListenerBound=false;
 
 function scheduleVirtualSongRender(){
   if(!virtualSongList || virtualScrollFrame) return;
   if(Math.floor(listContainer.scrollTop/SONG_ROW_HEIGHT)===virtualSongList.firstVisible) return;
   virtualScrollFrame=requestAnimationFrame(()=>{
     virtualScrollFrame=null;
+    if(!virtualSongList) return;
     const {tracks,playlistIdContext}=virtualSongList;
     renderSongList(tracks,playlistIdContext,true);
   });
@@ -222,7 +225,10 @@ function renderSongList(tracks, playlistIdContext, alreadySorted=false){
     topSpacer.style.height=(windowStart*SONG_ROW_HEIGHT)+"px";
     listContainer.appendChild(topSpacer);
     tracks=allTracks.slice(windowStart,windowEnd);
-    listContainer.addEventListener("scroll",scheduleVirtualSongRender,{passive:true});
+    if(!virtualScrollListenerBound){
+      listContainer.addEventListener("scroll",scheduleVirtualSongRender,{passive:true});
+      virtualScrollListenerBound=true;
+    }
   }
   tracks.forEach(t=>{
     const selected=state.selectMode && state.selectedIds.has(t.id);
