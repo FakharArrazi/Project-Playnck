@@ -1,21 +1,156 @@
-MIT License
+PLAYNCK LICENSE
 
-Copyright (c) 2026 Fakhar Arrazi
+Copyright (c) 2026 Arrazi
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. GRANT OF PERMISSION
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy of Playnck, including its source code, compiled versions, installers, packages, documentation, and associated files (collectively, the "Software"), to use, copy, study, modify, adapt, fork, publish, reproduce, and distribute the Software, subject to the restrictions stated in this License.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+You may use the Software for personal, educational, research, internal, commercial, or any other lawful purpose.
+
+You may create modified versions, forks, ports, translations, derivative works, and other projects based on the Software.
+
+You may publish and distribute the original or modified Software free of charge.
+
+2. THE ONLY RESTRICTION: NO SELLING
+
+The Software may not be sold.
+
+You may not charge money specifically for providing the Software or a modified or derivative version of the Software.
+
+This prohibition applies to, but is not limited to:
+
+* Selling the original Software.
+* Selling copies of the Software.
+* Selling modified versions of the Software.
+* Selling forks of the Software.
+* Selling derivative versions of the Software.
+* Selling the Software's source code.
+* Selling compiled versions, installers, or packages of the Software.
+* Charging a purchase price, license fee, download fee, subscription fee, or other fee whose purpose is to provide access to the Software itself.
+* Placing the Software behind a paid download or paid-access requirement.
+* Including the Software in a paid package where the Software itself is a substantial part of what the customer is paying for.
+
+The Software may be given away freely without charge.
+
+3. COMMERCIAL USE
+
+Commercial use of the Software is permitted.
+
+You may use the Software in a commercial environment, business, organization, product, service, or workflow.
+
+You may create and sell your own independent products or services that use the Software, provided that the sale is not primarily a sale of the Software or a modified or derivative version of the Software itself.
+
+4. MODIFICATION AND REDISTRIBUTION
+
+You may modify the Software in any manner.
+
+You may create and maintain forks of the Software.
+
+You may publish your modifications and forks.
+
+You may distribute the original or modified Software free of charge through any lawful distribution method, including websites, source-code repositories, package repositories, application repositories, file-sharing services, and other platforms.
+
+You are not required to obtain permission from the copyright holder to modify or redistribute the Software free of charge.
+
+5. COPYRIGHT
+
+The Software and its original source code remain copyrighted by Arrazi.
+
+This License does not transfer ownership of the original Software or its copyright.
+
+You may retain copyright in original work that you add to a modified version, subject to this License and any applicable third-party licenses.
+
+You may not falsely claim that the original Playnck Software was created by you.
+
+6. ATTRIBUTION
+
+When redistributing the Software or a modified version, you should retain this License and the original copyright notice where reasonably practical.
+
+You may add your own copyright notices for your original modifications.
+
+Nothing in this License requires you to identify or endorse Arrazi as the author of modifications that you independently create.
+
+7. PLAYNCK NAME AND BRANDING
+
+This License does not grant permission to falsely represent a modified or third-party version as the official Playnck release.
+
+You may state that your project is based on Playnck or is a fork or modified version of Playnck.
+
+The Playnck name, logo, and official branding may not be used in a manner that falsely suggests endorsement, sponsorship, or official status.
+
+8. THIRD-PARTY COMPONENTS
+
+The Software may include, use, or depend upon third-party software, libraries, frameworks, services, codecs, tools, or other components.
+
+Third-party components are not automatically covered by this License.
+
+Each third-party component remains subject to its own applicable license and terms.
+
+Nothing in this License grants rights that the copyright holder of a third-party component has not granted.
+
+Users and distributors are responsible for complying with applicable third-party licenses.
+
+9. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE, MODIFICATION, OR DISTRIBUTION OF THE SOFTWARE.
+
+10. TERMINATION
+
+Any permission granted by this License automatically terminates if you violate the restriction against selling the Software or otherwise materially violate this License.
+
+Upon termination, you must stop exercising the permissions granted by this License.
+
+If the violation is permanently corrected, the copyright holder may restore the permissions at their discretion.
+
+11. NO IMPLIED RIGHTS
+
+Except for the permissions expressly granted by this License, no additional rights are granted.
+
+Nothing in this License transfers ownership of the Software, its copyright, trademarks, or other intellectual property rights.
+
+12. CHANGES TO THIS LICENSE
+
+This License applies to the version of the Software with which it is distributed.
+
+The copyright holder may release future versions of Playnck under different license terms.
+
+A new license does not retroactively change the terms applicable to versions already distributed under this License.
+
+13. SEVERABILITY
+
+If any provision of this License is determined to be invalid or unenforceable under applicable law, that provision shall be interpreted or limited to the minimum extent necessary, and the remaining provisions shall continue in effect to the maximum extent permitted by law.
+
+14. ACCEPTANCE
+
+By exercising the permissions granted by this License, you agree to comply with its terms.
+
+15. SUMMARY
+
+In simple terms:
+
+You can use Playnck.
+
+You can copy Playnck.
+
+You can modify Playnck.
+
+You can fork Playnck.
+
+You can publish Playnck.
+
+You can redistribute Playnck.
+
+You can use Playnck commercially.
+
+You can build things with Playnck.
+
+You can sell your own independent work that uses Playnck.
+
+You can do almost anything you want with Playnck.
+
+You simply may not sell Playnck itself, its source code, or a modified or derivative version of Playnck.
+
+END OF LICENSE
