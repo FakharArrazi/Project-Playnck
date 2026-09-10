@@ -10,6 +10,7 @@ import { updateVisualizerState } from "./visualizer.js";
 import { EQ_BANDS } from "./equalizer.js";
 import { bindEvents } from "./bindings.js";
 import { pruneHistoryEntries } from "./history.js";
+import { checkAutoShowWhatsNew } from "./whats-new.js";
 
 init();
 async function init(){
@@ -113,7 +114,11 @@ async function init(){
   window.addEventListener("focus", verifyLibraryOnDisk);
 
   if(window.electronAPI && window.electronAPI.getAppVersion){
-    window.electronAPI.getAppVersion().then(v=>{ state.appVersion=v; refreshUpdateUI(); }).catch(()=>{});
+    window.electronAPI.getAppVersion().then(v=>{
+      state.appVersion=v;
+      refreshUpdateUI();
+      checkAutoShowWhatsNew().catch(()=>{});
+    }).catch(()=>{});
   }
   if(window.electronAPI && window.electronAPI.onUpdateStatus){
     window.electronAPI.onUpdateStatus(info=>{

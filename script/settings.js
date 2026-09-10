@@ -8,6 +8,7 @@ import { cancelCrossfade } from "./crossfade.js";
 import { THEME_BG, THEME_ACCENT, setThemeBg, setThemeAccent } from "./theme.js";
 import { onBackupExportClick, onBackupImportClick, buildLanguageBodyHTML } from "./backup.js";
 import { openModal } from "./modal.js";
+import { showWhatsNewManually } from "./whats-new.js";
 
 function applyPlayerBg(){
   const layer=$("playerBg");
@@ -108,7 +109,10 @@ function updatesBodyHTML(){
         <span class="update-dot" id="updateDot" data-state="${v.dot}"></span>
         <span class="update-status-text" id="updateStatusText">${escapeHTML(v.text)}</span>
       </div>
-      <button type="button" class="edit-save-btn update-check-btn" id="updateActionBtn"${v.disabled?" disabled":""}>${escapeHTML(v.btn)}</button>
+      <div class="backup-actions">
+        <button type="button" class="edit-save-btn update-check-btn" id="updateActionBtn"${v.disabled?" disabled":""}>${escapeHTML(v.btn)}</button>
+        <button type="button" class="amr-add-btn" id="whatsNewBtn">${escapeHTML(tr("whatsNew.btn"))}</button>
+      </div>
     </div>`;
 }
 
@@ -286,6 +290,7 @@ function openSettingsModal(){
   });
   if(window.electronAPI && window.electronAPI.checkForUpdates){
     $("updateActionBtn").addEventListener("click",onUpdateActionClick);
+    $("whatsNewBtn").addEventListener("click",showWhatsNewManually);
   }
 
   const playerBgFileInput=$("playerBgFileInput");

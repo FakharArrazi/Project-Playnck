@@ -256,6 +256,10 @@ const I18N={
     "updates.tryAgain":"Try Again",
     "updates.onlyDesktop":"Updates are only available in the installed desktop app.",
 
+    "whatsNew.btn":"What's New",
+    "whatsNew.titlePrefix":"What's New in {version}",
+    "whatsNew.empty":"No changelog entries yet.",
+
     "language.addButton":"+ Add language",
     "language.note":"Your language choice is stored on this device only.",
     "language.noMore":"More languages coming soon.",
@@ -597,6 +601,10 @@ const I18N={
     "updates.restartInstall":"Redémarrer et installer",
     "updates.tryAgain":"Réessayer",
     "updates.onlyDesktop":"Les mises à jour ne sont disponibles que dans l'application de bureau installée.",
+
+    "whatsNew.btn":"Nouveautés",
+    "whatsNew.titlePrefix":"Nouveautés \u2014 {version}",
+    "whatsNew.empty":"Aucune nouveauté pour le moment.",
 
     "language.addButton":"+ Ajouter une langue",
     "language.note":"Votre choix de langue est enregistré uniquement sur cet appareil.",

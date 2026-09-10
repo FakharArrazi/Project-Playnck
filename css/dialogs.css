@@ -142,6 +142,15 @@
 
 
 
+  .whats-new-body{display:flex;flex-direction:column;gap:18px;}
+  .whats-new-group{display:flex;flex-direction:column;gap:8px;}
+  .whats-new-group+.whats-new-group{padding-top:14px;border-top:1px solid var(--border);}
+  .whats-new-date{margin:0;}
+  .whats-new-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;}
+  .whats-new-list li{font-size:13px;line-height:1.5;color:var(--text);}
+
+
+
   .sync-form{display:flex;flex-direction:column;gap:16px;}
   .sync-hint{margin:0;font-size:12.5px;color:var(--text-dim);line-height:1.5;}
   .sync-offset-display{
