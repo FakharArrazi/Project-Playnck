@@ -63,10 +63,18 @@ async function findOrCreateRelease(owner, repo, tag) {
 async function uploadAssets(owner, repo, release, assetsDir) {
     const files = fs.readdirSync(assetsDir, { withFileTypes: true })
         .filter(entry => entry.isFile())
-        .map(entry => entry.name);
+        .map(entry => entry.name)
+        // Defense in depth: never publish electron-builder's temporary NSIS
+        // uninstaller helper if it somehow made it this far (see release.yml).
+        .filter(name => !name.endsWith("__uninstaller.exe"));
 
     if (files.length === 0) {
         throw new Error(`No files found in ${assetsDir} — nothing to upload.`);
+    }
+
+    const exeFiles = files.filter(name => name.toLowerCase().endsWith(".exe"));
+    if (exeFiles.length > 1) {
+        throw new Error(`Expected at most one .exe asset, found ${exeFiles.length}: ${exeFiles.join(", ")} — refusing to publish a duplicate installer.`);
     }
 
     const current = await gh("GET", `/repos/${owner}/${repo}/releases/${release.id}/assets?per_page=100`);

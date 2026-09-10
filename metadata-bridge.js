@@ -32,6 +32,7 @@ async function getAudioMetadata(filePath) {
         bitrate: fmt.bitrate ? Math.round(fmt.bitrate / 1000) : null,
         codec: fmt.codec || null,
         sampleRate: fmt.sampleRate || null,
+        bitsPerSample: fmt.bitsPerSample || null,
         lossless: !!fmt.lossless,
         container: fmt.container || null,
         duration: fmt.duration || null,

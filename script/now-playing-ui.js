@@ -1,6 +1,6 @@
 import { state, $, audioEl } from "./state.js";
 import { tr } from "./i18n.js";
-import { el, replayMotion, fallbackArt } from "./utils.js";
+import { el, replayMotion, fallbackArt, formatTechMeta } from "./utils.js";
 import { peekNextEntry, peekPrevEntry } from "./queue.js";
 import { getTrackArtURL } from "./init.js";
 import { navSwipeDir, setNavSwipeDir, nextTrack } from "./player.js";
@@ -127,6 +127,29 @@ function rotateCarousel(dir){
 
 
 
+let techRequestSeq=0;
+
+async function updateTrackTech(track){
+  const techEl=$("trackTech");
+  if(!techEl) return;
+
+  techEl.textContent="";
+
+  if(!track || !track.filePath || !window.electronAPI || !window.electronAPI.getAudioMetadata) return;
+
+  const seq=++techRequestSeq;
+  let meta=null;
+  try{
+    meta=await window.electronAPI.getAudioMetadata(track.filePath);
+  }catch(e){
+    return;
+  }
+  if(seq!==techRequestSeq || state.currentTrack!==track) return;
+  techEl.textContent=formatTechMeta(meta, track.filePath);
+}
+
+
+
 function updateNowPlayingUI(){
   const t=state.currentTrack;
   if(!t) return;
@@ -135,6 +158,7 @@ function updateNowPlayingUI(){
   $("trackAlbum").textContent=t.album;
   $("miniTitle").textContent=t.title;
   $("miniArtist").textContent=t.artist;
+  updateTrackTech(t);
 
   const dir=navSwipeDir;
   setNavSwipeDir(null);

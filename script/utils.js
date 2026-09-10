@@ -29,6 +29,65 @@ function formatBitrate(bytes, seconds){
 
 
 
+function normalizeCodecLabel(raw){
+  if(!raw) return null;
+  let c=String(raw).trim();
+  if(!c) return null;
+  if(c.includes("/")) c=c.split("/").pop().trim();
+  const layerMatch=c.match(/layer\s*([123])/i);
+  if(layerMatch) return "MP"+layerMatch[1];
+  if(/^aac/i.test(c)) return "AAC";
+  if(/^flac/i.test(c)) return "FLAC";
+  if(/^alac/i.test(c)) return "ALAC";
+  if(/^vorbis/i.test(c)) return "Vorbis";
+  if(/^opus/i.test(c)) return "Opus";
+  if(/^pcm/i.test(c)) return "PCM";
+  if(/^wma/i.test(c)) return "WMA";
+  return c;
+}
+
+function normalizeContainerLabel(filePath){
+  if(!filePath) return null;
+  const base=filePath.split(/[\\/]/).pop()||"";
+  const dot=base.lastIndexOf(".");
+  if(dot<0 || dot===base.length-1) return null;
+  return base.slice(dot+1).toUpperCase();
+}
+
+function formatSampleRate(hz){
+  if(!hz || !isFinite(hz) || hz<=0) return null;
+  let str=(hz/1000).toFixed(1);
+  if(str.endsWith(".0")) str=str.slice(0,-2);
+  return str+" kHz";
+}
+
+function formatTechMeta(meta, filePath){
+  if(!meta) return "";
+  const parts=[];
+
+  const sr=formatSampleRate(meta.sampleRate);
+  if(sr) parts.push(sr);
+
+  if(meta.lossless && meta.bitsPerSample){
+    parts.push(Math.round(meta.bitsPerSample)+"-bit");
+  } else if(meta.bitrate){
+    parts.push(Math.round(meta.bitrate)+" kbps");
+  }
+
+  const codecLabel=normalizeCodecLabel(meta.codec);
+  const containerLabel=normalizeContainerLabel(filePath);
+
+  if(codecLabel && containerLabel && codecLabel.toUpperCase()!==containerLabel.toUpperCase()){
+    parts.push(codecLabel, containerLabel);
+  } else if(codecLabel || containerLabel){
+    parts.push(codecLabel || containerLabel);
+  }
+
+  return parts.filter(Boolean).join(" • ");
+}
+
+
+
 function el(tag,cls,html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!==undefined)e.innerHTML=html; return e; }
 
 function replayMotion(element,className="motion-in",duration=320){
@@ -82,4 +141,4 @@ function fallbackArt(){
   );
 }
 
-export { fmtTime, formatBytes, formatBitrate, el, replayMotion, pulseCtrlBtn, showWithMotion, hideWithMotion, debounce, escapeHTML, fallbackArt };
+export { fmtTime, formatBytes, formatBitrate, formatTechMeta, el, replayMotion, pulseCtrlBtn, showWithMotion, hideWithMotion, debounce, escapeHTML, fallbackArt };

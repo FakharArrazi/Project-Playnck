@@ -26,17 +26,42 @@ jobs:
 
       - run: npm run build -- --publish never
 
-      - name: Verify the Windows installer was produced
+      - name: Verify exactly one Windows installer was produced
         shell: bash
         run: |
           set -e
-          ls dist/*.exe
-          echo "Windows installer present."
+          # electron-builder's NSIS target writes a temporary
+          # "<name>__uninstaller.exe" helper into dist/ while it builds the
+          # real installer, then deletes it once the installer is signed.
+          # If Windows Defender (or another AV) locks that file mid-build,
+          # the delete can silently fail and the leftover helper matches
+          # the same dist/*.exe glob as the real installer — that's how a
+          # release ends up with two .exe assets instead of one. Ignore it
+          # explicitly instead of trusting the cleanup to always succeed.
+          shopt -s nullglob
+          installers=()
+          for f in dist/*.exe; do
+            case "$f" in
+              *__uninstaller.exe) echo "Ignoring NSIS temp file: $f" ;;
+              *) installers+=("$f") ;;
+            esac
+          done
+          if [ "${#installers[@]}" -eq 0 ]; then
+            echo "::error::No Windows installer found in dist/."
+            exit 1
+          fi
+          if [ "${#installers[@]}" -gt 1 ]; then
+            echo "::error::Expected exactly one Windows installer, found ${#installers[@]}: ${installers[*]}"
+            exit 1
+          fi
+          echo "Windows installer present: ${installers[0]}"
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            !dist/*__uninstaller.exe
           if-no-files-found: error
 
   build-linux:
