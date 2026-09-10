@@ -2,7 +2,7 @@ import { state } from "./state.js";
 import { el, replayMotion, escapeHTML } from "./utils.js";
 import { tr } from "./i18n.js";
 import { currentSortKey, SORT_OPTIONS, renderTab } from "./library-view.js";
-import { createPlaylistPrompt, addToPlaylist, removeFromPlaylist, isInFavorites, toggleFavorite, deleteTrack } from "./playlists.js";
+import { openAddToPlaylistModal, removeFromPlaylist, isInFavorites, toggleFavorite, deleteTrack } from "./playlists.js";
 import { openInfoModal } from "./side-menu.js";
 
 let openMenuEl=null;
@@ -25,16 +25,9 @@ function openTrackMenu(e,track,currentPlaylistId){
   infoBtn.addEventListener("click",()=>{ closeMenu(); openInfoModal(track); });
   menu.appendChild(infoBtn);
   menu.appendChild(el("div","divider"));
-  menu.appendChild(el("div","submenu-label",tr("track.addToPlaylist")));
-  state.playlists.forEach(p=>{
-    if(p.id===state.favoritesId) return;
-    const b=el("button","",escapeHTML(p.name));
-    b.addEventListener("click",()=>{ addToPlaylist(p.id,track.id); closeMenu(); });
-    menu.appendChild(b);
-  });
-  const newB=el("button","",tr("track.newPlaylist"));
-  newB.addEventListener("click",()=>{ closeMenu(); createPlaylistPrompt(track.id); });
-  menu.appendChild(newB);
+  const addToPlaylistBtn=el("button","",tr("track.addToPlaylist"));
+  addToPlaylistBtn.addEventListener("click",()=>{ closeMenu(); openAddToPlaylistModal(track); });
+  menu.appendChild(addToPlaylistBtn);
   if(currentPlaylistId){
     menu.appendChild(el("div","divider"));
     const rem=el("button","",tr("track.removeFromThisPlaylist"));

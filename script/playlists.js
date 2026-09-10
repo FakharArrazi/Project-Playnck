@@ -179,6 +179,46 @@ function addToPlaylist(playlistId,trackId){
 
 
 
+function openAddToPlaylistModal(track){
+  const eligible=state.playlists.filter(p=>p.id!==state.favoritesId);
+
+  const listHTML=eligible.map(p=>{
+    const already=p.trackIds.includes(track.id);
+    return `<div class="add-music-row${already?" added":""}" data-playlist-id="${p.id}">
+      <div class="amr-text">
+        <div class="amr-title">${escapeHTML(p.name)}</div>
+        <div class="amr-artist">${escapeHTML(plural(p.trackIds.length,"song"))}</div>
+      </div>
+      <button class="amr-add-btn" ${already?"disabled":""}>${already?escapeHTML(tr("btn.added")):escapeHTML(tr("btn.add"))}</button>
+    </div>`;
+  }).join("");
+
+  const bodyHTML=`
+    <div class="add-music-list" id="addToPlaylistList">
+      ${listHTML || `<p class="info-empty">${escapeHTML(tr("empty.noPlaylistsForAdd"))}</p>`}
+    </div>
+    <button type="button" class="new-playlist-btn" id="addToPlaylistNewBtn">${escapeHTML(tr("track.newPlaylist"))}</button>`;
+
+  openModal(tr("track.addToPlaylist"), bodyHTML);
+
+  $("addToPlaylistList").querySelectorAll(".add-music-row[data-playlist-id]").forEach(row=>{
+    const playlistId=row.dataset.playlistId;
+    const addBtn=row.querySelector(".amr-add-btn");
+    addBtn.addEventListener("click",()=>{
+      addToPlaylist(playlistId,track.id);
+      row.classList.add("added");
+      addBtn.textContent=tr("btn.added");
+      addBtn.disabled=true;
+    });
+  });
+
+  $("addToPlaylistNewBtn").addEventListener("click",()=>{
+    createPlaylistPrompt(track.id);
+  });
+}
+
+
+
 const ADD_MUSIC_SORT_OPTIONS=[
   {value:"title-asc",  key:"sort.titleAsc"},
   {value:"artist-asc", key:"sort.artistAsc"},
@@ -475,7 +515,7 @@ function openAddSelectedToPlaylistModal(){
 }
 
 export {
-  createPlaylistPrompt, openPlaylistMenu, addToPlaylist, openAddMusicModal,
+  createPlaylistPrompt, openPlaylistMenu, addToPlaylist, openAddMusicModal, openAddToPlaylistModal,
   removeFromPlaylist, isInFavorites, toggleFavorite, notifyTracksDeleted, removeTrackData,
   deleteTrack, deleteSelectedItems, openAddSelectedToPlaylistModal,
   folderAndDescendantIds, openMoveItemModal

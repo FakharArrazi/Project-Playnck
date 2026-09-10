@@ -139,6 +139,7 @@
   }
   .amr-add-btn:hover{border-color:var(--accent1);color:var(--accent1);}
   .amr-add-btn:disabled{color:var(--text-faint);border-color:var(--border);cursor:default;}
+  #modalBody .new-playlist-btn{margin:12px 0 0;}
 
 
 
