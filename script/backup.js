@@ -133,19 +133,14 @@ async function onBackupImportClick(){
 }
 
 function buildLanguageBodyHTML(){
-  const chips=state.installedLanguages.map(code=>
+  const chips=Object.keys(LANGUAGES).map(code=>
     `<button type="button" class="lang-chip${state.language===code?" active":""}" data-lang="${code}">${escapeHTML(LANGUAGES[code].native)}</button>`
   ).join("");
-  const hasMore=Object.keys(LANGUAGES).some(code=>!state.installedLanguages.includes(code));
-  const addBtnOrNote=hasMore
-    ? `<button type="button" class="amr-add-btn" id="addLanguageBtn">${escapeHTML(tr("language.addButton"))}</button>`
-    : `<p class="theme-note">${escapeHTML(tr("language.noMore"))}</p>`;
   return `
     <div class="theme-picker">
       <div>
         <div class="swatch-row" id="languageChipRow">${chips}</div>
       </div>
-      ${addBtnOrNote}
       <p class="theme-note">${escapeHTML(tr("language.note"))}</p>
     </div>`;
 }

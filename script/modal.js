@@ -59,4 +59,35 @@ function promptModal(title, label, defaultValue){
   });
 }
 
-export { openModal, closeModal, promptModal };
+function updateAvailableModal(version){
+  return new Promise(resolve=>{
+    const bodyHTML=`
+      <div class="edit-form">
+        <p class="theme-note">${escapeHTML(tr("updates.promptBody",{version:version||"?"}))}</p>
+        <div class="edit-actions">
+          <button type="button" class="edit-cancel-btn" id="updatePromptLaterBtn">${escapeHTML(tr("updates.later"))}</button>
+          <button type="button" class="edit-save-btn" id="updatePromptDownloadBtn">${escapeHTML(tr("updates.downloadBtn"))}</button>
+        </div>
+      </div>`;
+    openModal(tr("updates.promptTitle"), bodyHTML);
+
+    let settled=false;
+    function finish(shouldDownload){
+      if(settled) return;
+      settled=true;
+      $("modalCloseBtn").removeEventListener("click",onOutsideCancel);
+      $("modalOverlay").removeEventListener("click",onOverlayClick);
+      closeModal();
+      resolve(shouldDownload);
+    }
+    function onOutsideCancel(){ finish(false); }
+    function onOverlayClick(e){ if(e.target.id==="modalOverlay") finish(false); }
+
+    $("updatePromptLaterBtn").addEventListener("click",()=>finish(false));
+    $("updatePromptDownloadBtn").addEventListener("click",()=>finish(true));
+    $("modalCloseBtn").addEventListener("click",onOutsideCancel);
+    $("modalOverlay").addEventListener("click",onOverlayClick);
+  });
+}
+
+export { openModal, closeModal, promptModal, updateAvailableModal };

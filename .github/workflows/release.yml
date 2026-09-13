@@ -61,6 +61,8 @@ jobs:
           name: windows-installer
           path: |
             dist/*.exe
+            dist/*.yml
+            dist/*.blockmap
             !dist/*__uninstaller.exe
           if-no-files-found: error
 
@@ -91,7 +93,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: linux-rpm
-          path: dist/*.rpm
+          path: |
+            dist/*.rpm
+            dist/*.yml
           if-no-files-found: error
 
   publish:

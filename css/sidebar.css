@@ -20,14 +20,14 @@
     font-style:normal;
     font-weight:400;
     font-display:swap;
-    src:url('vendor/fonts/michroma-latin-400-normal.woff2') format('woff2');
+    src:url('../vendor/fonts/michroma-latin-400-normal.woff2') format('woff2');
   }
   @font-face{
     font-family:'Exo 2';
     font-style:normal;
     font-weight:800;
     font-display:swap;
-    src:url('vendor/fonts/exo-2-latin-800-normal.woff2') format('woff2');
+    src:url('../vendor/fonts/exo-2-latin-800-normal.woff2') format('woff2');
   }
   .brand-title{
     margin:0;
@@ -94,6 +94,12 @@
     position:relative;
   }
   .rail-item svg{flex-shrink:0;}
+  .rail-update-dot{
+    position:absolute;top:6px;left:calc((var(--rail-w) - 19px) / 2 + 13px);
+    width:8px;height:8px;border-radius:50%;
+    background:#3ba55d;border:2px solid var(--bg);box-sizing:content-box;
+  }
+  .rail-update-dot[data-state="downloading"]{animation:updatePulse 1.1s ease-in-out infinite;}
   .rail-item:hover{color:var(--text);background:var(--elevated);}
   .rail-item.active{color:var(--text);}
   .rail-item.active::before{

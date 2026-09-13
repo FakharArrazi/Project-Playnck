@@ -112,7 +112,13 @@
             "category": "AudioVideo;Audio;Player;",
             "synopsis": "A modern desktop music player",
             "maintainer": "Arrazi <FakharArrazi@users.noreply.github.com>",
-            "syncDesktopName": true
+            "syncDesktopName": true,
+            "extraResources": [
+                {
+                    "from": "resources/package-type",
+                    "to": "package-type"
+                }
+            ]
         },
         "rpm": {
             "fpm": [

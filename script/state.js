@@ -84,7 +84,6 @@ const state={
   selectedIds:new Set(),
   selectType:null,
   language:"en",
-  installedLanguages:["en"],
   volume:0.8,
   muted:false,
   eq:{enabled:false, gains:[0,0,0,0,0,0,0,0,0,0]},

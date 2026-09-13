@@ -243,7 +243,7 @@ const I18N={
     "settings.noImage":"No image",
 
     "updates.checking":"Checking for updates…",
-    "updates.foundDownloading":"Update found (v{version}) — starting download…",
+    "updates.foundDownloading":"Update found (v{version}) — ready to download",
     "updates.downloading":"Downloading update…",
     "updates.readyRestart":"Update ready (v{version}) — restart to install",
     "updates.upToDate":"You're up to date",
@@ -251,18 +251,21 @@ const I18N={
     "updates.couldntCheck":"Couldn't check for updates.",
     "updates.checkForUpdates":"Check for Updates",
     "updates.checkingBtn":"Checking…",
+    "updates.downloadBtn":"Download Update",
     "updates.downloadingBtn":"Downloading…",
     "updates.restartInstall":"Restart & Install",
     "updates.tryAgain":"Try Again",
     "updates.onlyDesktop":"Updates are only available in the installed desktop app.",
+    "updates.promptTitle":"Update available",
+    "updates.promptBody":"Version {version} is ready to download. Download it now?",
+    "updates.later":"Later",
 
     "whatsNew.btn":"What's New",
     "whatsNew.titlePrefix":"What's New in {version}",
     "whatsNew.empty":"No changelog entries yet.",
 
-    "language.addButton":"+ Add language",
+
     "language.note":"Your language choice is stored on this device only.",
-    "language.noMore":"More languages coming soon.",
 
     "about.tagline":"PLAYNCK is a fast, no-frills music player for your local library — folders in, playback, tags, cover art and time-synced lyrics out. No accounts, no streaming, no ads: just the songs already on your computer.",
     "about.buildVersion":"Build version",
@@ -589,7 +592,7 @@ const I18N={
     "settings.noImage":"Aucune image",
 
     "updates.checking":"Recherche de mises à jour…",
-    "updates.foundDownloading":"Mise à jour trouvée (v{version}) — téléchargement en cours…",
+    "updates.foundDownloading":"Mise à jour trouvée (v{version}) — prête à télécharger",
     "updates.downloading":"Téléchargement de la mise à jour…",
     "updates.readyRestart":"Mise à jour prête (v{version}) — redémarrez pour l'installer",
     "updates.upToDate":"Vous êtes à jour",
@@ -597,18 +600,20 @@ const I18N={
     "updates.couldntCheck":"Impossible de vérifier les mises à jour.",
     "updates.checkForUpdates":"Vérifier les mises à jour",
     "updates.checkingBtn":"Recherche…",
+    "updates.downloadBtn":"Télécharger la mise à jour",
     "updates.downloadingBtn":"Téléchargement…",
     "updates.restartInstall":"Redémarrer et installer",
     "updates.tryAgain":"Réessayer",
     "updates.onlyDesktop":"Les mises à jour ne sont disponibles que dans l'application de bureau installée.",
+    "updates.promptTitle":"Mise à jour disponible",
+    "updates.promptBody":"La version {version} est prête à être téléchargée. La télécharger maintenant ?",
+    "updates.later":"Plus tard",
 
     "whatsNew.btn":"Nouveautés",
     "whatsNew.titlePrefix":"Nouveautés \u2014 {version}",
     "whatsNew.empty":"Aucune nouveauté pour le moment.",
 
-    "language.addButton":"+ Ajouter une langue",
     "language.note":"Votre choix de langue est enregistré uniquement sur cet appareil.",
-    "language.noMore":"Plus de langues à venir prochainement.",
 
     "about.tagline":"PLAYNCK est un lecteur de musique rapide et sans fioritures pour votre bibliothèque locale — importez vos dossiers, et profitez de la lecture, des tags, des pochettes et des paroles synchronisées. Pas de compte, pas de streaming, pas de publicité : juste les titres déjà sur votre ordinateur.",
     "about.buildVersion":"Version",
@@ -704,7 +709,6 @@ function applyNowPlayingPlaceholder(){
 
 function setLanguage(code){
   if(!LANGUAGES[code]) return;
-  if(!state.installedLanguages.includes(code)) state.installedLanguages.push(code);
   state.language=code;
   saveLanguage();
   applyI18n();
@@ -712,14 +716,8 @@ function setLanguage(code){
   if($("acc-language")) openSettingsModal();
 }
 
-function addLanguage(){
-  const next=Object.keys(LANGUAGES).find(code=>!state.installedLanguages.includes(code));
-  if(!next) return;
-  setLanguage(next);
-}
-
 function saveLanguage(){
-  idbPut("settings",{key:"language",value:{active:state.language, installed:state.installedLanguages}});
+  idbPut("settings",{key:"language",value:{active:state.language}});
 }
 
-export { LANGUAGES, tr, plural, SELECT_TYPE_PLURAL_KEY, pluralWord, themeBgLabel, themeAccentLabel, applyI18n, setLanguage, addLanguage };
+export { LANGUAGES, tr, plural, SELECT_TYPE_PLURAL_KEY, pluralWord, themeBgLabel, themeAccentLabel, applyI18n, setLanguage };

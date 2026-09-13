@@ -3,7 +3,7 @@ import { tr } from "./i18n.js";
 import { escapeHTML } from "./utils.js";
 import { ensureAudioGraph, applyEqGains, saveEqSettings, EQ_BANDS, EQ_PRESETS, formatEqFreq } from "./equalizer.js";
 import { saveVisualizerSettings, updateVisualizerState } from "./visualizer.js";
-import { themeBgLabel, themeAccentLabel, setLanguage, addLanguage } from "./i18n.js";
+import { themeBgLabel, themeAccentLabel, setLanguage } from "./i18n.js";
 import { cancelCrossfade } from "./crossfade.js";
 import { THEME_BG, THEME_ACCENT, setThemeBg, setThemeAccent } from "./theme.js";
 import { onBackupExportClick, onBackupImportClick, buildLanguageBodyHTML } from "./backup.js";
@@ -84,7 +84,7 @@ function updateSectionView(){
     case "checking":
       return {dot:"checking",text:tr("updates.checking"),btn:tr("updates.checkingBtn"),disabled:true,action:null};
     case "available":
-      return {dot:"available",text:tr("updates.foundDownloading",{version:info.version||"?"}),btn:tr("updates.downloadingBtn"),disabled:true,action:null};
+      return {dot:"available",text:tr("updates.foundDownloading",{version:info.version||"?"}),btn:tr("updates.downloadBtn"),disabled:false,action:"download"};
     case "downloading":
       return {dot:"downloading",text:tr("updates.downloading")+(info.percent!=null?" "+info.percent+"%":""),btn:tr("updates.downloadingBtn"),disabled:true,action:null};
     case "downloaded":
@@ -117,9 +117,15 @@ function updatesBodyHTML(){
 }
 
 function refreshUpdateUI(){
+  const v=updateSectionView();
+  const railDot=$("railUpdateDot");
+  if(railDot){
+    const show=v.dot==="downloading"||v.dot==="downloaded";
+    railDot.hidden=!show;
+    railDot.dataset.state=v.dot;
+  }
   const dot=$("updateDot"), text=$("updateStatusText"), btn=$("updateActionBtn");
   if(!dot||!text||!btn) return;
-  const v=updateSectionView();
   dot.dataset.state=v.dot;
   text.textContent=v.text;
   btn.textContent=v.btn;
@@ -130,6 +136,10 @@ async function onUpdateActionClick(){
   const v=updateSectionView();
   if(v.action==="install"){
     window.electronAPI.installUpdateNow();
+    return;
+  }
+  if(v.action==="download"){
+    window.electronAPI.downloadUpdateNow();
     return;
   }
   if(v.action!=="check") return;
@@ -310,8 +320,6 @@ function openSettingsModal(){
   $("languageChipRow").querySelectorAll(".lang-chip").forEach(btn=>{
     btn.addEventListener("click",()=>setLanguage(btn.dataset.lang));
   });
-  const addLangBtn=$("addLanguageBtn");
-  if(addLangBtn) addLangBtn.addEventListener("click",addLanguage);
 
   $("eqEnabledToggle").addEventListener("change",(e)=>{
     state.eq.enabled=e.target.checked;

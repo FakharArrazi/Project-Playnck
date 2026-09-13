@@ -10,16 +10,35 @@ const { autoTagTrack } = require("./autotag-bridge");
 const ffmpegBridge = require("./ffmpeg-bridge");
 
 const { autoUpdater } = require("electron-updater");
-autoUpdater.autoDownload = true;
+autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
-
-const _publishCfg = (require("./package.json").build || {}).publish || [];
-const _githubPublishCfg = (Array.isArray(_publishCfg) ? _publishCfg : [_publishCfg]).find(p => p && p.provider === "github") || {};
-const UPDATE_REPO_OWNER = _githubPublishCfg.owner || "FakharArrazi";
-const UPDATE_REPO_NAME = _githubPublishCfg.repo || "Project-Playnck";
 
 function sendUpdateStatus(payload) {
     if (mainWindow) mainWindow.webContents.send("update-status", payload);
+}
+
+// Turns an electron-updater error into an accurate message instead of the
+// old one-size-fits-all "check your internet connection", which was shown
+// even when the real cause was a packaging/release problem on our end
+// (missing latest.yml, missing blockmap, checksum mismatch, etc.).
+const NETWORK_ERROR_CODES = new Set(["ENOTFOUND", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EAI_AGAIN", "ENETUNREACH"]);
+function describeUpdateError(err) {
+    const raw = (err && (err.message || String(err))) || "";
+    const code = err && err.code;
+
+    if (code && NETWORK_ERROR_CODES.has(code)) {
+        return "Couldn't reach the update server. Check your internet connection and try again.";
+    }
+    if (/sha512|checksum/i.test(raw)) {
+        return "The downloaded update failed verification (checksum mismatch). This is a release packaging problem, not your connection — please try again later or grab the installer manually from the Releases page.";
+    }
+    if (/not signed|signature/i.test(raw)) {
+        return "The downloaded update failed a signature check. Please download the installer manually from the Releases page.";
+    }
+    if (/404|not found/i.test(raw)) {
+        return "The update files couldn't be found on the server (a release packaging problem, not your connection). Please try again later or grab the installer manually from the Releases page.";
+    }
+    return `Update failed: ${raw || "unknown error"}.`;
 }
 
 function wireUpdateEvents() {
@@ -42,7 +61,7 @@ function wireUpdateEvents() {
         console.error("Auto-update error:", err);
         sendUpdateStatus({
             state: "error",
-            message: "Couldn't check for updates. Check your internet connection and try again."
+            message: describeUpdateError(err)
         });
     });
 }
@@ -228,18 +247,26 @@ ipcMain.handle("check-for-updates", async () => {
     if (!app.isPackaged) {
         return { started: false, reason: "Updates only run in the installed app, not in development." };
     }
-    if (process.platform === "linux") {
-        return {
-            started: false,
-            reason: `Playnck on Linux updates like any other RPM package. Check https://github.com/${UPDATE_REPO_OWNER}/${UPDATE_REPO_NAME}/releases/latest for a newer version and install it with your package manager (e.g. "sudo dnf install --allowerasing ./playnck-<version>.x86_64.rpm").`,
-        };
-    }
     try {
         await autoUpdater.checkForUpdates();
         return { started: true };
     } catch (err) {
         console.error("Manual update check failed:", err);
-        return { started: false, reason: "Couldn't check for updates. Check your internet connection and try again." };
+        return { started: false, reason: describeUpdateError(err) };
+    }
+});
+
+ipcMain.handle("download-update-now", async () => {
+    if (!app.isPackaged) {
+        return { started: false, reason: "Updates only run in the installed app, not in development." };
+    }
+    try {
+        await autoUpdater.downloadUpdate();
+        return { started: true };
+    } catch (err) {
+        console.error("Update download failed:", err);
+        sendUpdateStatus({ state: "error", message: describeUpdateError(err) });
+        return { started: false, reason: describeUpdateError(err) };
     }
 });
 
@@ -517,15 +544,11 @@ function createWindow() {
 
         if (app.isPackaged && !updateCheckStarted) {
             updateCheckStarted = true;
-            if (process.platform === "linux") {
-                console.log("Linux build: skipping in-app update checks (see check-for-updates handler).");
-            } else {
-                wireUpdateEvents();
+            wireUpdateEvents();
+            autoUpdater.checkForUpdates().catch(err => console.error("Update check failed:", err));
+            setInterval(() => {
                 autoUpdater.checkForUpdates().catch(err => console.error("Update check failed:", err));
-                setInterval(() => {
-                    autoUpdater.checkForUpdates().catch(err => console.error("Update check failed:", err));
-                }, 45 * 60 * 1000);
-            }
+            }, 45 * 60 * 1000);
         }
     });
 

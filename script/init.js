@@ -3,6 +3,7 @@ import { applyI18n, LANGUAGES } from "./i18n.js";
 import { applyTheme, cacheThemeForNextBoot, THEME_BG, THEME_ACCENT } from "./theme.js";
 import { renderTab } from "./library-view.js";
 import { applyPlayerBg, refreshUpdateUI } from "./settings.js";
+import { updateAvailableModal } from "./modal.js";
 import { applyVolume } from "./volume.js";
 import { verifyLibraryOnDisk, backfillTrackNumbers } from "./metadata.js";
 import { updateRepeatBadge } from "./now-playing-ui.js";
@@ -49,17 +50,9 @@ async function init(){
   applyPlayerBg();
 
   const savedLanguage=await idbGet("settings","language");
-  if(savedLanguage && savedLanguage.value){
-    const val=savedLanguage.value;
-    if(Array.isArray(val.installed)){
-      const installed=val.installed.filter(code=>LANGUAGES[code]);
-      if(installed.length) state.installedLanguages=installed;
-    }
-    if(val.active && LANGUAGES[val.active] && state.installedLanguages.includes(val.active)){
-      state.language=val.active;
-    }
+  if(savedLanguage && savedLanguage.value && LANGUAGES[savedLanguage.value.active]){
+    state.language=savedLanguage.value.active;
   }
-  if(!state.installedLanguages.includes("en")) state.installedLanguages.unshift("en");
   applyI18n();
 
   const savedVolume=await idbGet("settings","volume");
@@ -124,7 +117,24 @@ async function init(){
     window.electronAPI.onUpdateStatus(info=>{
       state.updateInfo=info||{state:"idle"};
       refreshUpdateUI();
+      if(info && info.state==="available"){
+        promptDownloadUpdate(info.version);
+      }
     });
+  }
+}
+
+let updatePromptOpen=false;
+async function promptDownloadUpdate(version){
+  if(updatePromptOpen) return;
+  updatePromptOpen=true;
+  try{
+    const shouldDownload=await updateAvailableModal(version);
+    if(shouldDownload && window.electronAPI && window.electronAPI.downloadUpdateNow){
+      window.electronAPI.downloadUpdateNow();
+    }
+  } finally {
+    updatePromptOpen=false;
   }
 }
 
