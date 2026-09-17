@@ -261,7 +261,7 @@ function openEditModal(track){
 
       if(t.external) t.external=false;
       const storeCopy={
-        id:t.id, title:t.title, artist:t.artist, album:t.album,
+        id:t.id, title:t.title, artist:t.artist, albumArtist:t.albumArtist, album:t.album,
         trackNum:t.trackNum,
         duration:t.duration, folderId:t.folderId, dateAdded:t.dateAdded,
         fileBlob:t.fileBlob, artBlob:t.artBlob, filePath:t.filePath

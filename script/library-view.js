@@ -15,8 +15,9 @@ import { createPlaylistFolderPrompt, openPlaylistFolder, openPlaylistFolderMenu,
 function computeAlbums(){
   const map=new Map();
   for(const t of libraryTracks()){
-    const key=t.album+"|||"+t.artist;
-    if(!map.has(key)) map.set(key,{key,album:t.album,artist:t.artist,art:getTrackArtURL(t),tracks:[]});
+    const groupArtist=t.albumArtist||t.artist;
+    const key=t.album+"|||"+groupArtist;
+    if(!map.has(key)) map.set(key,{key,album:t.album,artist:groupArtist,art:getTrackArtURL(t),tracks:[]});
     map.get(key).tracks.push(t);
     if(!map.get(key).art && getTrackArtURL(t)) map.get(key).art=getTrackArtURL(t);
   }

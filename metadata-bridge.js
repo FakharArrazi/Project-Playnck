@@ -41,6 +41,7 @@ async function getAudioMetadata(filePath) {
         trackNum: (common.track && common.track.no != null) ? common.track.no : null,
         title: common.title || null,
         artist: common.artist || null,
+        albumArtist: common.albumartist || null,
         album: common.album || null,
         picture: (common.picture && common.picture.length)
             ? { data: Buffer.from(common.picture[0].data), format: common.picture[0].format || "image/jpeg" }

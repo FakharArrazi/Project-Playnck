@@ -60,6 +60,31 @@ async function findOrCreateRelease(owner, repo, tag) {
     });
 }
 
+// Categories of installer file we ever produce. If the current run is
+// (re-)publishing one of these, any existing release asset that matches the
+// same category but isn't one of the files we're about to upload is a leftover
+// from an earlier run (e.g. a re-run, or an artifactName change) — like the
+// "Playnck-Setup-1.2.2.exe" vs "Playnck.Setup.1.2.2.exe" duplicate that once
+// slipped through here. Clean those up so exactly one installer per category
+// survives, regardless of what it happens to be named.
+const INSTALLER_CATEGORIES = [
+    { label: "Windows installer", match: name => /\.exe(\.blockmap)?$/i.test(name) },
+    { label: "Linux rpm", match: name => /\.rpm$/i.test(name) },
+];
+
+async function removeStaleInstallers(owner, repo, current, files) {
+    const keep = new Set(files);
+    for (const { label, match } of INSTALLER_CATEGORIES) {
+        if (!files.some(match)) continue; // this run isn't touching this category — leave it alone
+        for (const asset of current) {
+            if (match(asset.name) && !keep.has(asset.name)) {
+                console.log(`Removing stale ${label} asset from an earlier run: ${asset.name}`);
+                await gh("DELETE", `/repos/${owner}/${repo}/releases/assets/${asset.id}`);
+            }
+        }
+    }
+}
+
 async function uploadAssets(owner, repo, release, assetsDir) {
     const files = fs.readdirSync(assetsDir, { withFileTypes: true })
         .filter(entry => entry.isFile())
@@ -78,6 +103,7 @@ async function uploadAssets(owner, repo, release, assetsDir) {
     }
 
     const current = await gh("GET", `/repos/${owner}/${repo}/releases/${release.id}/assets?per_page=100`);
+    await removeStaleInstallers(owner, repo, current, files);
     const byName = new Map(current.map(a => [a.name, a]));
 
     for (const name of files) {

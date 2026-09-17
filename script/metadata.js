@@ -43,7 +43,7 @@ async function backfillTrackNumbers(){
     changed=true;
 
     const storeCopy={
-      id:t.id, title:t.title, artist:t.artist, album:t.album,
+      id:t.id, title:t.title, artist:t.artist, albumArtist:t.albumArtist, album:t.album,
       trackNum:t.trackNum,
       duration:t.duration, folderId:t.folderId, dateAdded:t.dateAdded,
       fileBlob:t.fileBlob, artBlob:t.artBlob, filePath:t.filePath
@@ -127,6 +127,7 @@ async function ingestDiscoveredPaths(paths, folderId){
         id:uid(),
         title,
         artist,
+        albumArtist: meta.albumArtist || null,
         album: meta.album || "Unknown Album",
         trackNum: meta.trackNum ?? null,
         duration: meta.duration || 0,
@@ -141,7 +142,7 @@ async function ingestDiscoveredPaths(paths, folderId){
       addedAny=true;
 
       const storeCopy={
-        id:track.id, title:track.title, artist:track.artist, album:track.album,
+        id:track.id, title:track.title, artist:track.artist, albumArtist:track.albumArtist, album:track.album,
         trackNum:track.trackNum,
         duration:track.duration, folderId:track.folderId, dateAdded:track.dateAdded,
         fileBlob:track.fileBlob, artBlob:track.artBlob, filePath:track.filePath
@@ -243,7 +244,11 @@ function readTags(file){
           const {data,format}=t.picture;
           artBlob=new Blob([new Uint8Array(data)],{type:format});
         }
-        resolve({title:t.title,artist:t.artist,album:t.album,trackNum:parseTrackNum(t.track),artBlob});
+        // jsmediatags only shorthands title/artist/album/track/etc — album
+        // artist has no shortcut, so read the raw frame (ID3v2 TPE2, or
+        // whatever equivalent this file type exposes) ourselves.
+        const albumArtist=(t.TPE2 && t.TPE2.data) || t.albumartist || t.album_artist || null;
+        resolve({title:t.title,artist:t.artist,albumArtist,album:t.album,trackNum:parseTrackNum(t.track),artBlob});
       },
       onError:()=>resolve({})
     });
@@ -317,7 +322,7 @@ async function ingestFiles(fileList, folderName, opts={}){
       if(persist && existingTrack.external){
         existingTrack.external=false;
         idbPut("tracks",{
-          id:existingTrack.id, title:existingTrack.title, artist:existingTrack.artist, album:existingTrack.album,
+          id:existingTrack.id, title:existingTrack.title, artist:existingTrack.artist, albumArtist:existingTrack.albumArtist, album:existingTrack.album,
           trackNum:existingTrack.trackNum,
           duration:existingTrack.duration, folderId:existingTrack.folderId, dateAdded:existingTrack.dateAdded,
           fileBlob:existingTrack.fileBlob, artBlob:existingTrack.artBlob, filePath:existingTrack.filePath
@@ -335,6 +340,7 @@ async function ingestFiles(fileList, folderName, opts={}){
       id:uid(),
       title,
       artist,
+      albumArtist: tags.albumArtist || null,
       album: tags.album || "Unknown Album",
       trackNum: tags.trackNum ?? null,
       duration,
@@ -352,7 +358,7 @@ async function ingestFiles(fileList, folderName, opts={}){
 
     if(persist){
       const storeCopy={
-        id:track.id, title:track.title, artist:track.artist, album:track.album,
+        id:track.id, title:track.title, artist:track.artist, albumArtist:track.albumArtist, album:track.album,
         trackNum:track.trackNum,
         duration:track.duration, folderId:track.folderId, dateAdded:track.dateAdded,
         fileBlob:track.fileBlob, artBlob:track.artBlob, filePath:track.filePath

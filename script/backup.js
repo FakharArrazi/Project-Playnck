@@ -46,7 +46,7 @@ async function exportLibraryBackup(){
   const trackRows=await Promise.all(tracks.map(async t=>{
     if(!t.filePath) skippedNoPath++;
     return {
-      id:t.id, title:t.title, artist:t.artist, album:t.album,
+      id:t.id, title:t.title, artist:t.artist, albumArtist:t.albumArtist||null, album:t.album,
       duration:t.duration, folderId:t.folderId, dateAdded:t.dateAdded,
       trackNum: t.trackNum!=null ? t.trackNum : null,
       filePath: t.filePath||null,
@@ -84,7 +84,7 @@ async function importLibraryBackup(){
     if(!row.filePath){ skipped++; continue; }
     const artBlob = row.art ? await base64ToBlob(row.art).catch(()=>null) : null;
     await idbPut("tracks",{
-      id:row.id, title:row.title, artist:row.artist, album:row.album,
+      id:row.id, title:row.title, artist:row.artist, albumArtist:row.albumArtist||null, album:row.album,
       duration:row.duration, folderId:row.folderId, dateAdded:row.dateAdded,
       trackNum:row.trackNum, filePath:row.filePath,
       fileBlob:null, artBlob
