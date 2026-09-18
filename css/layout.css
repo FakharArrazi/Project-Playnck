@@ -1,11 +1,14 @@
-  .app{
-    display:grid;
-    grid-template-columns:var(--rail-w) var(--sidebar-w) 1fr;
-    transition:grid-template-columns .22s ease;
-    height:100vh;
-    height:100dvh;
-  }
-  html.native-titlebar-enabled .app{height:calc(100vh - 32px);height:calc(100dvh - 32px);}
-  .app.rail-expanded{
-    grid-template-columns:var(--rail-w-expanded) var(--sidebar-w) 1fr;
-  }
+.app {
+  display: grid;
+  grid-template-columns: var(--rail-w) var(--sidebar-w) 1fr;
+  transition: grid-template-columns 0.22s ease;
+  height: 100vh;
+  height: 100dvh;
+}
+html.native-titlebar-enabled .app {
+  height: calc(100vh - 32px);
+  height: calc(100dvh - 32px);
+}
+.app.rail-expanded {
+  grid-template-columns: var(--rail-w-expanded) var(--sidebar-w) 1fr;
+}

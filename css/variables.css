@@ -1,20 +1,20 @@
-  :root{
-    --bg:#000000;
-    --panel:#000000;
-    --elevated:#141414;
-    --elevated-hover:#1e1e1e;
-    --border:#242424;
-    --text:#f2f2f6;
-    --text-dim:#96969f;
-    --text-faint:#5c5c66;
-    --accent1:#5865f2;
-    --accent1-rgb:88,101,242;
-    --accent2:#8a5cf6;
-    --accent-grad:linear-gradient(135deg,var(--accent1),var(--accent2));
-    --heart:#ef4463;
-    --radius:12px;
-    --sidebar-w:40vw;
-    --rail-w:42px;
-    --rail-w-expanded:150px;
-    --player-bg-blur:0px;
-  }
+:root {
+  --bg: #000000;
+  --panel: #000000;
+  --elevated: #141414;
+  --elevated-hover: #1e1e1e;
+  --border: #242424;
+  --text: #f2f2f6;
+  --text-dim: #96969f;
+  --text-faint: #5c5c66;
+  --accent1: #5865f2;
+  --accent1-rgb: 88, 101, 242;
+  --accent2: #8a5cf6;
+  --accent-grad: linear-gradient(135deg, var(--accent1), var(--accent2));
+  --heart: #ef4463;
+  --radius: 12px;
+  --sidebar-w: 40vw;
+  --rail-w: 42px;
+  --rail-w-expanded: 150px;
+  --player-bg-blur: 0px;
+}

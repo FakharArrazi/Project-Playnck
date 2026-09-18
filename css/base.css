@@ -1,25 +1,64 @@
-  *{box-sizing:border-box;}
-  html,body{height:100%;}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-    overflow:hidden;
-  }
-  button{font-family:inherit;}
-  .native-titlebar{display:none;}
-  html.native-titlebar-enabled body{padding-top:32px;}
-  html.native-titlebar-enabled .native-titlebar{
-    position:fixed;top:0;left:0;right:0;height:32px;z-index:1000;
-    display:flex;align-items:center;gap:8px;padding:0 150px 0 10px;
-    background:var(--bg);color:var(--text);font-size:12px;font-weight:400;
-    -webkit-app-region:drag;user-select:none;
-  }
-  html.native-titlebar-enabled .native-titlebar img{width:16px;height:16px;object-fit:contain;}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  overflow: hidden;
+}
+button {
+  font-family: inherit;
+}
+.native-titlebar {
+  display: none;
+}
+html.native-titlebar-enabled body {
+  padding-top: 32px;
+}
+html.native-titlebar-enabled .native-titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 150px 0 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 400;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+html.native-titlebar-enabled .native-titlebar img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
 
-
-
-  ::-webkit-scrollbar{width:8px;height:8px;}
-  ::-webkit-scrollbar-thumb{background:var(--elevated);border-radius:4px;}
-  ::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--elevated);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

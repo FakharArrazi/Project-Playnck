@@ -1,130 +1,130 @@
 {
-    "name": "playnck",
-    "version": "1.2.2",
-    "description": "Playnck is a desktop music player with library management, metadata editing, Auto-Tag audio fingerprinting, synced lyrics, a 10-band equalizer, themes, playlists, and audio conversion.",
-    "homepage": "https://github.com/FakharArrazi/Project-Playnck",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/FakharArrazi/Project-Playnck.git"
+  "name": "playnck",
+  "version": "1.2.2",
+  "description": "Playnck is a desktop music player with library management, metadata editing, Auto-Tag audio fingerprinting, synced lyrics, a 10-band equalizer, themes, playlists, and audio conversion.",
+  "homepage": "https://github.com/FakharArrazi/Project-Playnck",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FakharArrazi/Project-Playnck.git"
+  },
+  "author": "Arrazi",
+  "license": "UNLICENSED",
+  "main": "main.js",
+  "desktopName": "playnck.desktop",
+  "devDependencies": {
+    "electron": "^43.0.0",
+    "electron-builder": "^26.15.3",
+    "javascript-obfuscator": "^4.1.1"
+  },
+  "dependencies": {
+    "music-metadata": "^11.0.0",
+    "node-id3": "^0.2.6",
+    "electron-updater": "^6.3.9"
+  },
+  "scripts": {
+    "start": "electron .",
+    "build": "node build-scripts/build.js",
+    "release": "node build-scripts/build.js --publish always"
+  },
+  "build": {
+    "appId": "com.Arrazi.playnck",
+    "productName": "Playnck",
+    "copyright": "Copyright © 2026 Arrazi",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "FakharArrazi",
+        "repo": "Project-Playnck",
+        "releaseType": "draft"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "THIRD-PARTY-NOTICES.txt",
+        "to": "THIRD-PARTY-NOTICES.txt"
+      },
+      {
+        "from": "resources/fpcalc",
+        "to": "fpcalc"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "mp3",
+        "name": "MP3 Audio",
+        "role": "Viewer",
+        "icon": "icons/mp3 icon.ico",
+        "mimeType": "audio/mpeg"
+      },
+      {
+        "ext": "wav",
+        "name": "WAV Audio",
+        "role": "Viewer",
+        "icon": "icons/wav icon.ico",
+        "mimeType": "audio/wav"
+      },
+      {
+        "ext": "flac",
+        "name": "FLAC Audio",
+        "role": "Viewer",
+        "icon": "icons/flac icon.ico",
+        "mimeType": "audio/flac"
+      },
+      {
+        "ext": "ogg",
+        "name": "OGG Audio",
+        "role": "Viewer",
+        "icon": "icons/ogg icon.ico",
+        "mimeType": "audio/ogg"
+      },
+      {
+        "ext": "m4a",
+        "name": "M4A Audio",
+        "role": "Viewer",
+        "icon": "icons/m4a icon.ico",
+        "mimeType": "audio/mp4"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icons/icon.ico"
     },
-    "author": "Arrazi",
-    "license": "UNLICENSED",
-    "main": "main.js",
-    "desktopName": "playnck.desktop",
-    "devDependencies": {
-        "electron": "^43.0.0",
-        "electron-builder": "^26.15.3",
-        "javascript-obfuscator": "^4.1.1"
+    "nsis": {
+      "license": "LICENSE",
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "artifactName": "${productName} Setup ${version}.${ext}"
     },
-    "dependencies": {
-        "music-metadata": "^11.0.0",
-        "node-id3": "^0.2.6",
-        "electron-updater": "^6.3.9"
-    },
-    "scripts": {
-        "start": "electron .",
-        "build": "node build-scripts/build.js",
-        "release": "node build-scripts/build.js --publish always"
-    },
-    "build": {
-        "appId": "com.Arrazi.playnck",
-        "productName": "Playnck",
-        "copyright": "Copyright © 2026 Arrazi",
-        "publish": [
-            {
-                "provider": "github",
-                "owner": "FakharArrazi",
-                "repo": "Project-Playnck",
-                "releaseType": "draft"
-            }
-        ],
-        "extraResources": [
-            {
-                "from": "LICENSE",
-                "to": "LICENSE.txt"
-            },
-            {
-                "from": "THIRD-PARTY-NOTICES.txt",
-                "to": "THIRD-PARTY-NOTICES.txt"
-            },
-            {
-                "from": "resources/fpcalc",
-                "to": "fpcalc"
-            }
-        ],
-        "fileAssociations": [
-            {
-                "ext": "mp3",
-                "name": "MP3 Audio",
-                "role": "Viewer",
-                "icon": "icons/mp3 icon.ico",
-                "mimeType": "audio/mpeg"
-            },
-            {
-                "ext": "wav",
-                "name": "WAV Audio",
-                "role": "Viewer",
-                "icon": "icons/wav icon.ico",
-                "mimeType": "audio/wav"
-            },
-            {
-                "ext": "flac",
-                "name": "FLAC Audio",
-                "role": "Viewer",
-                "icon": "icons/flac icon.ico",
-                "mimeType": "audio/flac"
-            },
-            {
-                "ext": "ogg",
-                "name": "OGG Audio",
-                "role": "Viewer",
-                "icon": "icons/ogg icon.ico",
-                "mimeType": "audio/ogg"
-            },
-            {
-                "ext": "m4a",
-                "name": "M4A Audio",
-                "role": "Viewer",
-                "icon": "icons/m4a icon.ico",
-                "mimeType": "audio/mp4"
-            }
-        ],
-        "win": {
-            "target": "nsis",
-            "icon": "icons/icon.ico"
-        },
-        "nsis": {
-            "license": "LICENSE",
-            "oneClick": false,
-            "perMachine": true,
-            "allowToChangeInstallationDirectory": true,
-            "createDesktopShortcut": true,
-            "createStartMenuShortcut": true,
-            "runAfterFinish": true,
-            "artifactName": "${productName} Setup ${version}.${ext}"
-        },
-        "linux": {
-            "target": [
-                "rpm"
-            ],
-            "icon": "resources/icons/linux",
-            "executableName": "playnck",
-            "category": "AudioVideo;Audio;Player;",
-            "synopsis": "A modern desktop music player",
-            "maintainer": "Arrazi <FakharArrazi@users.noreply.github.com>",
-            "syncDesktopName": true,
-            "extraResources": [
-                {
-                    "from": "resources/package-type",
-                    "to": "package-type"
-                }
-            ]
-        },
-        "rpm": {
-            "fpm": [
-                "--rpm-rpmbuild-define",
-                "_build_id_links none"
-            ]
+    "linux": {
+      "target": [
+        "rpm"
+      ],
+      "icon": "resources/icons/linux",
+      "executableName": "playnck",
+      "category": "AudioVideo;Audio;Player;",
+      "synopsis": "A modern desktop music player",
+      "maintainer": "Arrazi <FakharArrazi@users.noreply.github.com>",
+      "syncDesktopName": true,
+      "extraResources": [
+        {
+          "from": "resources/package-type",
+          "to": "package-type"
         }
+      ]
+    },
+    "rpm": {
+      "fpm": [
+        "--rpm-rpmbuild-define",
+        "_build_id_links none"
+      ]
     }
+  }
 }
