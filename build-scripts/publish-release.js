@@ -1,176 +1,137 @@
-
 const fs = require("fs");
 const path = require("path");
-const pkg = require(path.join(__dirname, "..", "package.json"));
-
-const publishEntries = Array.isArray(pkg.build && pkg.build.publish)
-    ? pkg.build.publish
-    : [pkg.build && pkg.build.publish].filter(Boolean);
-
-const publishCfg = publishEntries.find(p => p && p.provider === "github");
-
-const TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-const API = "https://api.github.com";
-
-function headers(extra) {
-    return {
-        "User-Agent": "playnck-release-script",
-        "Authorization": `Bearer ${TOKEN}`,
-        "Accept": "application/vnd.github+json",
-        ...extra
-    };
-}
-
-async function gh(method, urlPath, body) {
-    const res = await fetch(`${API}${urlPath}`, {
-        method,
-        headers: headers(body ? { "Content-Type": "application/json" } : {}),
-        body: body ? JSON.stringify(body) : undefined
-    });
-    if (!res.ok) {
-        throw new Error(`${method} ${urlPath} -> ${res.status}: ${await res.text()}`);
-    }
-    return res.status === 204 ? null : res.json();
-}
-
-async function uploadAsset(uploadUrlTemplate, name, buffer) {
-    const uploadUrl = uploadUrlTemplate.replace("{?name,label}", `?name=${encodeURIComponent(name)}`);
-    const res = await fetch(uploadUrl, {
-        method: "POST",
-        headers: headers({ "Content-Type": "application/octet-stream" }),
-        body: buffer
-    });
-    if (!res.ok) throw new Error(`upload ${name} -> ${res.status}: ${await res.text()}`);
-}
+const {
+  pkg,
+  publishCfg,
+  TOKEN,
+  gh,
+  uploadAsset,
+  publishRelease,
+} = require("./github-release-utils");
 
 async function findOrCreateRelease(owner, repo, tag) {
-    const releases = await gh("GET", `/repos/${owner}/${repo}/releases?per_page=100`);
-    const existing = releases.find(r => r.tag_name === tag);
-    if (existing) {
-        console.log(`Found existing release for ${tag}: ${existing.html_url}`);
-        return existing;
-    }
+  const releases = await gh(
+    "GET",
+    `/repos/${owner}/${repo}/releases?per_page=100`,
+  );
+  const existing = releases.find((r) => r.tag_name === tag);
+  if (existing) {
+    console.log(`Found existing release for ${tag}: ${existing.html_url}`);
+    return existing;
+  }
 
-    console.log(`No release found for ${tag} — creating a new draft (auto-tagging current commit).`);
-    return gh("POST", `/repos/${owner}/${repo}/releases`, {
-        tag_name: tag,
-        name: `${pkg.build.productName || pkg.name} ${pkg.version}`,
-        draft: true,
-        generate_release_notes: true
-    });
+  console.log(
+    `No release found for ${tag} — creating a new draft (auto-tagging current commit).`,
+  );
+  return gh("POST", `/repos/${owner}/${repo}/releases`, {
+    tag_name: tag,
+    name: `${pkg.build.productName || pkg.name} ${pkg.version}`,
+    draft: true,
+    generate_release_notes: true,
+  });
 }
 
-// Categories of installer file we ever produce. If the current run is
-// (re-)publishing one of these, any existing release asset that matches the
-// same category but isn't one of the files we're about to upload is a leftover
-// from an earlier run (e.g. a re-run, or an artifactName change) — like the
-// "Playnck-Setup-1.2.2.exe" vs "Playnck.Setup.1.2.2.exe" duplicate that once
-// slipped through here. Clean those up so exactly one installer per category
-// survives, regardless of what it happens to be named.
 const INSTALLER_CATEGORIES = [
-    { label: "Windows installer", match: name => /\.exe(\.blockmap)?$/i.test(name) },
-    { label: "Linux rpm", match: name => /\.rpm$/i.test(name) },
+  {
+    label: "Windows installer",
+    match: (name) => /\.exe(\.blockmap)?$/i.test(name),
+  },
+  { label: "Linux rpm", match: (name) => /\.rpm$/i.test(name) },
 ];
 
 async function removeStaleInstallers(owner, repo, current, files) {
-    const keep = new Set(files);
-    for (const { label, match } of INSTALLER_CATEGORIES) {
-        if (!files.some(match)) continue; // this run isn't touching this category — leave it alone
-        for (const asset of current) {
-            if (match(asset.name) && !keep.has(asset.name)) {
-                console.log(`Removing stale ${label} asset from an earlier run: ${asset.name}`);
-                await gh("DELETE", `/repos/${owner}/${repo}/releases/assets/${asset.id}`);
-            }
-        }
+  const keep = new Set(files);
+  for (const { label, match } of INSTALLER_CATEGORIES) {
+    if (!files.some(match)) continue;
+    for (const asset of current) {
+      if (match(asset.name) && !keep.has(asset.name)) {
+        console.log(
+          `Removing stale ${label} asset from an earlier run: ${asset.name}`,
+        );
+        await gh(
+          "DELETE",
+          `/repos/${owner}/${repo}/releases/assets/${asset.id}`,
+        );
+      }
     }
+  }
 }
 
 async function uploadAssets(owner, repo, release, assetsDir) {
-    const files = fs.readdirSync(assetsDir, { withFileTypes: true })
-        .filter(entry => entry.isFile())
-        .map(entry => entry.name)
-        // Defense in depth: never publish electron-builder's temporary NSIS
-        // uninstaller helper if it somehow made it this far (see release.yml).
-        .filter(name => !name.endsWith("__uninstaller.exe"));
+  const files = fs
+    .readdirSync(assetsDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .filter((name) => !name.endsWith("__uninstaller.exe"));
 
-    if (files.length === 0) {
-        throw new Error(`No files found in ${assetsDir} — nothing to upload.`);
+  if (files.length === 0) {
+    throw new Error(`No files found in ${assetsDir} — nothing to upload.`);
+  }
+
+  const exeFiles = files.filter((name) => name.toLowerCase().endsWith(".exe"));
+  if (exeFiles.length > 1) {
+    throw new Error(
+      `Expected at most one .exe asset, found ${exeFiles.length}: ${exeFiles.join(", ")} — refusing to publish a duplicate installer.`,
+    );
+  }
+
+  const current = await gh(
+    "GET",
+    `/repos/${owner}/${repo}/releases/${release.id}/assets?per_page=100`,
+  );
+  await removeStaleInstallers(owner, repo, current, files);
+  const byName = new Map(current.map((a) => [a.name, a]));
+
+  for (const name of files) {
+    const filePath = path.join(assetsDir, name);
+    const buffer = fs.readFileSync(filePath);
+
+    const existingAsset = byName.get(name);
+    if (existingAsset) {
+      console.log(`Replacing existing asset ${name}...`);
+      await gh(
+        "DELETE",
+        `/repos/${owner}/${repo}/releases/assets/${existingAsset.id}`,
+      );
+    } else {
+      console.log(`Uploading ${name}...`);
     }
-
-    const exeFiles = files.filter(name => name.toLowerCase().endsWith(".exe"));
-    if (exeFiles.length > 1) {
-        throw new Error(`Expected at most one .exe asset, found ${exeFiles.length}: ${exeFiles.join(", ")} — refusing to publish a duplicate installer.`);
-    }
-
-    const current = await gh("GET", `/repos/${owner}/${repo}/releases/${release.id}/assets?per_page=100`);
-    await removeStaleInstallers(owner, repo, current, files);
-    const byName = new Map(current.map(a => [a.name, a]));
-
-    for (const name of files) {
-        const filePath = path.join(assetsDir, name);
-        const buffer = fs.readFileSync(filePath);
-
-        const existingAsset = byName.get(name);
-        if (existingAsset) {
-            console.log(`Replacing existing asset ${name}...`);
-            await gh("DELETE", `/repos/${owner}/${repo}/releases/assets/${existingAsset.id}`);
-        } else {
-            console.log(`Uploading ${name}...`);
-        }
-        await uploadAsset(release.upload_url, name, buffer);
-    }
-}
-
-async function publishRelease(owner, repo, release) {
-    if (release.draft === false) {
-        console.log(`Release ${release.html_url} is already published.`);
-        return;
-    }
-
-    const attempts = 3;
-    for (let i = 1; i <= attempts; i++) {
-        try {
-            const published = await gh("PATCH", `/repos/${owner}/${repo}/releases/${release.id}`, { draft: false });
-            console.log(`Published: ${published.html_url}`);
-            return;
-        } catch (err) {
-            if (i === attempts) {
-                console.warn(`Could not auto-publish after ${attempts} attempts (${err.message}).`);
-                console.warn(`Every asset is uploaded — publish it manually from: ${release.html_url}`);
-                return;
-            }
-            console.log(`Publish attempt ${i} failed, retrying in 5s... (${err.message})`);
-            await new Promise(r => setTimeout(r, 5000));
-        }
-    }
+    await uploadAsset(release.upload_url, name, buffer);
+  }
 }
 
 async function main() {
-    const assetsDir = process.argv[2];
-    if (!assetsDir) {
-        throw new Error("Usage: node build-scripts/publish-release.js <assets-dir>");
-    }
-    if (!publishCfg) {
-        throw new Error("No GitHub publish config in package.json (build.publish) — nothing to do.");
-    }
-    if (!TOKEN) {
-        throw new Error("No GH_TOKEN/GITHUB_TOKEN in env — can't talk to the GitHub API.");
-    }
+  const assetsDir = process.argv[2];
+  if (!assetsDir) {
+    throw new Error(
+      "Usage: node build-scripts/publish-release.js <assets-dir>",
+    );
+  }
+  if (!publishCfg) {
+    throw new Error(
+      "No GitHub publish config in package.json (build.publish) — nothing to do.",
+    );
+  }
+  if (!TOKEN) {
+    throw new Error(
+      "No GH_TOKEN/GITHUB_TOKEN in env — can't talk to the GitHub API.",
+    );
+  }
 
-    const owner = publishCfg.owner;
-    const repo = publishCfg.repo;
-    if (!owner || !repo) {
-        throw new Error("Publish config is missing owner/repo.");
-    }
+  const owner = publishCfg.owner;
+  const repo = publishCfg.repo;
+  if (!owner || !repo) {
+    throw new Error("Publish config is missing owner/repo.");
+  }
 
-    const tag = (publishCfg.vPrefixedTagName === false ? "" : "v") + pkg.version;
+  const tag = (publishCfg.vPrefixedTagName === false ? "" : "v") + pkg.version;
 
-    const release = await findOrCreateRelease(owner, repo, tag);
-    await uploadAssets(owner, repo, release, assetsDir);
-    await publishRelease(owner, repo, release);
+  const release = await findOrCreateRelease(owner, repo, tag);
+  await uploadAssets(owner, repo, release, assetsDir);
+  await publishRelease(owner, repo, release, "Every asset is uploaded");
 }
 
-main().catch(err => {
-    console.error("publish-release.js failed:", err.message);
-    process.exit(1);
+main().catch((err) => {
+  console.error("publish-release.js failed:", err.message);
+  process.exit(1);
 });

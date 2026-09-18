@@ -30,14 +30,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          # electron-builder's NSIS target writes a temporary
-          # "<name>__uninstaller.exe" helper into dist/ while it builds the
-          # real installer, then deletes it once the installer is signed.
-          # If Windows Defender (or another AV) locks that file mid-build,
-          # the delete can silently fail and the leftover helper matches
-          # the same dist/*.exe glob as the real installer — that's how a
-          # release ends up with two .exe assets instead of one. Ignore it
-          # explicitly instead of trusting the cleanup to always succeed.
           shopt -s nullglob
           installers=()
           for f in dist/*.exe; do
