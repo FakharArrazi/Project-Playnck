@@ -40,11 +40,35 @@ async function getAudioMetadata(filePath) {
     duration: fmt.duration || null,
     fileSize,
     mimeType: EXT_MIME_TYPES[path.extname(filePath).toLowerCase()] || null,
-    trackNum: common.track && common.track.no != null ? common.track.no : null,
     title: common.title || null,
     artist: common.artist || null,
+    artists: Array.isArray(common.artists) ? common.artists : [],
     albumArtist: common.albumartist || null,
+    albumArtists: Array.isArray(common.albumartists)
+      ? common.albumartists
+      : [],
     album: common.album || null,
+    trackNum: common.track && common.track.no != null ? common.track.no : null,
+    trackTotal:
+      common.track && common.track.of != null ? common.track.of : null,
+    discNumber: common.disk && common.disk.no != null ? common.disk.no : null,
+    discTotal: common.disk && common.disk.of != null ? common.disk.of : null,
+    year: common.year != null ? common.year : null,
+    date: common.date || null,
+    genre: Array.isArray(common.genre) ? common.genre : [],
+    composer: Array.isArray(common.composer) ? common.composer : [],
+    releaseType: Array.isArray(common.releasetype)
+      ? common.releasetype[0] || null
+      : null,
+    recordingId: common.musicbrainz_recordingid || null,
+    releaseId: common.musicbrainz_albumid || null,
+    releaseGroupId: common.musicbrainz_releasegroupid || null,
+    artistIds: Array.isArray(common.musicbrainz_artistid)
+      ? common.musicbrainz_artistid
+      : [],
+    albumArtistIds: Array.isArray(common.musicbrainz_albumartistid)
+      ? common.musicbrainz_albumartistid
+      : [],
     picture:
       common.picture && common.picture.length
         ? {
@@ -53,6 +77,11 @@ async function getAudioMetadata(filePath) {
           }
         : null,
   };
+}
+
+function numberWithTotal(num, total) {
+  if (num == null) return null;
+  return total != null ? `${num}/${total}` : `${num}`;
 }
 
 async function writeAudioTags(filePath, tags) {
@@ -79,6 +108,16 @@ async function writeAudioTags(filePath, tags) {
   if (tags.title != null) id3Tags.title = tags.title;
   if (tags.artist != null) id3Tags.artist = tags.artist;
   if (tags.album != null) id3Tags.album = tags.album;
+  if (tags.albumArtist != null) id3Tags.performerInfo = tags.albumArtist;
+  if (tags.year != null) id3Tags.year = String(tags.year);
+  if (Array.isArray(tags.genre) && tags.genre.length)
+    id3Tags.genre = tags.genre.join("/");
+  if (Array.isArray(tags.composer) && tags.composer.length)
+    id3Tags.composer = tags.composer.join("/");
+  const trackNumberValue = numberWithTotal(tags.trackNum, tags.trackTotal);
+  if (trackNumberValue != null) id3Tags.trackNumber = trackNumberValue;
+  const partOfSetValue = numberWithTotal(tags.discNumber, tags.discTotal);
+  if (partOfSetValue != null) id3Tags.partOfSet = partOfSetValue;
 
   if (tags.removeImage) {
     id3Tags.image = "";
@@ -120,6 +159,15 @@ async function writeAudioTags(filePath, tags) {
       mismatches.push("artist");
     if (tags.album != null && (verify.album || "") !== tags.album)
       mismatches.push("album");
+    if (
+      tags.albumArtist != null &&
+      (verify.performerInfo || "") !== tags.albumArtist
+    )
+      mismatches.push("album artist");
+    if (trackNumberValue != null && verify.trackNumber !== trackNumberValue)
+      mismatches.push("track number");
+    if (partOfSetValue != null && verify.partOfSet !== partOfSetValue)
+      mismatches.push("disc number");
     if (tags.imageData && !verify.image) mismatches.push("cover art");
     if (tags.removeImage && verify.image) mismatches.push("cover art removal");
     if (mismatches.length) {

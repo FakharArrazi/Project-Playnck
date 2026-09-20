@@ -7,6 +7,7 @@ import {
   deriveFolderRootPath,
 } from "./init.js";
 import { removeTrackData } from "./playlists.js";
+import { normalizeReaderResult, METADATA_FIELD_KEYS } from "./metadata-normalize.js";
 
 function sanitizeFilename(name) {
   return (
@@ -19,61 +20,76 @@ function sanitizeFilename(name) {
 }
 
 function toStoreRecord(track) {
-  return {
+  const record = {
     id: track.id,
-    title: track.title,
-    artist: track.artist,
-    albumArtist: track.albumArtist,
-    album: track.album,
-    trackNum: track.trackNum,
     duration: track.duration,
     folderId: track.folderId,
     dateAdded: track.dateAdded,
     fileBlob: track.fileBlob,
     artBlob: track.artBlob,
     filePath: track.filePath,
+    metadataBackfilled: !!track.metadataBackfilled,
   };
+  for (const key of METADATA_FIELD_KEYS) record[key] = track[key];
+  return record;
 }
 
-async function backfillTrackNumbers() {
-  const targets = state.tracks.filter((t) => t.trackNum == null && !t.external);
+function applyMetadataFields(track, normalized, overwrite, keys = METADATA_FIELD_KEYS) {
+  let changed = false;
+  for (const key of keys) {
+    const incoming = normalized[key];
+    const isEmpty =
+      incoming == null || (Array.isArray(incoming) && !incoming.length);
+    if (isEmpty) continue;
+    const current = track[key];
+    const currentIsEmpty =
+      current == null || (Array.isArray(current) && !current.length);
+    if (!overwrite && !currentIsEmpty) continue;
+    track[key] = incoming;
+    changed = true;
+  }
+  return changed;
+}
+
+async function backfillMetadata() {
+  const targets = state.tracks.filter(
+    (t) => !t.metadataBackfilled && !t.external && (t.filePath || t.fileBlob),
+  );
   if (!targets.length) return;
 
-  let changed = false;
+  let anyChanged = false;
   for (const t of targets) {
-    let trackNum = null;
-    if (
-      t.filePath &&
-      window.electronAPI &&
-      window.electronAPI.getAudioMetadata
-    ) {
+    let normalized = null;
+    let readOk = false;
+    if (t.filePath && window.electronAPI && window.electronAPI.getAudioMetadata) {
       try {
         const meta = await window.electronAPI.getAudioMetadata(t.filePath);
-        trackNum = meta && meta.trackNum != null ? meta.trackNum : null;
+        if (meta) {
+          normalized = normalizeReaderResult(meta);
+          readOk = true;
+        }
       } catch (e) {
-        console.warn(
-          "backfillTrackNumbers: getAudioMetadata failed for",
-          t.filePath,
-          e,
-        );
-        trackNum = null;
+        console.warn("backfillMetadata: getAudioMetadata failed for", t.filePath, e);
       }
     } else if (t.fileBlob) {
       try {
         const tags = await readTags(t.fileBlob);
-        trackNum = tags.trackNum != null ? tags.trackNum : null;
+        normalized = normalizeReaderResult(tags);
+        readOk = true;
       } catch (e) {
-        console.warn("backfillTrackNumbers: readTags failed for", t.title, e);
-        trackNum = null;
+        console.warn("backfillMetadata: readTags failed for", t.title, e);
       }
     }
-    if (trackNum === t.trackNum) continue;
-    t.trackNum = trackNum;
-    changed = true;
 
-    await idbPut("tracks", toStoreRecord(t)).catch(() => {});
+    if (readOk) {
+      if (normalized && applyMetadataFields(t, normalized, false)) {
+        anyChanged = true;
+      }
+      t.metadataBackfilled = true;
+      await idbPut("tracks", toStoreRecord(t)).catch(() => {});
+    }
   }
-  if (changed) renderTab();
+  if (anyChanged) renderTab();
 }
 
 function longestCommonDirectory(paths) {
@@ -143,11 +159,12 @@ async function ingestDiscoveredPaths(paths, folderId) {
     batch.forEach((filePath, idx) => {
       const meta = metas[idx];
       if (!meta) return;
+      const normalized = normalizeReaderResult(meta);
 
       const fileName = filePath.split(/[\\/]/).pop();
       const guess = guessFromName(fileName);
-      const title = meta.title || guess.title;
-      const artist = meta.artist || guess.artist;
+      const title = normalized.title || guess.title;
+      const artist = normalized.artist || guess.artist;
       const artBlob =
         meta.picture && meta.picture.data
           ? new Blob([new Uint8Array(meta.picture.data)], {
@@ -156,18 +173,18 @@ async function ingestDiscoveredPaths(paths, folderId) {
           : null;
 
       const track = {
+        ...normalized,
         id: uid(),
         title,
         artist,
-        albumArtist: meta.albumArtist || null,
-        album: meta.album || "Unknown Album",
-        trackNum: meta.trackNum ?? null,
+        album: normalized.album || "Unknown Album",
         duration: meta.duration || 0,
         folderId,
         dateAdded: Date.now(),
         fileBlob: null,
         artBlob,
         filePath,
+        metadataBackfilled: true,
       };
       hydrateTrack(track);
       state.tracks.push(track);
@@ -286,6 +303,17 @@ function guessFromName(filename) {
   return { artist: "Unknown Artist", title: base };
 }
 
+function parseNumberWithTotal(raw) {
+  if (raw === undefined || raw === null || raw === "") return { no: null, of: null };
+  const [noPart, ofPart] = String(raw).split("/");
+  const no = parseInt(noPart, 10);
+  const of = ofPart != null ? parseInt(ofPart, 10) : null;
+  return {
+    no: Number.isFinite(no) ? no : null,
+    of: Number.isFinite(of) ? of : null,
+  };
+}
+
 function readTags(file) {
   return new Promise((resolve) => {
     if (typeof jsmediatags === "undefined") {
@@ -295,31 +323,33 @@ function readTags(file) {
     jsmediatags.read(file, {
       onSuccess: (tag) => {
         const t = tag.tags || {};
-        let artBlob = null;
+        let picture = null;
         if (t.picture) {
-          const { data, format } = t.picture;
-          artBlob = new Blob([new Uint8Array(data)], { type: format });
+          picture = { data: t.picture.data, format: t.picture.format };
         }
         const albumArtist =
           (t.TPE2 && t.TPE2.data) || t.albumartist || t.album_artist || null;
+        const composerRaw = (t.TCOM && t.TCOM.data) || null;
+        const track = parseNumberWithTotal(t.track);
+        const disc = parseNumberWithTotal(t.TPOS && t.TPOS.data);
         resolve({
-          title: t.title,
-          artist: t.artist,
+          title: t.title || null,
+          artist: t.artist || null,
           albumArtist,
-          album: t.album,
-          trackNum: parseTrackNum(t.track),
-          artBlob,
+          album: t.album || null,
+          trackNum: track.no,
+          trackTotal: track.of,
+          discNumber: disc.no,
+          discTotal: disc.of,
+          year: t.year ? parseInt(t.year, 10) || null : null,
+          genre: t.genre ? [t.genre] : [],
+          composer: composerRaw ? [composerRaw] : [],
+          picture,
         });
       },
       onError: () => resolve({}),
     });
   });
-}
-
-function parseTrackNum(raw) {
-  if (raw === undefined || raw === null || raw === "") return null;
-  const n = parseInt(String(raw).split("/")[0], 10);
-  return Number.isFinite(n) ? n : null;
 }
 
 function getDuration(url) {
@@ -355,10 +385,11 @@ async function ingestFiles(fileList, folderName, opts = {}) {
   let addedAny = false;
 
   for (const file of files) {
-    const tags = await readTags(file);
+    const rawTags = await readTags(file);
+    const normalized = normalizeReaderResult(rawTags);
     const guess = guessFromName(file.name);
-    const title = tags.title || guess.title;
-    const artist = tags.artist || guess.artist;
+    const title = normalized.title || guess.title;
+    const artist = normalized.artist || guess.artist;
 
     const filePath = resolveFilePath(file);
 
@@ -398,19 +429,24 @@ async function ingestFiles(fileList, folderName, opts = {}) {
       : URL.createObjectURL(fileBlob);
     const duration = await getDuration(fileURL);
     const track = {
+      ...normalized,
       id: uid(),
       title,
       artist,
-      albumArtist: tags.albumArtist || null,
-      album: tags.album || "Unknown Album",
-      trackNum: tags.trackNum ?? null,
+      album: normalized.album || "Unknown Album",
       duration,
       folderId,
       dateAdded: Date.now(),
       fileBlob,
-      artBlob: tags.artBlob || null,
+      artBlob:
+        rawTags.picture && rawTags.picture.data
+          ? new Blob([new Uint8Array(rawTags.picture.data)], {
+              type: rawTags.picture.format || "image/jpeg",
+            })
+          : null,
       filePath,
       external: !persist,
+      metadataBackfilled: !filePath,
     };
     hydrateTrack(track);
     state.tracks.push(track);
@@ -432,7 +468,8 @@ function libraryTracks() {
 export {
   sanitizeFilename,
   toStoreRecord,
-  backfillTrackNumbers,
+  applyMetadataFields,
+  backfillMetadata,
   pruneFolder,
   verifyLibraryOnDisk,
   ingestFiles,

@@ -4,6 +4,7 @@ import { escapeHTML } from "./utils.js";
 import { hydrateTrack } from "./init.js";
 import { renderTab } from "./library-view.js";
 import { openModal } from "./modal.js";
+import { METADATA_FIELD_KEYS } from "./metadata-normalize.js";
 
 const BACKUP_FORMAT_VERSION = 1;
 
@@ -54,19 +55,16 @@ async function exportLibraryBackup() {
   const trackRows = await Promise.all(
     tracks.map(async (t) => {
       if (!t.filePath) skippedNoPath++;
-      return {
+      const row = {
         id: t.id,
-        title: t.title,
-        artist: t.artist,
-        albumArtist: t.albumArtist || null,
-        album: t.album,
         duration: t.duration,
         folderId: t.folderId,
         dateAdded: t.dateAdded,
-        trackNum: t.trackNum != null ? t.trackNum : null,
         filePath: t.filePath || null,
         art: t.artBlob ? await blobToBase64(t.artBlob) : null,
       };
+      for (const key of METADATA_FIELD_KEYS) row[key] = t[key] != null ? t[key] : null;
+      return row;
     }),
   );
 
@@ -123,20 +121,19 @@ async function importLibraryBackup() {
     const artBlob = row.art
       ? await base64ToBlob(row.art).catch(() => null)
       : null;
-    await idbPut("tracks", {
+    const restoredTrack = {
       id: row.id,
-      title: row.title,
-      artist: row.artist,
-      albumArtist: row.albumArtist || null,
-      album: row.album,
       duration: row.duration,
       folderId: row.folderId,
       dateAdded: row.dateAdded,
-      trackNum: row.trackNum,
       filePath: row.filePath,
       fileBlob: null,
       artBlob,
-    });
+      metadataBackfilled: true,
+    };
+    for (const key of METADATA_FIELD_KEYS)
+      restoredTrack[key] = row[key] != null ? row[key] : null;
+    await idbPut("tracks", restoredTrack);
     restored++;
   }
   for (const p of payload.playlists || []) await idbPut("playlists", p);

@@ -465,6 +465,11 @@ const TAG_WRITABLE_EXTS = {
   ".wav": { supportsCoverArt: false },
 };
 
+function numberWithTotal(num, total) {
+  if (num == null) return null;
+  return total != null ? `${num}/${total}` : `${num}`;
+}
+
 async function retryOnWindowsLock(
   fn,
   { attempts = 5, baseDelayMs = 150 } = {},
@@ -541,6 +546,17 @@ async function writeTagsViaFFmpeg(filePath, tags) {
     if (tags.title != null) args.push("-metadata", `title=${tags.title}`);
     if (tags.artist != null) args.push("-metadata", `artist=${tags.artist}`);
     if (tags.album != null) args.push("-metadata", `album=${tags.album}`);
+    if (tags.albumArtist != null)
+      args.push("-metadata", `album_artist=${tags.albumArtist}`);
+    if (tags.year != null) args.push("-metadata", `date=${tags.year}`);
+    if (Array.isArray(tags.genre) && tags.genre.length)
+      args.push("-metadata", `genre=${tags.genre.join("/")}`);
+    if (Array.isArray(tags.composer) && tags.composer.length)
+      args.push("-metadata", `composer=${tags.composer.join("/")}`);
+    const trackValue = numberWithTotal(tags.trackNum, tags.trackTotal);
+    if (trackValue != null) args.push("-metadata", `track=${trackValue}`);
+    const discValue = numberWithTotal(tags.discNumber, tags.discTotal);
+    if (discValue != null) args.push("-metadata", `disc=${discValue}`);
     args.push(tempOutput);
 
     const run = await new Promise((resolve) => {
@@ -597,6 +613,23 @@ async function writeTagsViaFFmpeg(filePath, tags) {
         mismatches.push("artist");
       if (tags.album != null && (common.album || "") !== tags.album)
         mismatches.push("album");
+      if (
+        tags.albumArtist != null &&
+        (common.albumartist || "") !== tags.albumArtist
+      )
+        mismatches.push("album artist");
+      if (tags.year != null && common.year !== tags.year)
+        mismatches.push("year");
+      if (
+        trackValue != null &&
+        (!common.track || common.track.no !== tags.trackNum)
+      )
+        mismatches.push("track number");
+      if (
+        discValue != null &&
+        (!common.disk || common.disk.no !== tags.discNumber)
+      )
+        mismatches.push("disc number");
       if (
         wantsNewImage &&
         capability.supportsCoverArt &&

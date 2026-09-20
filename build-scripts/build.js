@@ -23,6 +23,7 @@ const BROWSER_FILES = [
   "script/i18n.js",
   "script/init.js",
   "script/metadata.js",
+  "script/metadata-normalize.js",
   "script/drag-drop.js",
   "script/library-view.js",
   "script/folders.js",

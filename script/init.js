@@ -19,7 +19,7 @@ import { renderTab } from "./library-view.js";
 import { applyPlayerBg, refreshUpdateUI } from "./settings.js";
 import { updateAvailableModal } from "./modal.js";
 import { applyVolume } from "./volume.js";
-import { verifyLibraryOnDisk, backfillTrackNumbers } from "./metadata.js";
+import { verifyLibraryOnDisk, backfillMetadata } from "./metadata.js";
 import { updateRepeatBadge } from "./now-playing-ui.js";
 import { updateVisualizerState } from "./visualizer.js";
 import { EQ_BANDS } from "./equalizer.js";
@@ -149,7 +149,7 @@ async function init() {
   bindEvents();
   updateRepeatBadge();
 
-  backfillTrackNumbers();
+  backfillMetadata();
 
   verifyLibraryOnDisk();
   setInterval(verifyLibraryOnDisk, 10 * 60 * 1000);

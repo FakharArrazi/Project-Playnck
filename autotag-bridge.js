@@ -132,8 +132,19 @@ async function autoTagTrack(filePath, hint, mode) {
     title: top.title,
     artist: top.artist,
     album: top.album,
+    albumArtist: top.albumArtist,
     year: top.year,
+    date: top.date,
     trackNum: top.trackNum,
+    trackTotal: top.trackTotal,
+    discNumber: top.discNumber,
+    discTotal: top.discTotal,
+    releaseType: top.releaseType,
+    recordingId: top.recordingId,
+    releaseId: top.releaseId,
+    releaseGroupId: top.releaseGroupId,
+    artistIds: top.artistIds,
+    albumArtistIds: top.albumArtistIds,
     image: top.images[0] || null,
     images: top.images,
     matches,
@@ -250,7 +261,7 @@ async function acoustidLookup(fingerprint, duration) {
 
 async function fetchMusicBrainzRecording(mbid) {
   if (!mbid) return null;
-  const url = `${MUSICBRAINZ_API}/recording/${mbid}?fmt=json&inc=releases+release-groups+artist-credits`;
+  const url = `${MUSICBRAINZ_API}/recording/${mbid}?fmt=json&inc=releases+release-groups+artist-credits+media`;
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
@@ -280,7 +291,7 @@ async function musicbrainzQuery(query) {
 
   const url =
     `${MUSICBRAINZ_API}/recording/?query=${encodeURIComponent(query)}` +
-    `&fmt=json&limit=${MUSICBRAINZ_SEARCH_POOL}&inc=releases+release-groups+artist-credits`;
+    `&fmt=json&limit=${MUSICBRAINZ_SEARCH_POOL}&inc=releases+release-groups+artist-credits+media`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
@@ -304,16 +315,52 @@ async function musicbrainzQuery(query) {
   return built;
 }
 
+function formatArtistCredit(creditEntries) {
+  if (!Array.isArray(creditEntries) || !creditEntries.length) return null;
+  const joined = creditEntries
+    .map((entry) => {
+      if (!entry) return "";
+      const name = entry.name || (entry.artist && entry.artist.name) || "";
+      return name + (entry.joinphrase != null ? entry.joinphrase : "");
+    })
+    .join("");
+  return joined.trim() || null;
+}
+
+function creditArtistIds(creditEntries) {
+  if (!Array.isArray(creditEntries)) return [];
+  return creditEntries
+    .map((entry) => entry && entry.artist && entry.artist.id)
+    .filter(Boolean);
+}
+
+function findRecordingMedium(release, recordingId) {
+  if (!Array.isArray(release.media)) return null;
+  for (const medium of release.media) {
+    const tracks = Array.isArray(medium.track) ? medium.track : [];
+    const match = recordingId
+      ? tracks.find((t) => t.recording && t.recording.id === recordingId)
+      : tracks[0];
+    if (match) return { medium, track: match };
+  }
+  return null;
+}
+
 function buildMatchFromRecording(recording, source) {
   const title = recording.title || null;
-  const artist = Array.isArray(recording.artists)
-    ? recording.artists.map((a) => a.name).join(", ")
-    : Array.isArray(recording["artist-credit"])
-      ? recording["artist-credit"]
-          .map((a) => a.name || (a.artist && a.artist.name))
-          .filter(Boolean)
-          .join(", ")
+  const artistCredit = Array.isArray(recording["artist-credit"])
+    ? recording["artist-credit"]
+    : null;
+  const artist = artistCredit
+    ? formatArtistCredit(artistCredit)
+    : Array.isArray(recording.artists)
+      ? recording.artists.map((a) => a.name).join(", ") || null
       : null;
+  const artistIds = artistCredit
+    ? creditArtistIds(artistCredit)
+    : Array.isArray(recording.artists)
+      ? recording.artists.map((a) => a.id).filter(Boolean)
+      : [];
 
   const releases = Array.isArray(recording.releases) ? recording.releases : [];
   const sorted = [...releases].sort(
@@ -321,21 +368,37 @@ function buildMatchFromRecording(recording, source) {
   );
 
   const primary = sorted[0] || null;
+  const releaseGroup = primary ? primary["release-group"] || null : null;
   const album = primary
-    ? primary.title ||
-      (primary["release-group"] && primary["release-group"].title) ||
-      null
+    ? primary.title || (releaseGroup && releaseGroup.title) || null
     : null;
+  const releaseArtistCredit =
+    primary && Array.isArray(primary["artist-credit"])
+      ? primary["artist-credit"]
+      : null;
+  const albumArtist = releaseArtistCredit
+    ? formatArtistCredit(releaseArtistCredit)
+    : artist;
+  const albumArtistIds = releaseArtistCredit
+    ? creditArtistIds(releaseArtistCredit)
+    : artistIds;
   const dateStr = primary ? primary.date : null;
   const year = dateStr ? parseInt(dateStr.slice(0, 4), 10) || null : null;
+
+  const found = primary ? findRecordingMedium(primary, recording.id) : null;
   const trackNum =
-    primary &&
-    primary.media &&
-    primary.media[0] &&
-    primary.media[0].track &&
-    primary.media[0].track[0] &&
-    primary.media[0].track[0].number
-      ? parseInt(primary.media[0].track[0].number, 10) || null
+    found && found.track.number != null
+      ? parseInt(found.track.number, 10) || null
+      : null;
+  const trackTotal =
+    found && found.medium["track-count"] != null
+      ? found.medium["track-count"]
+      : null;
+  const discNumber =
+    found && found.medium.position != null ? found.medium.position : null;
+  const discTotal =
+    primary && Array.isArray(primary.media) && primary.media.length
+      ? primary.media.length
       : null;
 
   return {
@@ -343,8 +406,19 @@ function buildMatchFromRecording(recording, source) {
     title,
     artist: artist || null,
     album,
+    albumArtist: albumArtist || null,
     year,
+    date: dateStr || null,
     trackNum,
+    trackTotal,
+    discNumber,
+    discTotal,
+    releaseType: releaseGroup ? releaseGroup["primary-type"] || null : null,
+    recordingId: recording.id || null,
+    releaseId: primary ? primary.id || null : null,
+    releaseGroupId: releaseGroup ? releaseGroup.id || null : null,
+    artistIds,
+    albumArtistIds,
     releaseScore: bestReleaseScore(releases),
     mbScore: recording.score || 0,
     releases: sorted

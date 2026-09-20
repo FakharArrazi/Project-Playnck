@@ -17,6 +17,7 @@ import { el, escapeHTML, fmtTime, replayMotion, fallbackArt } from "./utils.js";
 import { tr, plural, SELECT_TYPE_PLURAL_KEY, pluralWord } from "./i18n.js";
 import { getTrackArtURL } from "./init.js";
 import { libraryTracks } from "./metadata.js";
+import { albumGroupKey } from "./metadata-normalize.js";
 import { playTrack } from "./player.js";
 import { openFolderMenu } from "./folders.js";
 import { renderConvertTab } from "./convert.js";
@@ -32,13 +33,12 @@ import {
 function computeAlbums() {
   const map = new Map();
   for (const t of libraryTracks()) {
-    const groupArtist = t.albumArtist || t.artist;
-    const key = t.album + "|||" + groupArtist;
+    const key = albumGroupKey(t);
     if (!map.has(key))
       map.set(key, {
         key,
         album: t.album,
-        artist: groupArtist,
+        artist: t.albumArtist || t.artist,
         art: getTrackArtURL(t),
         tracks: [],
       });
@@ -151,6 +151,11 @@ function sortTracks(tracks) {
       break;
     case "track-asc":
       sorted.sort((a, b) => {
+        const ad = a.discNumber,
+          bd = b.discNumber;
+        if (ad != null && bd != null && ad !== bd) return ad - bd;
+        if (ad == null && bd != null) return 1;
+        if (ad != null && bd == null) return -1;
         const an = a.trackNum,
           bn = b.trackNum;
         if (an == null && bn == null) return a.title.localeCompare(b.title);

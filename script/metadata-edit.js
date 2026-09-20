@@ -3,7 +3,8 @@ import { tr } from "./i18n.js";
 import { escapeHTML, el } from "./utils.js";
 import { openModal, closeModal } from "./modal.js";
 import { filePathToURL, getTrackArtURL } from "./init.js";
-import { sanitizeFilename, toStoreRecord } from "./metadata.js";
+import { sanitizeFilename, toStoreRecord, applyMetadataFields } from "./metadata.js";
+import { normalizeReaderResult, METADATA_FIELD_KEYS } from "./metadata-normalize.js";
 import { renderTab } from "./library-view.js";
 import { updateNowPlayingUI } from "./now-playing-ui.js";
 
@@ -24,6 +25,16 @@ function openEditModal(track) {
   let coverCandidates = [];
   let coverCandidateIndex = 0;
   let matchCandidates = [];
+  let autoTagFields = null;
+
+  const AUTO_TAG_MERGE_KEYS = METADATA_FIELD_KEYS.filter(
+    (k) => k !== "title" && k !== "artist" && k !== "album",
+  );
+
+  function captureAutoTagFields(m) {
+    autoTagFields = {};
+    for (const key of AUTO_TAG_MERGE_KEYS) autoTagFields[key] = m[key];
+  }
 
   const bodyHTML = `
     <div class="edit-form">
@@ -153,6 +164,7 @@ function openEditModal(track) {
     if (m.title) $("editTitleInput").value = m.title;
     if (m.artist) $("editArtistInput").value = m.artist;
     if (m.album) $("editAlbumInput").value = m.album;
+    captureAutoTagFields(m);
     renderCoverGallery(m.images || []);
   }
 
@@ -277,6 +289,7 @@ function openEditModal(track) {
     if (result.title) titleField.value = result.title;
     if (result.artist) artistField.value = result.artist;
     if (result.album) albumField.value = result.album;
+    captureAutoTagFields(result);
 
     renderMatchOptions(result.matches || []);
 
@@ -307,10 +320,13 @@ function openEditModal(track) {
     const newArtist = $("editArtistInput").value.trim() || t.artist;
     const newAlbum = $("editAlbumInput").value.trim() || t.album;
 
-    async function applyToLibrary() {
+    async function applyToLibrary(resync) {
       t.title = newTitle;
       t.artist = newArtist;
       t.album = newAlbum;
+
+      if (autoTagFields) applyMetadataFields(t, autoTagFields, true);
+      if (resync) applyMetadataFields(t, resync, true);
 
       if (pendingArtFile) {
         if (t.artURL) URL.revokeObjectURL(t.artURL);
@@ -361,15 +377,29 @@ function openEditModal(track) {
     let imageData = null;
     if (pendingArtFile) imageData = await pendingArtFile.arrayBuffer();
 
+    const writeFields = {
+      title: newTitle,
+      artist: newArtist,
+      album: newAlbum,
+      imageData,
+      imageMime: pendingArtFile ? pendingArtFile.type : null,
+      removeImage: removeArt,
+    };
+    if (autoTagFields) {
+      applyMetadataFields(writeFields, autoTagFields, true, [
+        "albumArtist",
+        "year",
+        "trackNum",
+        "trackTotal",
+        "discNumber",
+        "discTotal",
+        "genre",
+        "composer",
+      ]);
+    }
+
     const result = await window.electronAPI
-      .writeAudioTags(t.filePath, {
-        title: newTitle,
-        artist: newArtist,
-        album: newAlbum,
-        imageData,
-        imageMime: pendingArtFile ? pendingArtFile.type : null,
-        removeImage: removeArt,
-      })
+      .writeAudioTags(t.filePath, writeFields)
       .catch((err) => ({
         written: false,
         reason: String((err && err.message) || err),
@@ -438,7 +468,14 @@ function openEditModal(track) {
       }
     }
 
-    await applyToLibrary();
+    let resync = null;
+    if (window.electronAPI.getAudioMetadata) {
+      const rereadMeta = await window.electronAPI
+        .getAudioMetadata(t.filePath)
+        .catch(() => null);
+      if (rereadMeta) resync = normalizeReaderResult(rereadMeta);
+    }
+    await applyToLibrary(resync);
 
     if (wasCurrentlyLoaded) {
       audioEl.src = t.fileURL;
