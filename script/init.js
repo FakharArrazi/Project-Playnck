@@ -15,7 +15,7 @@ import {
   THEME_BG,
   THEME_ACCENT,
 } from "./theme.js";
-import { renderTab } from "./library-view.js";
+import { renderTab, restoreSortPrefs } from "./library-view.js";
 import { applyPlayerBg, refreshUpdateUI } from "./settings.js";
 import { updateAvailableModal } from "./modal.js";
 import { applyVolume } from "./volume.js";
@@ -119,6 +119,9 @@ async function init() {
     }
   }
   updateVisualizerState();
+
+  const savedSortPrefs = await idbGet("settings", "sortPrefs");
+  restoreSortPrefs(savedSortPrefs && savedSortPrefs.value);
 
   const savedHistory = await idbGet("settings", "playHistory");
   state.playHistory =

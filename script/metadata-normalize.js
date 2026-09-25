@@ -89,6 +89,23 @@ function normalizeReaderResult(raw) {
   };
 }
 
+function primaryArtistName(track) {
+  if (Array.isArray(track.artists) && track.artists.length)
+    return track.artists[0];
+  return track.artist || "";
+}
+
+function featuredArtistNames(track) {
+  return Array.isArray(track.artists) ? track.artists.slice(1) : [];
+}
+
+function artistCredit(track) {
+  const main = primaryArtistName(track);
+  const featured = featuredArtistNames(track);
+  if (!featured.length) return main || track.artist || "";
+  return `${main} ft. ${featured.join(", ")}`;
+}
+
 const METADATA_FIELD_KEYS = [
   "title",
   "artist",
@@ -112,4 +129,11 @@ const METADATA_FIELD_KEYS = [
   "albumArtistIds",
 ];
 
-export { albumGroupKey, normalizeReaderResult, METADATA_FIELD_KEYS };
+export {
+  albumGroupKey,
+  normalizeReaderResult,
+  METADATA_FIELD_KEYS,
+  primaryArtistName,
+  artistCredit,
+  normalizeForCompare,
+};

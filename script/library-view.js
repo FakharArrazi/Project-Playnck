@@ -1,5 +1,6 @@
 import {
   state,
+  idbPut,
   $,
   listContainer,
   listTitle,
@@ -17,7 +18,12 @@ import { el, escapeHTML, fmtTime, replayMotion, fallbackArt } from "./utils.js";
 import { tr, plural, SELECT_TYPE_PLURAL_KEY, pluralWord } from "./i18n.js";
 import { getTrackArtURL } from "./init.js";
 import { libraryTracks } from "./metadata.js";
-import { albumGroupKey } from "./metadata-normalize.js";
+import {
+  albumGroupKey,
+  primaryArtistName,
+  artistCredit,
+  normalizeForCompare,
+} from "./metadata-normalize.js";
 import { playTrack } from "./player.js";
 import { openFolderMenu } from "./folders.js";
 import { renderConvertTab } from "./convert.js";
@@ -50,19 +56,24 @@ function computeAlbums() {
 }
 
 function computeArtists() {
-  const map = new Map();
+  const byId = new Map();
+  const byName = new Map();
+  const groups = [];
   for (const t of libraryTracks()) {
-    if (!map.has(t.artist))
-      map.set(t.artist, {
-        artist: t.artist,
-        art: getTrackArtURL(t),
-        tracks: [],
-      });
-    map.get(t.artist).tracks.push(t);
-    if (!map.get(t.artist).art && getTrackArtURL(t))
-      map.get(t.artist).art = getTrackArtURL(t);
+    const name = primaryArtistName(t) || t.artist;
+    const nameKey = normalizeForCompare(name || t.artist);
+    const idKey = Array.isArray(t.artistIds) ? t.artistIds[0] : null;
+    let group = (idKey && byId.get(idKey)) || byName.get(nameKey);
+    if (!group) {
+      group = { artist: name, art: getTrackArtURL(t), tracks: [] };
+      groups.push(group);
+    }
+    if (idKey) byId.set(idKey, group);
+    byName.set(nameKey, group);
+    group.tracks.push(t);
+    if (!group.art && getTrackArtURL(t)) group.art = getTrackArtURL(t);
   }
-  return sortGroups(Array.from(map.values()), "artist");
+  return sortGroups(groups, "artist");
 }
 
 function sortGroups(groups, nameField) {
@@ -119,9 +130,21 @@ const SORT_OPTIONS = [
 ];
 
 function currentSortKey() {
-  return state.filter && state.filter.type === "album"
-    ? "albumSortBy"
-    : "sortBy";
+  if (state.filter && state.filter.type === "album") return "albumSortBy";
+  if (!state.filter && state.currentTab === "songs") return "songsSortBy";
+  return "sortBy";
+}
+
+function saveSortPrefs() {
+  idbPut("settings", {
+    key: "sortPrefs",
+    value: { songs: state.songsSortBy },
+  }).catch(() => {});
+}
+
+function restoreSortPrefs(saved) {
+  if (saved && SORT_OPTIONS.some((opt) => opt.value === saved.songs))
+    state.songsSortBy = saved.songs;
 }
 
 function sortTracks(tracks) {
@@ -172,14 +195,62 @@ function sortTracks(tracks) {
   return sorted;
 }
 
+const scrollMemory = new Map();
+let shownScroll = null;
+
+function scrollView(q) {
+  if (state.filter) {
+    const { type } = state.filter;
+    if (type === "album")
+      return { key: "album", sort: state.albumSortBy, q, remember: false };
+    if (type === "artist")
+      return { key: "artist", sort: state.sortBy, q, remember: false };
+    if (type === "playlist")
+      return { key: "playlist", sort: state.sortBy, q, remember: false };
+    return null;
+  }
+  if (state.currentTab === "songs")
+    return { key: "songs", sort: state.songsSortBy, q, remember: true };
+  if (state.currentTab === "albums")
+    return { key: "albums", sort: state.sortBy, q, remember: true };
+  if (state.currentTab === "artists")
+    return { key: "artists", sort: state.sortBy, q, remember: true };
+  if (state.currentTab === "playlists") {
+    const folder = state.playlistFolders.find(
+      (f) => f.id === state.playlistFolderId,
+    );
+    return {
+      key: "playlists:" + (folder ? folder.id : ""),
+      sort: null,
+      q: "",
+      remember: true,
+    };
+  }
+  return null;
+}
+
+function takeScrollTarget(q) {
+  const prev = shownScroll;
+  const live = prev ? listContainer.scrollTop : 0;
+  if (prev && prev.remember && prev.q === "")
+    scrollMemory.set(prev.key, { sort: prev.sort, top: live });
+  const next = (shownScroll = scrollView(q));
+  if (!next) return null;
+  if (prev && prev.key === next.key)
+    return prev.sort === next.sort && prev.q === next.q ? live : 0;
+  const saved = next.remember && next.q === "" && scrollMemory.get(next.key);
+  return saved && saved.sort === next.sort ? saved.top : 0;
+}
+
 function renderTab() {
+  const q = (searchInput.value || "").toLowerCase().trim();
+  const scrollTarget = takeScrollTarget(q);
   listContainer.innerHTML = "";
   virtualSongList = null;
   if (virtualScrollFrame) {
     cancelAnimationFrame(virtualScrollFrame);
     virtualScrollFrame = null;
   }
-  const q = (searchInput.value || "").toLowerCase().trim();
 
   const selType = currentSelectType();
   if (state.selectMode && state.selectType !== selType) {
@@ -216,6 +287,8 @@ function renderTab() {
     renderSongList(
       tracks,
       state.filter.type === "playlist" ? state.filter.playlistId : null,
+      false,
+      scrollTarget,
     );
     addMusicToggle.classList.toggle("hidden", state.filter.type !== "playlist");
     replayMotion(listContainer, "view-enter", 360);
@@ -231,7 +304,7 @@ function renderTab() {
     listTitle.textContent = tr("nav.songs");
     let tracks = libraryTracks();
     if (q) tracks = tracks.filter((t) => matchQuery(t, q));
-    renderSongList(tracks, null);
+    renderSongList(tracks, null, false, scrollTarget);
   } else if (state.currentTab === "albums") {
     listTitle.textContent = tr("nav.albums");
     let albums = computeAlbums();
@@ -241,12 +314,12 @@ function renderTab() {
           a.album.toLowerCase().includes(q) ||
           a.artist.toLowerCase().includes(q),
       );
-    renderAlbumGrid(albums);
+    renderAlbumGrid(albums, scrollTarget);
   } else if (state.currentTab === "artists") {
     listTitle.textContent = tr("nav.artists");
     let artists = computeArtists();
     if (q) artists = artists.filter((a) => a.artist.toLowerCase().includes(q));
-    renderArtistList(artists);
+    renderArtistList(artists, scrollTarget);
   } else if (state.currentTab === "playlists") {
     if (
       state.playlistFolderId &&
@@ -261,7 +334,7 @@ function renderTab() {
       ? currentFolder.name
       : tr("nav.playlists");
     backBtn.classList.toggle("hidden", !currentFolder);
-    renderPlaylistList();
+    renderPlaylistList(scrollTarget);
   } else if (state.currentTab === "folders") {
     listTitle.textContent = tr("nav.folders");
     renderFolderList();
@@ -301,7 +374,22 @@ function scheduleVirtualSongRender() {
   });
 }
 
-function renderSongList(tracks, playlistIdContext, alreadySorted = false) {
+function songListMaxScroll(count) {
+  const style = getComputedStyle(listContainer);
+  const padding =
+    parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  return Math.max(
+    0,
+    count * SONG_ROW_HEIGHT + padding - listContainer.clientHeight,
+  );
+}
+
+function renderSongList(
+  tracks,
+  playlistIdContext,
+  alreadySorted = false,
+  scrollTarget = null,
+) {
   if (!alreadySorted) tracks = sortTracks(tracks);
 
   if (!tracks.length) {
@@ -313,13 +401,17 @@ function renderSongList(tracks, playlistIdContext, alreadySorted = false) {
   const virtualized = allTracks.length > 120;
   let windowStart = 0;
   let windowEnd = allTracks.length;
+  let target = scrollTarget;
   if (virtualized) {
     const viewportHeight = listContainer.clientHeight || 600;
-    const firstVisible = Math.floor(listContainer.scrollTop / SONG_ROW_HEIGHT);
+    if (target != null)
+      target = Math.min(target, songListMaxScroll(allTracks.length));
+    const scrollTop = target == null ? listContainer.scrollTop : target;
+    const firstVisible = Math.floor(scrollTop / SONG_ROW_HEIGHT);
     windowStart = Math.max(0, firstVisible - SONG_LIST_OVERSCAN);
     windowEnd = Math.min(
       allTracks.length,
-      Math.ceil((listContainer.scrollTop + viewportHeight) / SONG_ROW_HEIGHT) +
+      Math.ceil((scrollTop + viewportHeight) / SONG_ROW_HEIGHT) +
         SONG_LIST_OVERSCAN,
     );
     virtualSongList = { tracks: allTracks, playlistIdContext, firstVisible };
@@ -358,7 +450,7 @@ function renderSongList(tracks, playlistIdContext, alreadySorted = false) {
     img.src = getTrackArtURL(t) || fallbackArt();
     const info = el("div", "info");
     info.appendChild(el("div", "title", escapeHTML(t.title)));
-    info.appendChild(el("div", "sub", escapeHTML(t.artist)));
+    info.appendChild(el("div", "sub", escapeHTML(artistCredit(t))));
     const dur = el("span", "dur", fmtTime(t.duration));
     const menuBtn = el("button", "menu-btn", "&#8942;");
     menuBtn.addEventListener("click", (e) => {
@@ -381,6 +473,8 @@ function renderSongList(tracks, playlistIdContext, alreadySorted = false) {
       (allTracks.length - windowEnd) * SONG_ROW_HEIGHT + "px";
     listContainer.appendChild(bottomSpacer);
   }
+  if (target != null)
+    listContainer.scrollTo({ top: target, behavior: "instant" });
 }
 
 function refreshPlayingHighlight() {
@@ -560,7 +654,7 @@ function homeSection(title, tracks, kind) {
     img.src = getTrackArtURL(t) || fallbackArt();
     const info = el("div", "info");
     info.appendChild(el("div", "title", escapeHTML(t.title)));
-    info.appendChild(el("div", "sub", escapeHTML(t.artist)));
+    info.appendChild(el("div", "sub", escapeHTML(artistCredit(t))));
     const stat = el(
       "span",
       "dur",
@@ -575,7 +669,7 @@ function homeSection(title, tracks, kind) {
   return section;
 }
 
-function renderAlbumGrid(albums) {
+function renderAlbumGrid(albums, scrollTarget = null) {
   if (!albums.length) {
     listContainer.appendChild(el("div", "empty-state", tr("empty.noAlbums")));
     return;
@@ -611,9 +705,11 @@ function renderAlbumGrid(albums) {
     grid.appendChild(card);
   });
   listContainer.appendChild(grid);
+  if (scrollTarget != null)
+    listContainer.scrollTo({ top: scrollTarget, behavior: "instant" });
 }
 
-function renderArtistList(artists) {
+function renderArtistList(artists, scrollTarget = null) {
   if (!artists.length) {
     listContainer.appendChild(el("div", "empty-state", tr("empty.noArtists")));
     return;
@@ -646,9 +742,11 @@ function renderArtistList(artists) {
     });
     listContainer.appendChild(line);
   });
+  if (scrollTarget != null)
+    listContainer.scrollTo({ top: scrollTarget, behavior: "instant" });
 }
 
-function renderPlaylistList() {
+function renderPlaylistList(scrollTarget = null) {
   const toolbar = el("div", "playlist-toolbar");
   const newPlaylistBtn = el(
     "button",
@@ -682,6 +780,8 @@ function renderPlaylistList() {
     listContainer.appendChild(
       el("div", "empty-state", tr("empty.emptyPlaylistFolder")),
     );
+    if (scrollTarget != null)
+      listContainer.scrollTo({ top: scrollTarget, behavior: "instant" });
     return;
   }
 
@@ -692,6 +792,8 @@ function renderPlaylistList() {
         : renderPlaylistRow(data),
     );
   });
+  if (scrollTarget != null)
+    listContainer.scrollTo({ top: scrollTarget, behavior: "instant" });
 }
 
 function renderPlaylistFolderRow(f) {
@@ -838,5 +940,7 @@ export {
   computeArtists,
   SORT_OPTIONS,
   currentSortKey,
+  saveSortPrefs,
+  restoreSortPrefs,
   matchQuery,
 };

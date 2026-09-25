@@ -1,7 +1,12 @@
 import { state } from "./state.js";
 import { el, replayMotion, escapeHTML } from "./utils.js";
 import { tr } from "./i18n.js";
-import { currentSortKey, SORT_OPTIONS, renderTab } from "./library-view.js";
+import {
+  currentSortKey,
+  SORT_OPTIONS,
+  renderTab,
+  saveSortPrefs,
+} from "./library-view.js";
 import {
   openAddToPlaylistModal,
   removeFromPlaylist,
@@ -112,7 +117,9 @@ function openSortMenu(e) {
 }
 
 function setSortBy(value) {
-  state[currentSortKey()] = value;
+  const key = currentSortKey();
+  state[key] = value;
+  if (key === "songsSortBy") saveSortPrefs();
   renderTab();
 }
 

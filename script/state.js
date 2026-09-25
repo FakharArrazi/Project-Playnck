@@ -89,6 +89,7 @@ const state = {
   filter: null,
   sortBy: "title-asc",
   albumSortBy: "track-asc",
+  songsSortBy: "title-asc",
   queue: [],
   queueIndex: -1,
   shuffle: false,
