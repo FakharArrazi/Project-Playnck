@@ -199,6 +199,25 @@ function sortTracks(tracks) {
 
 const scrollMemory = new Map();
 let shownScroll = null;
+let lastViewKey = null;
+
+// Identifies the *view itself* (which tab/filter/folder is being shown),
+// as opposed to its contents. Used to decide whether renderTab() is
+// showing the user a genuinely new view (entrance animation should play)
+// or just re-rendering the same view because some unrelated state changed
+// (metadata edit, playback update, sort, etc. -- animation should NOT
+// replay, since replaying it there is what produced the vertical
+// "vibration" on every incidental re-render).
+function currentViewKey() {
+  if (state.filter) {
+    const f = state.filter;
+    if (f.type === "playlist") return "filter:playlist:" + f.playlistId;
+    return "filter:" + f.type + ":" + f.title;
+  }
+  if (state.currentTab === "playlists")
+    return "tab:playlists:" + (state.playlistFolderId || "");
+  return "tab:" + state.currentTab;
+}
 
 function scrollView(q) {
   if (state.filter) {
@@ -245,6 +264,9 @@ function takeScrollTarget(q) {
 }
 
 function renderTab() {
+  const viewKey = currentViewKey();
+  const viewChanged = viewKey !== lastViewKey;
+  lastViewKey = viewKey;
   const q = (searchInput.value || "").toLowerCase().trim();
   const scrollTarget = takeScrollTarget(q);
   listContainer.innerHTML = "";
@@ -297,7 +319,7 @@ function renderTab() {
       );
     }
     addMusicToggle.classList.toggle("hidden", state.filter.type !== "playlist");
-    replayMotion(listContainer, "view-enter", 360);
+    if (viewChanged) replayMotion(listContainer, "view-enter", 360);
     return;
   }
   backBtn.classList.add("hidden");
@@ -348,7 +370,7 @@ function renderTab() {
     listTitle.textContent = tr("nav.convert");
     renderConvertTab();
   }
-  replayMotion(listContainer, "view-enter", 360);
+  if (viewChanged) replayMotion(listContainer, "view-enter", 360);
 }
 
 function matchQuery(t, q) {

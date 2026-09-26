@@ -240,6 +240,7 @@
   min-height: 0;
   scrollbar-gutter: stable;
   transform: translateZ(0);
+  overflow-anchor: none;
 }
 .empty-state {
   padding: 40px 20px;
