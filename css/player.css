@@ -14,6 +14,7 @@
   );
   background-size: 160% 160%;
   animation: panelGlowDrift 5s ease-in-out infinite alternate;
+  contain: layout paint;
 }
 .player-panel .close-overlay {
   display: none;

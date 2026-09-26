@@ -241,6 +241,7 @@
   scrollbar-gutter: stable;
   transform: translateZ(0);
   overflow-anchor: none;
+  contain: layout paint;
 }
 .empty-state {
   padding: 40px 20px;

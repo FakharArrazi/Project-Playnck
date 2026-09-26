@@ -3,6 +3,17 @@ import { analyserNode, ensureAudioGraph } from "./equalizer.js";
 
 let visualizerRafHandle = null;
 let visualizerFreqData = null;
+let cachedAccentRgb = "138,92,246";
+let accentRgbFrameCounter = 0;
+
+function refreshAccentRgb() {
+  cachedAccentRgb =
+    (
+      getComputedStyle(document.documentElement).getPropertyValue(
+        "--accent1-rgb",
+      ) || ""
+    ).trim() || "138,92,246";
+}
 
 function saveVisualizerSettings() {
   idbPut("settings", {
@@ -24,6 +35,8 @@ function updateVisualizerState() {
   if (shouldRun && !visualizerRafHandle) {
     ensureAudioGraph();
     sizeVisualizerCanvas(canvas);
+    refreshAccentRgb();
+    accentRgbFrameCounter = 0;
     visualizerRafHandle = requestAnimationFrame(drawVisualizerFrame);
   } else if (!shouldRun && visualizerRafHandle) {
     cancelAnimationFrame(visualizerRafHandle);
@@ -62,12 +75,9 @@ function drawVisualizerFrame() {
     return;
   }
 
-  const accentRgb =
-    (
-      getComputedStyle(document.documentElement).getPropertyValue(
-        "--accent1-rgb",
-      ) || ""
-    ).trim() || "138,92,246";
+  accentRgbFrameCounter++;
+  if (accentRgbFrameCounter % 30 === 0) refreshAccentRgb();
+  const accentRgb = cachedAccentRgb;
   const barCount = Math.min(28, analyserNode.frequencyBinCount);
   const gap = w * 0.012;
   const barWidth = (w - gap * (barCount - 1)) / barCount;
