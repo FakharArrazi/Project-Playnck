@@ -3,9 +3,19 @@
   aspect-ratio: 1;
   border-radius: 16px;
   position: relative;
-  box-shadow: 0 20px 60px rgba(var(--accent1-rgb), 0.22);
+  box-shadow: 0 18px 55px rgba(var(--accent1-rgb), 0.18);
   flex-shrink: 0;
+}
+.art-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 24px 68px rgba(var(--accent1-rgb), 0.26);
+  opacity: 0;
   animation: artGlowPulse 8s ease-in-out infinite alternate;
+  will-change: opacity;
 }
 .art-wrap img {
   width: 100%;
@@ -18,10 +28,10 @@
 }
 @keyframes artGlowPulse {
   0% {
-    box-shadow: 0 18px 55px rgba(var(--accent1-rgb), 0.18);
+    opacity: 0;
   }
   100% {
-    box-shadow: 0 24px 68px rgba(var(--accent1-rgb), 0.26);
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {

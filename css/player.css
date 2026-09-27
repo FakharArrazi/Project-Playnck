@@ -6,15 +6,24 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
+  background: var(--bg);
+  contain: layout paint;
+}
+.player-panel::before {
+  content: "";
+  position: absolute;
+  
+  z-index: 0;
+  pointer-events: none;
   background: radial-gradient(
     circle at center,
     rgba(var(--accent1-rgb), 0.15) 0%,
     var(--bg) 60%
   );
-  background-size: 160% 160%;
   animation: panelGlowDrift 5s ease-in-out infinite alternate;
-  contain: layout paint;
+  will-change: transform;
 }
 .player-panel .close-overlay {
   display: none;
@@ -58,19 +67,12 @@
   height: min(110px, 14vh);
   z-index: -1;
   pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
+  contain: strict;
 }
 
-@keyframes panelGlowDrift {
-  0% {
-    background-position: 45% 40%;
-  }
-  50% {
-    background-position: 55% 60%;
-  }
-  100% {
-    background-position: 48% 45%;
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .player-panel {
     animation: none;
