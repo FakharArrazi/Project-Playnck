@@ -8,6 +8,7 @@ const {
   uploadAsset,
   publishRelease,
 } = require("./github-release-utils");
+const { verifyUpdateManifests } = require("./verify-update-manifests");
 
 async function findOrCreateRelease(owner, repo, tag) {
   const releases = await gh(
@@ -125,6 +126,20 @@ async function main() {
   }
 
   const tag = (publishCfg.vPrefixedTagName === false ? "" : "v") + pkg.version;
+
+  const { problems, warnings } = await verifyUpdateManifests(
+    assetsDir,
+    pkg.version,
+  );
+  warnings.forEach((w) => console.warn(`Warning: ${w}`));
+  if (problems.length) {
+    throw new Error(
+      `Update manifest check failed, refusing to publish a release whose auto-update would fail:\n  - ${problems.join("\n  - ")}`,
+    );
+  }
+  console.log(
+    "Update manifests verified: every referenced file exists with a matching name, size and sha512.",
+  );
 
   const release = await findOrCreateRelease(owner, repo, tag);
   await uploadAssets(owner, repo, release, assetsDir);

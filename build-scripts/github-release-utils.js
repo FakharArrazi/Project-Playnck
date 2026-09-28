@@ -45,6 +45,13 @@ async function uploadAsset(uploadUrlTemplate, name, buffer) {
   });
   if (!res.ok)
     throw new Error(`upload ${name} -> ${res.status}: ${await res.text()}`);
+  const asset = await res.json();
+  if (asset && asset.name && asset.name !== name) {
+    throw new Error(
+      `GitHub stored "${name}" as "${asset.name}", so any update manifest pointing at "${name}" would 404. Use file names without spaces or special characters.`,
+    );
+  }
+  return asset;
 }
 
 async function publishRelease(owner, repo, release, readyPhrase) {

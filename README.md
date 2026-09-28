@@ -163,7 +163,7 @@ Grab the latest build for your platform from the [Releases](https://github.com/F
 
 ### Windows
 
-Run `Playnck Setup <version>.exe`. The installer lets you choose the install directory and creates Desktop and Start Menu shortcuts. Playnck checks for new versions automatically while it runs and can install them in-app.
+Run `Playnck-Setup-<version>.exe`. The installer lets you choose the install directory and creates Desktop and Start Menu shortcuts. Playnck checks for new versions automatically while it runs and can install them in-app.
 
 ### Linux (Fedora and other RPM-based distributions)
 
