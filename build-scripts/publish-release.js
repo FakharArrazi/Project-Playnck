@@ -101,6 +101,39 @@ async function uploadAssets(owner, repo, release, assetsDir) {
   }
 }
 
+const SUPPORTED_PLATFORMS = [
+  {
+    label: "Windows installer",
+    configured: (build) => Boolean(build.win),
+    present: (files) => files.some((f) => /\.exe$/i.test(f)),
+  },
+  {
+    label: "Linux rpm",
+    configured: (build) => {
+      const target = build.linux && build.linux.target;
+      return Array.isArray(target)
+        ? target.includes("rpm")
+        : target === "rpm";
+    },
+    present: (files) => files.some((f) => /\.rpm$/i.test(f)),
+  },
+];
+
+function warnAboutMissingPlatforms(files) {
+  const build = pkg.build || {};
+  for (const platform of SUPPORTED_PLATFORMS) {
+    if (platform.configured(build) && !platform.present(files)) {
+      console.warn(
+        `NOTE: this publish has no ${platform.label} asset. That platform's ` +
+          `users will not be offered this version until a build for it is ` +
+          `added to this same release (e.g. by running the full Release ` +
+          `GitHub Actions workflow). This is expected for an intentional ` +
+          `single-platform release; otherwise, check why that build didn't run.`,
+      );
+    }
+  }
+}
+
 async function main() {
   const assetsDir = process.argv[2];
   if (!assetsDir) {
@@ -140,6 +173,12 @@ async function main() {
   console.log(
     "Update manifests verified: every referenced file exists with a matching name, size and sha512.",
   );
+
+  const files = fs
+    .readdirSync(assetsDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
+  warnAboutMissingPlatforms(files);
 
   const release = await findOrCreateRelease(owner, repo, tag);
   await uploadAssets(owner, repo, release, assetsDir);
