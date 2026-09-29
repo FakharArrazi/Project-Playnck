@@ -426,7 +426,7 @@ Playnck also relies on a number of open-source packages; see [`THIRD-PARTY-NOTIC
 
 ## License
 
-Playnck is source-available, not open source. It is distributed under a custom End-User License Agreement (see [`LICENSE`](LICENSE)): you are licensed to install and use the compiled application for personal or internal use, but redistribution, modification, and reverse engineering are restricted. See the LICENSE file for the complete terms.
+Playnck is source-available, not open source. It is distributed under a custom End-User License Agreement (see [`LICENSE`](LICENSE)): you are licensed to install and use the compiled application for personal or internal use, but redistribution, modification, and reverse engineering are restricted. See the LICENSE file for the complete terms..
 
 ---
 
