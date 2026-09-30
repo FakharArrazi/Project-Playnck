@@ -541,7 +541,36 @@ function albumYear(tracks) {
   return years.length ? Math.min(...years) : null;
 }
 
-function buildAlbumCard(group, queueTracks, showDiscs = true) {
+function buildAlbumPlayButton(tracks) {
+  const playBtn = el("button", "album-play-btn", PLAY_ICON);
+  playBtn.title = tr("player.play");
+  playBtn.setAttribute("aria-label", tr("player.play"));
+  playBtn.addEventListener("click", () => {
+    const playOrder = [...tracks].sort(compareByTrackNumber);
+    playTrack(playOrder[0], playOrder);
+  });
+  return playBtn;
+}
+
+function buildAlbumTrackList(tracks, queueTracks, showDiscs = true) {
+  const songs = el("div", "album-card-songs");
+  const multiDisc =
+    showDiscs &&
+    new Set(tracks.map((t) => t.discNumber).filter((d) => d != null)).size > 1;
+  let currentDisc = null;
+  tracks.forEach((t) => {
+    if (multiDisc && t.discNumber != null && t.discNumber !== currentDisc) {
+      currentDisc = t.discNumber;
+      songs.appendChild(
+        el("div", "album-disc-label", tr("album.disc", { n: currentDisc })),
+      );
+    }
+    songs.appendChild(buildSongRow(t, null, queueTracks, true));
+  });
+  return songs;
+}
+
+function buildAlbumCard(group, queueTracks) {
   const card = el("div", "album-card");
   const head = el("div", "album-card-head");
   const text = el("div", "album-card-text");
@@ -552,33 +581,10 @@ function buildAlbumCard(group, queueTracks, showDiscs = true) {
     .join(" \u2022 ");
   text.appendChild(title);
   text.appendChild(el("div", "album-card-meta", escapeHTML(meta)));
-  const playBtn = el("button", "album-play-btn", PLAY_ICON);
-  playBtn.title = tr("player.play");
-  playBtn.setAttribute("aria-label", tr("player.play"));
-  playBtn.addEventListener("click", () => {
-    const playOrder = [...group.tracks].sort(compareByTrackNumber);
-    playTrack(playOrder[0], playOrder);
-  });
   head.appendChild(text);
-  head.appendChild(playBtn);
+  head.appendChild(buildAlbumPlayButton(group.tracks));
   card.appendChild(head);
-
-  const songs = el("div", "album-card-songs");
-  const multiDisc =
-    showDiscs &&
-    new Set(group.tracks.map((t) => t.discNumber).filter((d) => d != null))
-      .size > 1;
-  let currentDisc = null;
-  group.tracks.forEach((t) => {
-    if (multiDisc && t.discNumber != null && t.discNumber !== currentDisc) {
-      currentDisc = t.discNumber;
-      songs.appendChild(
-        el("div", "album-disc-label", tr("album.disc", { n: currentDisc })),
-      );
-    }
-    songs.appendChild(buildSongRow(t, null, queueTracks, true));
-  });
-  card.appendChild(songs);
+  card.appendChild(buildAlbumTrackList(group.tracks, queueTracks));
   return card;
 }
 
@@ -608,31 +614,115 @@ function renderArtistAlbumSections(tracks, scrollTarget = null) {
     listContainer.scrollTo({ top: scrollTarget, behavior: "instant" });
 }
 
-function buildAlbumHero(src) {
+const PLACEHOLDER_ARTIST_RE = /^unknown artist$/i;
+
+function albumArtURL(tracks) {
+  for (const t of tracks) {
+    const url = getTrackArtURL(t);
+    if (url) return url;
+  }
+  return null;
+}
+
+function albumArtistName(tracks) {
+  const tagged = tracks.find((t) => t.albumArtist);
+  const names = tagged
+    ? [tagged.albumArtist]
+    : [...new Set(tracks.map(primaryArtistName))];
+  return names.length === 1 && !PLACEHOLDER_ARTIST_RE.test(names[0])
+    ? names[0]
+    : null;
+}
+
+function albumGenres(tracks) {
+  const counts = new Map();
+  tracks.forEach((t) =>
+    [].concat(t.genre || []).forEach((g) => {
+      counts.set(g, (counts.get(g) || 0) + 1);
+    }),
+  );
+  return [...counts]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([genre]) => genre);
+}
+
+function albumDuration(tracks) {
+  const total = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+  if (!total) return null;
+  const minutes = Math.max(1, Math.round(total / 60));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return tr("album.durationM", { m });
+  return m ? tr("album.durationHM", { h, m }) : tr("album.durationH", { h });
+}
+
+function buildAlbumHero(title, tracks) {
   const hero = el("div", "album-hero");
+  const body = el("div", "album-hero-body");
+
+  const cover = el("div", "album-hero-cover");
   const img = document.createElement("img");
   img.alt = "";
   img.decoding = "async";
-  img.src = src;
-  hero.appendChild(img);
+  img.src = albumArtURL(tracks) || fallbackArt();
+  cover.appendChild(img);
+
+  const heading = el("div", "album-hero-heading");
+  const titleEl = el("div", "album-hero-title", escapeHTML(title));
+  titleEl.title = title;
+  heading.appendChild(titleEl);
+  const artist = albumArtistName(tracks);
+  if (artist)
+    heading.appendChild(el("div", "album-hero-artist", escapeHTML(artist)));
+
+  const details = el("div", "album-hero-details");
+  const counts = [albumYear(tracks), plural(tracks.length, "song")]
+    .filter((part) => part != null)
+    .join(" \u2022 ");
+  details.appendChild(el("div", "album-hero-meta", escapeHTML(counts)));
+  const extras = [...albumGenres(tracks), albumDuration(tracks)]
+    .filter(Boolean)
+    .join(" \u2022 ");
+  if (extras)
+    details.appendChild(el("div", "album-hero-extras", escapeHTML(extras)));
+
+  const footer = el("div", "album-hero-footer");
+  footer.appendChild(details);
+  footer.appendChild(buildAlbumPlayButton(tracks));
+
+  const info = el("div", "album-hero-info");
+  info.appendChild(heading);
+  info.appendChild(footer);
+
+  body.appendChild(cover);
+  body.appendChild(info);
+  hero.appendChild(body);
   return hero;
 }
 
 function renderAlbumDetail(tracks, scrollTarget = null) {
+  if (!state.filter.tracks.length) {
+    listContainer.appendChild(el("div", "empty-state", tr("empty.noSongs")));
+    return;
+  }
+  listContainer.appendChild(
+    buildAlbumHero(state.filter.title, state.filter.tracks),
+  );
   if (!tracks.length) {
     listContainer.appendChild(el("div", "empty-state", tr("empty.noSongs")));
     return;
   }
   const ordered = sortTracks(tracks);
-  const art = state.filter.tracks.map(getTrackArtURL).find(Boolean);
-  if (art) listContainer.appendChild(buildAlbumHero(art));
-  listContainer.appendChild(
-    buildAlbumCard(
-      { album: state.filter.title, tracks: ordered },
+  const card = el("div", "album-card");
+  card.appendChild(
+    buildAlbumTrackList(
+      ordered,
       ordered,
       state[currentSortKey()] === "track-asc",
     ),
   );
+  listContainer.appendChild(card);
   if (scrollTarget != null)
     listContainer.scrollTo({ top: scrollTarget, behavior: "instant" });
 }
