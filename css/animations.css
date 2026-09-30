@@ -82,7 +82,16 @@ button:not(#playBtn):focus-visible,
   animation: motion-fade-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
   pointer-events: none;
 }
-.view-enter > :is(.song-row, .list-line, .card, .home-view, .empty-state) {
+.view-enter
+  > :is(
+    .song-row,
+    .list-line,
+    .card,
+    .album-hero,
+    .album-card,
+    .home-view,
+    .empty-state
+  ) {
   animation: motion-list-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .view-enter > :is(.song-row, .list-line, .card):nth-child(2) {

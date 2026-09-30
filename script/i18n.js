@@ -113,6 +113,7 @@ const I18N = {
     "sort.dateNewest": "Date added (newest first)",
     "sort.dateOldest": "Date added (oldest first)",
     "sort.trackNumber": "Track Number",
+    "album.disc": "Disc {n}",
 
     "playlists.newPlaylist": "+ New Playlist",
     "playlists.newFolder": "+ New Folder",
@@ -501,6 +502,7 @@ const I18N = {
     "sort.dateNewest": "Date d'ajout (plus récent d'abord)",
     "sort.dateOldest": "Date d'ajout (plus ancien d'abord)",
     "sort.trackNumber": "Numéro de piste",
+    "album.disc": "Disque {n}",
 
     "playlists.newPlaylist": "+ Nouvelle playlist",
     "playlists.newFolder": "+ Nouveau dossier",

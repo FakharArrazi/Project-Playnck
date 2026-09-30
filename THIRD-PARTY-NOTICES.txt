@@ -415,14 +415,12 @@ POSSIBILITY OF SUCH DAMAGE.
 
 A NOTE ON BUILD-TIME-ONLY TOOLS
 ========================================================================
-electron, electron-builder, and javascript-obfuscator are listed in
-package.json under "devDependencies". They run only on the developer's
-machine while building the app (npm run build) and are never copied
-into the installer or the packaged app itself, so nothing further is
-owed to their licenses for redistribution purposes. For reference:
-electron and electron-builder are both MIT licensed; javascript-obfuscator
-is BSD-2-Clause. All three are permissive with no copyleft/share-alike
-obligations either way.
+electron and electron-builder are listed in package.json under
+"devDependencies". They run only on the developer's machine while
+building the app (npm run build) and are never copied into the installer
+or the packaged app itself, so nothing further is owed to their licenses
+for redistribution purposes. For reference: both are MIT licensed, a
+permissive license with no copyleft/share-alike obligations either way.
 
 
 Michroma (font)

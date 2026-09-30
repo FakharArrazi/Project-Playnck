@@ -156,7 +156,7 @@ This is the part of Playnck that gets the most attention, and it is built to act
 | Audio engine | The Web Audio API (a `BiquadFilterNode` chain for the equalizer, an `AnalyserNode` for the visualizer) |
 | Format conversion | FFmpeg, auto-installed on Windows via `winget`, expected on the system `PATH` on Linux |
 | Auto-update | `electron-updater` against this repository's own GitHub Releases (Windows only) |
-| Packaging | `electron-builder` (NSIS for Windows, RPM and DEB for Linux), with `javascript-obfuscator` applied to the shipped source |
+| Packaging | `electron-builder` (NSIS for Windows, RPM and DEB for Linux) |
 
 ## Installation
 
@@ -258,8 +258,6 @@ Requirements for building from source, on either platform:
 - [Node.js](https://nodejs.org/) (current LTS) and npm
 - Building the Linux packages also needs `rpmbuild` on your `PATH` (for the `.rpm`)
 
-Packaged builds run the renderer and Node-side source through `javascript-obfuscator` as part of `npm run build`; this only affects the shipped output; nothing about running from source in development is obfuscated.
-
 ## Project Structure
 
 ```
@@ -295,7 +293,6 @@ Project-Playnck/
 ├── resources/fpcalc/               Bundled Chromaprint binaries (Windows and Linux)
 ├── resources/icons/linux/          Linux hicolor icon set
 ├── build-scripts/
-│   ├── build.js                     npm run build entry point (obfuscate, then electron-builder)
 │   ├── release.js                   npm run release: starts the GitHub build, waits, verifies
 │   ├── publish-release.js           CI step: verifies the files and publishes one complete release
 │   ├── stage-release-assets.js      Picks the real download files out of dist/
