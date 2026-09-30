@@ -13,8 +13,10 @@ download step before packaging:
 ```
 resources/fpcalc/
   win32/fpcalc.exe   (Windows)
-  linux/fpcalc       (Linux — must keep its executable bit; git tracks
-                       this, so a normal clone/checkout preserves it)
+  linux/fpcalc       (Linux — must be executable in the shipped package;
+                       git checkouts made on Windows can't keep the bit,
+                       so build-scripts/after-pack.js sets it while the
+                       .rpm/.deb are built)
 ```
 
 There's no `darwin/` binary since Playnck doesn't currently ship a

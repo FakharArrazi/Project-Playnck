@@ -100,6 +100,7 @@ Playnck also runs entirely offline as far as your library is concerned: nothing 
 
 - **Windows 10 and 11** (64-bit), distributed as an NSIS installer
 - **Linux distributions built on RPM packages**, such as Fedora, RHEL-compatible systems, and openSUSE (64-bit only), distributed as a `.rpm` package
+- **Debian, Ubuntu, and other Debian-based distributions** (64-bit only), distributed as a `.deb` package
 
 There is currently no macOS build.
 
@@ -155,7 +156,7 @@ This is the part of Playnck that gets the most attention, and it is built to act
 | Audio engine | The Web Audio API (a `BiquadFilterNode` chain for the equalizer, an `AnalyserNode` for the visualizer) |
 | Format conversion | FFmpeg, auto-installed on Windows via `winget`, expected on the system `PATH` on Linux |
 | Auto-update | `electron-updater` against this repository's own GitHub Releases (Windows only) |
-| Packaging | `electron-builder` (NSIS for Windows, RPM for Linux), with `javascript-obfuscator` applied to the shipped source |
+| Packaging | `electron-builder` (NSIS for Windows, RPM and DEB for Linux), with `javascript-obfuscator` applied to the shipped source |
 
 ## Installation
 
@@ -177,7 +178,23 @@ This installs Playnck under `/opt/Playnck`, adds it to your desktop environment'
 
 The primary target is a 64-bit Fedora or RHEL-compatible distribution, built and tested against that combination; other RPM-based distributions with the usual Electron runtime libraries available (`gtk3`, `libnotify`, `nss`, and similar) should also work.
 
-Playnck on Linux does not auto-update in-app. An RPM installed system-wide under `/opt` is not something the app can safely overwrite itself while it is running, so updates are installed the same way as the original package: download the newer RPM from Releases and run `sudo dnf install ./playnck-<version>.x86_64.rpm` again, or `dnf upgrade` if you have added a repository that serves it. The in-app Settings > Updates button explains this and links back to the Releases page.
+Playnck on Linux does not auto-update in-app. A package installed system-wide under `/opt` is not something the app can safely overwrite itself while it is running, so updates are installed the same way as the original package: download the newer `.rpm` or `.deb` from Releases and install it again (`sudo dnf install ./playnck-<version>.x86_64.rpm` on Fedora, `sudo apt install ./playnck_<version>_amd64.deb` on Ubuntu), or `dnf upgrade` / `apt upgrade` if you have added a repository that serves it. The in-app Settings > Updates button explains this and links back to the Releases page.
+
+### Linux (Ubuntu, Debian and other DEB-based distributions)
+
+Download `playnck_<version>_amd64.deb` and install it with `apt`, which also pulls in the runtime libraries Playnck needs:
+
+```bash
+sudo apt install ./playnck_<version>_amd64.deb
+```
+
+Like the RPM, this installs Playnck under `/opt/Playnck`, adds it to your application launcher, and registers it as an opener for `.mp3`, `.wav`, `.flac`, `.ogg`, and `.m4a` files. The package is built on Ubuntu, so a current Ubuntu LTS release (or a Debian release of similar age) is the safest bet. Updates work as described above: install the newer `.deb` over the old one.
+
+On Ubuntu and Debian, FFmpeg for the Convert tab and tag writing is one command away, with none of the licensing detour Fedora needs:
+
+```bash
+sudo apt install ffmpeg
+```
 
 FFmpeg, used by the Convert tab and by tag writing for non-MP3 files, is not bundled for Linux. Playnck looks for `ffmpeg` on your `PATH` and tells you what is missing if it cannot find it. On Fedora, the official repository's `ffmpeg-free` package cannot encode MP3, since the patent-encumbered `libmp3lame` encoder is left out of it; enable [RPM Fusion](https://rpmfusion.org/) first if you want the full build:
 
@@ -186,7 +203,7 @@ sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-releas
 sudo dnf install ffmpeg
 ```
 
-Auto-Tag's audio fingerprinting works out of the box on Linux. A Linux `fpcalc` binary ships inside the RPM, so no separate Chromaprint install is needed.
+Auto-Tag's audio fingerprinting works out of the box on Linux. A Linux `fpcalc` binary ships inside both the RPM and the DEB, so no separate Chromaprint install is needed.
 
 ## Building From Source
 
@@ -199,19 +216,38 @@ npm install
 npm start
 
 # Build a distributable for your current OS
-# (Windows produces an .exe installer, Linux produces a .rpm package)
+# (Windows produces an .exe installer, Linux produces .rpm and .deb packages)
 npm run build
 
-# Build and publish a GitHub release for your current OS
-# (requires publish credentials)
+# Publish a release: builds the Windows installer AND the Linux .rpm/.deb
+# on GitHub and publishes them together (needs a GitHub token, see below)
 npm run release
 ```
 
-`npm run build` and `npm run release` always build for whichever operating system you run them on. There is no reliable way to cross-build a genuine Fedora RPM from Windows, or a trustworthy NSIS installer from Linux, so `electron-builder` is not asked to try. Building the Linux RPM specifically requires the `rpmbuild` tool (`sudo dnf install rpm-build` on Fedora, `sudo apt-get install rpm` on Debian and Ubuntu).
+`npm run build` builds for whichever operating system you run it on. There is no reliable way to cross-build a genuine Fedora RPM from Windows, or a trustworthy NSIS installer from Linux, so `electron-builder` is not asked to try. Building the Linux packages requires the `rpmbuild` tool for the `.rpm` (`sudo dnf install rpm-build` on Fedora, `sudo apt-get install rpm` on Debian and Ubuntu).
 
-Official releases covering both platforms are built by [`.github/workflows/release.yml`](.github/workflows/release.yml): a Windows runner builds the installer, a Linux runner builds the RPM, and a final job combines both into a single GitHub Release automatically. To cut a release, either push a `v<version>` tag matching the version in `package.json`, or run the Release workflow manually from this repository's Actions tab; no manual building, uploading, or release creation is needed. Running `npm run release` from a single machine still works for a single-platform release, going through the same verified publish step CI uses; if the project supports a platform this release doesn't include, the script prints a clear warning so that's a choice, not an accident.
+### Releasing
 
-Both the Windows installer and the Linux RPM always share the same version number, read from `package.json`, so there is only ever one version to bump.
+`npm run release` ships the version in `package.json` with one command, from any operating system. Because the Windows installer and the Linux packages cannot all be built on one machine, it starts [`.github/workflows/release.yml`](.github/workflows/release.yml) on GitHub, where a Windows runner builds the installer while a Linux runner builds the `.rpm` and `.deb`. It then waits for the build and checks the result. The outcome is a normal, published release marked Latest (never a draft) containing:
+
+- `Playnck-Setup-<version>.exe` and its `.blockmap`
+- `playnck-<version>.x86_64.rpm`
+- `playnck_<version>_amd64.deb`
+- `latest.yml` and `latest-linux.yml`, which Playnck's updater reads
+
+To ship a new version:
+
+1. Raise `version` in `package.json`, and add its entry to `script/whats-new-data.js` (that entry also becomes the release notes).
+2. Commit and push to `main`.
+3. Run `npm run release`.
+
+One-time setup: `npm run release` needs a GitHub token to start the build. Create a classic token with the `repo` scope at <https://github.com/settings/tokens> (or a fine-grained token with Contents and Actions read & write), then either save it in a file named `github token.txt` in the project folder (already git-ignored), set the `GH_TOKEN` environment variable, or sign in with `gh auth login`.
+
+Options: `npm run release -- --dry-run` runs every check without starting anything, `--force` replaces the files of a version that is already published, and `--no-wait` starts the build and returns immediately.
+
+It is deliberately hard to ship something broken. The command refuses to run with uncommitted changes or an unpushed commit (GitHub builds what is pushed), and refuses to touch a version that is already released unless you pass `--force`. Before publishing, CI checks that there is exactly one installer, `.rpm` and `.deb`, and that every entry in `latest.yml` and `latest-linux.yml` matches its file's name, size, and sha512. A failed build publishes nothing, and the release only becomes visible once every file has finished uploading. You can also start the same workflow from the repository's Actions tab (Run workflow), or by pushing a `v<version>` tag that matches `package.json`.
+
+All packages always share the same version number, read from `package.json`, so there is only ever one version to bump.
 
 ## Development
 
@@ -220,7 +256,7 @@ Playnck's renderer is plain ES modules with no build step in development; `npm s
 Requirements for building from source, on either platform:
 
 - [Node.js](https://nodejs.org/) (current LTS) and npm
-- Building the Linux RPM specifically also needs `rpmbuild` on your `PATH`
+- Building the Linux packages also needs `rpmbuild` on your `PATH` (for the `.rpm`)
 
 Packaged builds run the renderer and Node-side source through `javascript-obfuscator` as part of `npm run build`; this only affects the shipped output; nothing about running from source in development is obfuscated.
 
@@ -259,9 +295,14 @@ Project-Playnck/
 ├── resources/fpcalc/               Bundled Chromaprint binaries (Windows and Linux)
 ├── resources/icons/linux/          Linux hicolor icon set
 ├── build-scripts/
-│   ├── build.js                     npm run build / npm run release entry point
-│   ├── publish-release.js           Combines the CI-built installer and RPM into one release
-│   └── reconcile-github-release.js  Cleans up a split release if one ever occurs
+│   ├── build.js                     npm run build entry point (obfuscate, then electron-builder)
+│   ├── release.js                   npm run release: starts the GitHub build, waits, verifies
+│   ├── publish-release.js           CI step: verifies the files and publishes one complete release
+│   ├── stage-release-assets.js      Picks the real download files out of dist/
+│   ├── verify-update-manifests.js   Checks latest*.yml against each file's size and sha512
+│   ├── release-notes.js             Builds release notes from script/whats-new-data.js
+│   ├── github-release-utils.js      Shared GitHub API helpers
+│   └── after-pack.js                Marks the bundled Linux fpcalc executable
 ├── .github/workflows/release.yml   Windows and Linux CI build and combined release
 ├── docs/screenshots/               README screenshots
 ├── LICENSE                        End-user license agreement
@@ -376,7 +417,7 @@ History keeps a running log of what you have actually listened to, grouped by da
 
 Every setting lives in a single panel, organized into six collapsible sections: Theme, Updates, Audio, Player, Backup and Restore, and Language.
 
-Under Updates, Playnck checks its own GitHub Releases automatically while it runs on Windows (roughly every 45 minutes) and can download and install a new version for you in-app; on Linux, updates are installed by reinstalling the RPM package yourself, and the button here explains why and links to the Releases page. Under Backup and Restore, you can export your entire library (tracks, playlists, playlist folders, watched folders, lyrics, and settings) to a single JSON file, and import it again later on the same or a different machine; this backs up your library's structure and metadata rather than the audio files themselves, so the original files still need to exist at the paths recorded in the backup. Under Language, you can switch the interface between English and French, both built in from the start.
+Under Updates, Playnck checks its own GitHub Releases automatically while it runs on Windows (roughly every 45 minutes) and can download and install a new version for you in-app; on Linux, updates are installed by reinstalling the `.rpm` or `.deb` package yourself, and the button here explains why and links to the Releases page. Under Backup and Restore, you can export your entire library (tracks, playlists, playlist folders, watched folders, lyrics, and settings) to a single JSON file, and import it again later on the same or a different machine; this backs up your library's structure and metadata rather than the audio files themselves, so the original files still need to exist at the paths recorded in the backup. Under Language, you can switch the interface between English and French, both built in from the start.
 
 A Sleep Timer, opened from the same per-track menu as History, lets you choose 15, 30, 45, 60, or 90 minutes, after which playback simply pauses on its own, a small convenience for falling asleep to music without it running all night.
 

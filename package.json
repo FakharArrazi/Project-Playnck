@@ -24,18 +24,19 @@
   "scripts": {
     "start": "electron .",
     "build": "node build-scripts/build.js",
-    "release": "node build-scripts/build.js --publish never && node build-scripts/stage-release-assets.js && node build-scripts/publish-release.js release-assets"
+    "release": "node build-scripts/release.js"
   },
   "build": {
     "appId": "com.Arrazi.playnck",
     "productName": "Playnck",
     "copyright": "Copyright © 2026 Arrazi",
+    "afterPack": "build-scripts/after-pack.js",
     "publish": [
       {
         "provider": "github",
         "owner": "FakharArrazi",
         "repo": "Project-Playnck",
-        "releaseType": "draft"
+        "releaseType": "release"
       }
     ],
     "extraResources": [
@@ -105,20 +106,15 @@
     },
     "linux": {
       "target": [
-        "rpm"
+        "rpm",
+        "deb"
       ],
       "icon": "resources/icons/linux",
       "executableName": "playnck",
       "category": "AudioVideo;Audio;Player;",
       "synopsis": "A modern desktop music player",
       "maintainer": "Arrazi <FakharArrazi@users.noreply.github.com>",
-      "syncDesktopName": true,
-      "extraResources": [
-        {
-          "from": "resources/package-type",
-          "to": "package-type"
-        }
-      ]
+      "syncDesktopName": true
     },
     "rpm": {
       "fpm": [

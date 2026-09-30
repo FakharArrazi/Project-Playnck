@@ -1,64 +1,26 @@
-
 name: Release
 
+# `npm run release` starts this workflow (workflow_dispatch) and waits for it.
+# You can also start it from the Actions tab ("Run workflow"), or by pushing a
+# tag named v<version> that matches package.json.
 on:
   push:
     branches: [main]
     tags: ["v*.*.*"]
   pull_request:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Replace the files of a version that is already published"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - run: npm ci
-
-      - run: npm run build -- --publish never
-
-      - name: Verify exactly one Windows installer was produced
-        shell: bash
-        run: |
-          set -e
-          shopt -s nullglob
-          installers=()
-          for f in dist/*.exe; do
-            case "$f" in
-              *__uninstaller.exe) echo "Ignoring NSIS temp file: $f" ;;
-              *) installers+=("$f") ;;
-            esac
-          done
-          if [ "${#installers[@]}" -eq 0 ]; then
-            echo "::error::No Windows installer found in dist/."
-            exit 1
-          fi
-          if [ "${#installers[@]}" -gt 1 ]; then
-            echo "::error::Expected exactly one Windows installer, found ${#installers[@]}: ${installers[*]}"
-            exit 1
-          fi
-          echo "Windows installer present: ${installers[0]}"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: |
-            dist/*.exe
-            dist/*.yml
-            dist/*.blockmap
-            !dist/*__uninstaller.exe
-          if-no-files-found: error
-
-  build-linux:
+  check-version:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,6 +28,51 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Tag must match the version in package.json
+        if: github.ref_type == 'tag'
+        run: |
+          expected="v$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json (expected $expected)."
+            exit 1
+          fi
+
+  build-windows:
+    needs: check-version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build -- --win --publish never
+
+      - name: Collect the release files (exactly one .exe, its blockmap, latest.yml)
+        run: node build-scripts/stage-release-assets.js dist stage --platform windows
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: stage/*
+          if-no-files-found: error
+          retention-days: 7
+
+  build-linux:
+    needs: check-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
       - name: Install RPM packaging tools
         run: |
@@ -74,26 +81,25 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build -- --publish never
+      - run: npm run build -- --linux --publish never
 
-      - name: Verify the Linux RPM was produced
-        run: |
-          set -e
-          ls dist/*.rpm
-          echo "Linux RPM present."
+      - name: Collect the release files (exactly one .rpm, one .deb, latest-linux.yml)
+        run: node build-scripts/stage-release-assets.js dist stage --platform linux
 
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-rpm
-          path: |
-            dist/*.rpm
-            dist/*.yml
+          name: release-linux
+          path: stage/*
           if-no-files-found: error
+          retention-days: 7
 
   publish:
     needs: [build-windows, build-linux]
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    concurrency:
+      group: publish-release
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -103,23 +109,15 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: windows-installer
+          pattern: release-*
+          merge-multiple: true
           path: release-assets
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: linux-rpm
-          path: release-assets
-
-      - name: List assets about to be published
+      - name: List the files about to be published
         run: ls -la release-assets
 
-      - name: Publish (or update) the GitHub Release for this version
+      - name: Publish the GitHub Release
         run: node build-scripts/publish-release.js release-assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Clean up if a duplicate release slipped through anyway
-        run: node build-scripts/reconcile-github-release.js
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_RELEASE: ${{ inputs.force }}

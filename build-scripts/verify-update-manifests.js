@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
-const MANIFEST_RE = /^latest(-[a-z0-9]+)?\.yml$/i;
+const MANIFEST_RE = /^latest(-[a-z0-9]+)*\.yml$/i;
 
 function unquote(value) {
   return String(value)
@@ -61,11 +61,16 @@ async function verifyUpdateManifests(assetsDir, expectedVersion) {
       "A Windows installer is present but latest.yml is missing, so installed apps could never find this update.",
     );
   }
-  if (names.some((n) => /\.rpm$/i.test(n)) && !nameSet.has("latest-linux.yml")) {
+  if (
+    names.some((n) => /\.(rpm|deb)$/i.test(n)) &&
+    !nameSet.has("latest-linux.yml")
+  ) {
     problems.push(
-      "A Linux rpm is present but latest-linux.yml is missing, so installed apps could never find this update.",
+      "A Linux package (.rpm/.deb) is present but latest-linux.yml is missing, so installed apps could never find this update.",
     );
   }
+
+  const listedInManifests = new Set();
 
   for (const manifestName of names.filter((n) => MANIFEST_RE.test(n))) {
     const manifest = parseManifest(
@@ -84,6 +89,7 @@ async function verifyUpdateManifests(assetsDir, expectedVersion) {
 
     const referenced = new Set(manifest.files.map((f) => f.url));
     if (manifest.path) referenced.add(manifest.path);
+    referenced.forEach((url) => listedInManifests.add(url));
 
     for (const url of referenced) {
       if (/\s/.test(url)) {
@@ -121,6 +127,14 @@ async function verifyUpdateManifests(assetsDir, expectedVersion) {
           `${file.url}.blockmap is missing; updates will still work but can't use differential download.`,
         );
       }
+    }
+  }
+
+  for (const name of names.filter((n) => /\.(exe|rpm|deb)$/i.test(n))) {
+    if (!listedInManifests.has(name)) {
+      problems.push(
+        `${name} is not listed in any update manifest, so the updater would never offer it.`,
+      );
     }
   }
 

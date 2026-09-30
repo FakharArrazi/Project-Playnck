@@ -129,16 +129,4 @@ try {
   restoreOriginals();
 }
 
-try {
-  execSync(
-    `node ${JSON.stringify(path.join(__dirname, "reconcile-github-release.js"))}`,
-    {
-      stdio: "inherit",
-      cwd: ROOT,
-    },
-  );
-} catch (reconcileErr) {
-  console.warn("Duplicate-release check failed:", reconcileErr.message);
-}
-
 if (buildError) throw buildError;
