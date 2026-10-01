@@ -496,6 +496,9 @@
   height: 100%;
   object-fit: contain;
 }
+.album-hero-cover.genre-cover {
+  background: var(--genre-fill);
+}
 .album-hero-info {
   display: flex;
   flex-direction: column;
@@ -689,6 +692,76 @@
 .card.selected .card-check {
   background: var(--accent1);
   border-color: var(--accent1);
+}
+
+.genre-card,
+.genre-cover {
+  --genre-fill: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--genre-color) 78%, #000),
+    color-mix(in srgb, var(--genre-color) 34%, #000)
+  );
+}
+.genre-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(max(104px, calc((100% - 20px) / 3)), 1fr)
+  );
+  gap: 10px;
+  padding: 6px 8px;
+}
+.genre-card {
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 5 / 4;
+  overflow: hidden;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.genre-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--genre-fill);
+  transition: filter 180ms ease;
+}
+.genre-card:hover::before {
+  filter: brightness(1.12);
+}
+.genre-card .genre-card-art {
+  position: absolute;
+  right: -8%;
+  bottom: -14%;
+  width: 62%;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  object-fit: contain;
+  opacity: 0.32;
+  transform: rotate(-10deg);
+  pointer-events: none;
+}
+.genre-card-text {
+  position: relative;
+}
+.genre-card-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: clamp(12px, 12cqw, 24px);
+  font-weight: 800;
+  line-height: 1.15;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+.genre-card-count {
+  margin-top: 2px;
+  font-size: clamp(10.5px, 7.5cqw, 13px);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .list-line {

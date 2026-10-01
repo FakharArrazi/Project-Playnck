@@ -24,6 +24,7 @@ import {
   artistCredit,
   normalizeForCompare,
 } from "./metadata-normalize.js";
+import { genreVisual } from "./genre-visuals.js";
 import { playTrack } from "./player.js";
 import { openFolderMenu } from "./folders.js";
 import { renderConvertTab } from "./convert.js";
@@ -74,6 +75,54 @@ function computeArtists() {
     if (!group.art && getTrackArtURL(t)) group.art = getTrackArtURL(t);
   }
   return sortGroups(groups, "artist");
+}
+
+const UNKNOWN_GENRE_KEY = "unknown";
+
+function genreLabel(variants) {
+  const isMixed = (name) =>
+    name !== name.toLowerCase() && name !== name.toUpperCase();
+  const [best] = [...variants].sort(
+    ([a, countA], [b, countB]) => isMixed(b) - isMixed(a) || countB - countA,
+  )[0];
+  return best === best.toLowerCase()
+    ? best.replace(
+        /(^|[\s/&(-])(\p{Ll})/gu,
+        (_, sep, ch) => sep + ch.toUpperCase(),
+      )
+    : best;
+}
+
+function computeGenres() {
+  const groups = new Map();
+  for (const t of libraryTracks()) {
+    const names = []
+      .concat(t.genre || [])
+      .map((g) => g.trim().replace(/\s+/g, " "));
+    const seen = new Set();
+    for (const name of names.some(Boolean) ? names.filter(Boolean) : [""]) {
+      const key = normalizeForCompare(name) || UNKNOWN_GENRE_KEY;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (!groups.has(key))
+        groups.set(key, { key, variants: new Map(), tracks: [] });
+      const group = groups.get(key);
+      group.variants.set(name, (group.variants.get(name) || 0) + 1);
+      group.tracks.push(t);
+    }
+  }
+  return [...groups.values()]
+    .map(({ key, variants, tracks }) => ({
+      key,
+      genre:
+        key === UNKNOWN_GENRE_KEY ? tr("genre.unknown") : genreLabel(variants),
+      tracks,
+    }))
+    .sort(
+      (a, b) =>
+        (a.key === UNKNOWN_GENRE_KEY) - (b.key === UNKNOWN_GENRE_KEY) ||
+        a.genre.localeCompare(b.genre),
+    );
 }
 
 function sortGroups(groups, nameField) {
@@ -226,6 +275,8 @@ function scrollView(q) {
       return { key: "album", sort: state.albumSortBy, q, remember: false };
     if (type === "artist")
       return { key: "artist", sort: state.sortBy, q, remember: false };
+    if (type === "genre")
+      return { key: "genre", sort: state.sortBy, q, remember: false };
     if (type === "playlist")
       return { key: "playlist", sort: state.sortBy, q, remember: false };
     return null;
@@ -236,6 +287,8 @@ function scrollView(q) {
     return { key: "albums", sort: state.sortBy, q, remember: true };
   if (state.currentTab === "artists")
     return { key: "artists", sort: state.sortBy, q, remember: true };
+  if (state.currentTab === "genres")
+    return { key: "genres", sort: null, q, remember: true };
   if (state.currentTab === "playlists") {
     const folder = state.playlistFolders.find(
       (f) => f.id === state.playlistFolderId,
@@ -312,6 +365,8 @@ function renderTab() {
       renderArtistAlbumSections(tracks, scrollTarget);
     } else if (state.filter.type === "album") {
       renderAlbumDetail(tracks, scrollTarget);
+    } else if (state.filter.type === "genre") {
+      renderGenreDetail(tracks, scrollTarget);
     } else {
       renderSongList(
         tracks,
@@ -350,6 +405,11 @@ function renderTab() {
     let artists = computeArtists();
     if (q) artists = artists.filter((a) => a.artist.toLowerCase().includes(q));
     renderArtistList(artists, scrollTarget);
+  } else if (state.currentTab === "genres") {
+    listTitle.textContent = tr("nav.genres");
+    let genres = computeGenres();
+    if (q) genres = genres.filter((g) => g.genre.toLowerCase().includes(q));
+    renderGenreGrid(genres, scrollTarget);
   } else if (state.currentTab === "playlists") {
     if (
       state.playlistFolderId &&
@@ -392,25 +452,35 @@ let virtualScrollListenerBound = false;
 function scheduleVirtualSongRender() {
   if (!virtualSongList || virtualScrollFrame) return;
   if (
-    Math.floor(listContainer.scrollTop / SONG_ROW_HEIGHT) ===
+    firstVisibleRow(listContainer.scrollTop, virtualSongList.offset) ===
     virtualSongList.firstVisible
   )
     return;
   virtualScrollFrame = requestAnimationFrame(() => {
     virtualScrollFrame = null;
     if (!virtualSongList) return;
-    const { tracks, playlistIdContext } = virtualSongList;
-    renderSongList(tracks, playlistIdContext, true);
+    const { tracks, playlistIdContext, header } = virtualSongList;
+    renderSongList(tracks, playlistIdContext, true, null, header);
   });
 }
 
-function songListMaxScroll(count) {
+function firstVisibleRow(scrollTop, offset) {
+  return Math.floor(Math.max(0, scrollTop - offset) / SONG_ROW_HEIGHT);
+}
+
+function headerExtent(header) {
+  return header
+    ? header.offsetHeight + parseFloat(getComputedStyle(header).marginBottom)
+    : 0;
+}
+
+function songListMaxScroll(count, offset) {
   const style = getComputedStyle(listContainer);
   const padding =
     parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   return Math.max(
     0,
-    count * SONG_ROW_HEIGHT + padding - listContainer.clientHeight,
+    count * SONG_ROW_HEIGHT + offset + padding - listContainer.clientHeight,
   );
 }
 
@@ -463,6 +533,7 @@ function renderSongList(
   playlistIdContext,
   alreadySorted = false,
   scrollTarget = null,
+  header = null,
 ) {
   if (!alreadySorted) tracks = sortTracks(tracks);
 
@@ -478,18 +549,27 @@ function renderSongList(
   let target = scrollTarget;
   if (virtualized) {
     const viewportHeight = listContainer.clientHeight || 600;
+    const offset = headerExtent(header);
     if (target != null)
-      target = Math.min(target, songListMaxScroll(allTracks.length));
+      target = Math.min(target, songListMaxScroll(allTracks.length, offset));
     const scrollTop = target == null ? listContainer.scrollTop : target;
-    const firstVisible = Math.floor(scrollTop / SONG_ROW_HEIGHT);
+    const firstVisible = firstVisibleRow(scrollTop, offset);
     windowStart = Math.max(0, firstVisible - SONG_LIST_OVERSCAN);
     windowEnd = Math.min(
       allTracks.length,
-      Math.ceil((scrollTop + viewportHeight) / SONG_ROW_HEIGHT) +
-        SONG_LIST_OVERSCAN,
+      Math.ceil(
+        Math.max(0, scrollTop + viewportHeight - offset) / SONG_ROW_HEIGHT,
+      ) + SONG_LIST_OVERSCAN,
     );
-    virtualSongList = { tracks: allTracks, playlistIdContext, firstVisible };
+    virtualSongList = {
+      tracks: allTracks,
+      playlistIdContext,
+      header,
+      offset,
+      firstVisible,
+    };
     listContainer.replaceChildren();
+    if (header) listContainer.appendChild(header);
     const topSpacer = el("div", "song-virtual-spacer");
     topSpacer.style.height = windowStart * SONG_ROW_HEIGHT + "px";
     listContainer.appendChild(topSpacer);
@@ -541,12 +621,12 @@ function albumYear(tracks) {
   return years.length ? Math.min(...years) : null;
 }
 
-function buildAlbumPlayButton(tracks) {
+function buildAlbumPlayButton(tracks, inOrder = false) {
   const playBtn = el("button", "album-play-btn", PLAY_ICON);
   playBtn.title = tr("player.play");
   playBtn.setAttribute("aria-label", tr("player.play"));
   playBtn.addEventListener("click", () => {
-    const playOrder = [...tracks].sort(compareByTrackNumber);
+    const playOrder = inOrder ? tracks : [...tracks].sort(compareByTrackNumber);
     playTrack(playOrder[0], playOrder);
   });
   return playBtn;
@@ -657,39 +737,35 @@ function albumDuration(tracks) {
   return m ? tr("album.durationHM", { h, m }) : tr("album.durationH", { h });
 }
 
-function buildAlbumHero(title, tracks) {
-  const hero = el("div", "album-hero");
-  const body = el("div", "album-hero-body");
-
+function buildHeroCover(src) {
   const cover = el("div", "album-hero-cover");
   const img = document.createElement("img");
   img.alt = "";
   img.decoding = "async";
-  img.src = albumArtURL(tracks) || fallbackArt();
+  img.src = src;
   cover.appendChild(img);
+  return cover;
+}
+
+function buildHero({ cover, title, artist, counts, extras, playBtn }) {
+  const hero = el("div", "album-hero");
+  const body = el("div", "album-hero-body");
 
   const heading = el("div", "album-hero-heading");
   const titleEl = el("div", "album-hero-title", escapeHTML(title));
   titleEl.title = title;
   heading.appendChild(titleEl);
-  const artist = albumArtistName(tracks);
   if (artist)
     heading.appendChild(el("div", "album-hero-artist", escapeHTML(artist)));
 
   const details = el("div", "album-hero-details");
-  const counts = [albumYear(tracks), plural(tracks.length, "song")]
-    .filter((part) => part != null)
-    .join(" \u2022 ");
   details.appendChild(el("div", "album-hero-meta", escapeHTML(counts)));
-  const extras = [...albumGenres(tracks), albumDuration(tracks)]
-    .filter(Boolean)
-    .join(" \u2022 ");
   if (extras)
     details.appendChild(el("div", "album-hero-extras", escapeHTML(extras)));
 
   const footer = el("div", "album-hero-footer");
   footer.appendChild(details);
-  footer.appendChild(buildAlbumPlayButton(tracks));
+  footer.appendChild(playBtn);
 
   const info = el("div", "album-hero-info");
   info.appendChild(heading);
@@ -699,6 +775,37 @@ function buildAlbumHero(title, tracks) {
   body.appendChild(info);
   hero.appendChild(body);
   return hero;
+}
+
+function buildAlbumHero(title, tracks) {
+  const counts = [albumYear(tracks), plural(tracks.length, "song")]
+    .filter((part) => part != null)
+    .join(" \u2022 ");
+  const extras = [...albumGenres(tracks), albumDuration(tracks)]
+    .filter(Boolean)
+    .join(" \u2022 ");
+  return buildHero({
+    cover: buildHeroCover(albumArtURL(tracks) || fallbackArt()),
+    title,
+    artist: albumArtistName(tracks),
+    counts,
+    extras,
+    playBtn: buildAlbumPlayButton(tracks),
+  });
+}
+
+function buildGenreHero(genre, orderedTracks) {
+  const visual = genreVisual(genre.key);
+  const cover = buildHeroCover(visual.art);
+  cover.classList.add("genre-cover");
+  cover.style.setProperty("--genre-color", visual.color);
+  return buildHero({
+    cover,
+    title: genre.title,
+    counts: plural(orderedTracks.length, "song"),
+    extras: albumDuration(orderedTracks),
+    playBtn: buildAlbumPlayButton(orderedTracks, true),
+  });
 }
 
 function renderAlbumDetail(tracks, scrollTarget = null) {
@@ -725,6 +832,24 @@ function renderAlbumDetail(tracks, scrollTarget = null) {
   listContainer.appendChild(card);
   if (scrollTarget != null)
     listContainer.scrollTo({ top: scrollTarget, behavior: "instant" });
+}
+
+function renderGenreDetail(tracks, scrollTarget = null) {
+  const allTracks = state.filter.tracks;
+  if (!allTracks.length) {
+    listContainer.appendChild(el("div", "empty-state", tr("empty.noSongs")));
+    return;
+  }
+  const ordered = sortTracks(allTracks);
+  const hero = buildGenreHero(state.filter, ordered);
+  listContainer.appendChild(hero);
+  renderSongList(
+    tracks === allTracks ? ordered : sortTracks(tracks),
+    null,
+    true,
+    scrollTarget,
+    hero,
+  );
 }
 
 function refreshPlayingHighlight() {
@@ -773,7 +898,8 @@ function scrollToNowPlaying() {
   if (index === -1) return;
   const target = Math.max(
     0,
-    index * SONG_ROW_HEIGHT -
+    (virtualSongList ? virtualSongList.offset : 0) +
+      index * SONG_ROW_HEIGHT -
       listContainer.clientHeight / 2 +
       SONG_ROW_HEIGHT / 2,
   );
@@ -992,6 +1118,44 @@ function renderArtistList(artists, scrollTarget = null) {
     });
     listContainer.appendChild(line);
   });
+  if (scrollTarget != null)
+    listContainer.scrollTo({ top: scrollTarget, behavior: "instant" });
+}
+
+function renderGenreGrid(genres, scrollTarget = null) {
+  if (!genres.length) {
+    listContainer.appendChild(el("div", "empty-state", tr("empty.noGenres")));
+    return;
+  }
+  const grid = el("div", "genre-grid");
+  genres.forEach((g) => {
+    const visual = genreVisual(g.key);
+    const card = el("div", "card genre-card");
+    card.style.setProperty("--genre-color", visual.color);
+    const art = document.createElement("img");
+    art.className = "genre-card-art";
+    art.alt = "";
+    art.decoding = "async";
+    art.src = visual.art;
+    const text = el("div", "genre-card-text");
+    text.appendChild(el("div", "genre-card-name", escapeHTML(g.genre)));
+    text.appendChild(
+      el("div", "genre-card-count", plural(g.tracks.length, "song")),
+    );
+    card.appendChild(art);
+    card.appendChild(text);
+    card.addEventListener("click", () => {
+      state.filter = {
+        type: "genre",
+        key: g.key,
+        title: g.genre,
+        tracks: g.tracks,
+      };
+      renderTab();
+    });
+    grid.appendChild(card);
+  });
+  listContainer.appendChild(grid);
   if (scrollTarget != null)
     listContainer.scrollTo({ top: scrollTarget, behavior: "instant" });
 }
