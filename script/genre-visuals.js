@@ -3,7 +3,7 @@ import { normalizeForCompare } from "./metadata-normalize.js";
 const glyph = (shapes) =>
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
-    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 32 32' fill='none' stroke='white' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'>" +
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 32 32' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>" +
       shapes +
       "</svg>",
   );
