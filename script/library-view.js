@@ -796,7 +796,7 @@ function buildAlbumHero(title, tracks) {
 
 function buildGenreArt(className, key) {
   const art = el("span", className);
-  art.style.setProperty("--genre-art", `url("${genreVisual(key)}")`);
+  art.style.setProperty("--genre-art", `url("${genreVisual(key).art}")`);
   return art;
 }
 

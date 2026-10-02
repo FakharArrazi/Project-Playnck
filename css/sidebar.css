@@ -499,7 +499,6 @@
 .album-hero-cover.genre-cover {
   display: grid;
   place-items: center;
-  background: transparent;
 }
 .album-hero-info {
   display: flex;
@@ -710,19 +709,19 @@
   container-type: inline-size;
   aspect-ratio: 5 / 4;
   overflow: hidden;
-  padding: 10px;
-  background: transparent;
+  padding: 12px;
   border-radius: 16px;
 }
 .genre-card,
 .album-hero-cover.genre-cover {
+  background: rgba(var(--accent1-rgb), 0.05);
   border: 2px solid rgba(var(--accent1-rgb), 0.7);
 }
 .genre-card:hover,
 .genre-card:active {
-  background: transparent;
+  background: rgba(var(--accent1-rgb), 0.09);
   border-color: var(--accent1);
-  box-shadow: 0 0 16px rgba(var(--accent1-rgb), 0.3);
+  box-shadow: 0 0 20px rgba(var(--accent1-rgb), 0.32);
 }
 .genre-card-art,
 .genre-cover-art {
@@ -732,12 +731,11 @@
 }
 .genre-card-art {
   position: absolute;
-  right: -8%;
-  bottom: -14%;
-  width: 62%;
+  right: 9%;
+  bottom: 9%;
+  width: 40%;
   aspect-ratio: 1 / 1;
-  opacity: 0.55;
-  transform: rotate(-10deg);
+  opacity: 0.5;
   transition: opacity 180ms ease;
   pointer-events: none;
 }
@@ -745,8 +743,9 @@
   opacity: 0.85;
 }
 .genre-cover-art {
-  width: 68%;
+  width: 56%;
   aspect-ratio: 1 / 1;
+  opacity: 0.6;
 }
 .genre-card-text {
   position: relative;
@@ -756,7 +755,7 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-size: clamp(12px, 12cqw, 24px);
+  font-size: clamp(12px, 9cqw, 20px);
   font-weight: 800;
   line-height: 1.15;
   color: var(--text);
@@ -764,8 +763,8 @@
 }
 .genre-card-count {
   margin-top: 2px;
-  font-size: clamp(10.5px, 7.5cqw, 13px);
-  font-weight: 600;
+  font-size: clamp(10.5px, 6cqw, 13px);
+  font-weight: 700;
   color: var(--text-dim);
 }
 
