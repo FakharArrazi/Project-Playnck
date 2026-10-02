@@ -794,11 +794,15 @@ function buildAlbumHero(title, tracks) {
   });
 }
 
+function buildGenreArt(className, key) {
+  const art = el("span", className);
+  art.style.setProperty("--genre-art", `url("${genreVisual(key)}")`);
+  return art;
+}
+
 function buildGenreHero(genre, orderedTracks) {
-  const visual = genreVisual(genre.key);
-  const cover = buildHeroCover(visual.art);
-  cover.classList.add("genre-cover");
-  cover.style.setProperty("--genre-color", visual.color);
+  const cover = el("div", "album-hero-cover genre-cover");
+  cover.appendChild(buildGenreArt("genre-cover-art", genre.key));
   return buildHero({
     cover,
     title: genre.title,
@@ -1129,20 +1133,13 @@ function renderGenreGrid(genres, scrollTarget = null) {
   }
   const grid = el("div", "genre-grid");
   genres.forEach((g) => {
-    const visual = genreVisual(g.key);
     const card = el("div", "card genre-card");
-    card.style.setProperty("--genre-color", visual.color);
-    const art = document.createElement("img");
-    art.className = "genre-card-art";
-    art.alt = "";
-    art.decoding = "async";
-    art.src = visual.art;
     const text = el("div", "genre-card-text");
     text.appendChild(el("div", "genre-card-name", escapeHTML(g.genre)));
     text.appendChild(
       el("div", "genre-card-count", plural(g.tracks.length, "song")),
     );
-    card.appendChild(art);
+    card.appendChild(buildGenreArt("genre-card-art", g.key));
     card.appendChild(text);
     card.addEventListener("click", () => {
       state.filter = {

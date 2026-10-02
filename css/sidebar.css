@@ -497,7 +497,9 @@
   object-fit: contain;
 }
 .album-hero-cover.genre-cover {
-  background: var(--genre-fill);
+  display: grid;
+  place-items: center;
+  background: transparent;
 }
 .album-hero-info {
   display: flex;
@@ -694,14 +696,6 @@
   border-color: var(--accent1);
 }
 
-.genre-card,
-.genre-cover {
-  --genre-fill: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--genre-color) 78%, #000),
-    color-mix(in srgb, var(--genre-color) 34%, #000)
-  );
-}
 .genre-grid {
   display: grid;
   grid-template-columns: repeat(
@@ -717,31 +711,42 @@
   aspect-ratio: 5 / 4;
   overflow: hidden;
   padding: 10px;
-  border: 1px solid var(--border);
+  background: transparent;
   border-radius: 16px;
 }
-.genre-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--genre-fill);
-  transition: filter 180ms ease;
+.genre-card,
+.album-hero-cover.genre-cover {
+  border: 2px solid rgba(var(--accent1-rgb), 0.7);
 }
-.genre-card:hover::before {
-  filter: brightness(1.12);
+.genre-card:hover,
+.genre-card:active {
+  background: transparent;
+  border-color: var(--accent1);
+  box-shadow: 0 0 16px rgba(var(--accent1-rgb), 0.3);
 }
-.genre-card .genre-card-art {
+.genre-card-art,
+.genre-cover-art {
+  background-color: var(--accent1);
+  -webkit-mask: var(--genre-art) center / contain no-repeat;
+  mask: var(--genre-art) center / contain no-repeat;
+}
+.genre-card-art {
   position: absolute;
   right: -8%;
   bottom: -14%;
   width: 62%;
-  height: auto;
-  border-radius: 0;
-  background: none;
-  object-fit: contain;
-  opacity: 0.32;
+  aspect-ratio: 1 / 1;
+  opacity: 0.55;
   transform: rotate(-10deg);
+  transition: opacity 180ms ease;
   pointer-events: none;
+}
+.genre-card:hover .genre-card-art {
+  opacity: 0.85;
+}
+.genre-cover-art {
+  width: 68%;
+  aspect-ratio: 1 / 1;
 }
 .genre-card-text {
   position: relative;
@@ -754,14 +759,14 @@
   font-size: clamp(12px, 12cqw, 24px);
   font-weight: 800;
   line-height: 1.15;
-  color: #fff;
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 .genre-card-count {
   margin-top: 2px;
   font-size: clamp(10.5px, 7.5cqw, 13px);
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-dim);
 }
 
 .list-line {
