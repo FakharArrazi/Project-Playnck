@@ -278,7 +278,11 @@ function bindEvents() {
 
   $("modalCloseBtn").addEventListener("click", closeModal);
   $("modalOverlay").addEventListener("click", (e) => {
-    if (e.target.id === "modalOverlay") closeModal();
+    if (
+      e.target.id === "modalOverlay" &&
+      !$("modalBody").querySelector('[data-unsaved="1"]')
+    )
+      closeModal();
   });
 }
 

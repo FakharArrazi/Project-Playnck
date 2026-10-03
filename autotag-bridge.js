@@ -22,6 +22,25 @@ const MIN_ACOUSTID_SCORE = 0.5;
 
 const ACOUSTID_CANDIDATE_POOL = 10;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// MusicBrainz asks clients to stay near 1 request/second and answers 503 when
+// they don't; wait and retry a couple of times instead of failing the lookup.
+async function mbFetchJson(url) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+    });
+    if (res.status === 503 || res.status === 429) {
+      await sleep(1100 * (attempt + 1));
+      continue;
+    }
+    if (!res.ok) return null;
+    return await res.json();
+  }
+  return null;
+}
+
 const BUNDLED_RECORDING_RE = /^(video|bonus video|megamix|medley)\s*:/i;
 function isBundledRecording(title) {
   if (!title) return false;
@@ -140,6 +159,8 @@ async function autoTagTrack(filePath, hint, mode) {
     discNumber: top.discNumber,
     discTotal: top.discTotal,
     releaseType: top.releaseType,
+    genre: top.genre,
+    isrc: top.isrc,
     recordingId: top.recordingId,
     releaseId: top.releaseId,
     releaseGroupId: top.releaseGroupId,
@@ -149,6 +170,92 @@ async function autoTagTrack(filePath, hint, mode) {
     images: top.images,
     matches,
   };
+}
+
+// ---- Extra details, fetched only for the match the user actually picks ----
+
+const COMPOSER_RELATIONS = new Set(["composer", "writer"]);
+
+function uniqueNames(list) {
+  const seen = new Set();
+  return list.filter((n) => n && !seen.has(n) && seen.add(n));
+}
+
+// Pure: turns raw MusicBrainz lookups into the extra tag fields.
+function parseMatchDetails({ recording, release, releaseGroup, artist }) {
+  const details = {};
+
+  const composers = [];
+  const lyricists = [];
+  for (const rel of (recording && recording.relations) || []) {
+    const work = rel && rel.work;
+    if (!work) continue;
+    for (const wr of work.relations || []) {
+      const name = wr && wr.artist && wr.artist.name;
+      if (!name) continue;
+      if (COMPOSER_RELATIONS.has(wr.type)) composers.push(name);
+      else if (wr.type === "lyricist") lyricists.push(name);
+    }
+  }
+  if (composers.length) details.composer = uniqueNames(composers);
+  if (lyricists.length) details.lyricist = uniqueNames(lyricists);
+
+  if (recording && Array.isArray(recording.isrcs) && recording.isrcs.length)
+    details.isrc = recording.isrcs[0];
+
+  if (release) {
+    const infos = Array.isArray(release["label-info"]) ? release["label-info"] : [];
+    const label = infos
+      .map((i) => i && i.label && i.label.name)
+      .find((n) => n && !/^\[no label\]$/i.test(n));
+    if (label) details.label = label;
+    if (release.date) details.date = release.date;
+    const rg = release["release-group"];
+    if (rg && rg["first-release-date"])
+      details.originalDate = rg["first-release-date"];
+  }
+  if (releaseGroup && releaseGroup["first-release-date"] && !details.originalDate)
+    details.originalDate = releaseGroup["first-release-date"];
+
+  const genre =
+    genresFrom(recording).length
+      ? genresFrom(recording)
+      : genresFrom(release).length
+        ? genresFrom(release)
+        : genresFrom(release && release["release-group"]).length
+          ? genresFrom(release && release["release-group"])
+          : genresFrom(releaseGroup).length
+            ? genresFrom(releaseGroup)
+            : genresFrom(artist);
+  if (genre.length) details.genre = genre;
+  return details;
+}
+
+async function fetchMatchDetails(ref) {
+  ref = ref || {};
+  const get = (path, inc) =>
+    mbFetchJson(`${MUSICBRAINZ_API}/${path}?fmt=json&inc=${inc}`).catch(() => null);
+
+  const recording = ref.recordingId
+    ? await get(
+        `recording/${ref.recordingId}`,
+        "work-rels+work-level-rels+artist-rels+isrcs+genres",
+      )
+    : null;
+  const release = ref.releaseId
+    ? await get(`release/${ref.releaseId}`, "labels+release-groups+genres")
+    : null;
+
+  let releaseGroup = null;
+  let artist = null;
+  const probe = () =>
+    parseMatchDetails({ recording, release, releaseGroup, artist });
+  if (!probe().genre && ref.releaseGroupId)
+    releaseGroup = await get(`release-group/${ref.releaseGroupId}`, "genres");
+  if (!probe().genre && Array.isArray(ref.artistIds) && ref.artistIds[0])
+    artist = await get(`artist/${ref.artistIds[0]}`, "genres");
+
+  return probe();
 }
 
 function resolveFpcalcPath() {
@@ -261,12 +368,9 @@ async function acoustidLookup(fingerprint, duration) {
 
 async function fetchMusicBrainzRecording(mbid) {
   if (!mbid) return null;
-  const url = `${MUSICBRAINZ_API}/recording/${mbid}?fmt=json&inc=releases+release-groups+artist-credits+media`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-  });
-  if (!res.ok) return null;
-  return await res.json();
+  return mbFetchJson(
+    `${MUSICBRAINZ_API}/recording/${mbid}?fmt=json&inc=releases+release-groups+artist-credits+media+genres+isrcs`,
+  );
 }
 
 async function musicbrainzTextSearch(title, artist) {
@@ -293,12 +397,8 @@ async function musicbrainzQuery(query) {
     `${MUSICBRAINZ_API}/recording/?query=${encodeURIComponent(query)}` +
     `&fmt=json&limit=${MUSICBRAINZ_SEARCH_POOL}&inc=releases+release-groups+artist-credits+media`;
 
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  if (!data.recordings || !data.recordings.length) return null;
+  const data = await mbFetchJson(url);
+  if (!data || !data.recordings || !data.recordings.length) return null;
 
   const usable = data.recordings.filter((r) => !isBundledRecording(r.title));
   const confident = usable.filter((r) => (r.score || 0) >= 50);
@@ -313,6 +413,32 @@ async function musicbrainzQuery(query) {
   }
 
   return built;
+}
+
+const GENRE_ACRONYMS = new Set(["r&b", "edm", "idm", "uk", "us", "ost", "dj"]);
+
+function prettyGenre(name) {
+  return String(name)
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .map((word) =>
+      GENRE_ACRONYMS.has(word.toLowerCase())
+        ? word.toUpperCase()
+        : word.replace(/(^|[-/])(\p{Ll})/gu, (_, sep, ch) => sep + ch.toUpperCase()),
+    )
+    .join(" ");
+}
+
+// MusicBrainz "genres" are curated; free-form "tags" are noisy ("seen live",
+// decades, nationalities), so only genres are used.
+function genresFrom(entity, limit = 3) {
+  if (!entity || !Array.isArray(entity.genres)) return [];
+  return [...entity.genres]
+    .filter((g) => g && g.name)
+    .sort((a, b) => (b.count || 0) - (a.count || 0))
+    .slice(0, limit)
+    .map((g) => prettyGenre(g.name));
 }
 
 function formatArtistCredit(creditEntries) {
@@ -414,6 +540,11 @@ function buildMatchFromRecording(recording, source) {
     discNumber,
     discTotal,
     releaseType: releaseGroup ? releaseGroup["primary-type"] || null : null,
+    genre: genresFrom(recording),
+    isrc:
+      Array.isArray(recording.isrcs) && recording.isrcs.length
+        ? recording.isrcs[0]
+        : null,
     recordingId: recording.id || null,
     releaseId: primary ? primary.id || null : null,
     releaseGroupId: releaseGroup ? releaseGroup.id || null : null,
@@ -527,4 +658,4 @@ async function fetchReleaseGroupCoverArt(releaseGroupId) {
   return { data: buf, mime, releaseId: match ? match[1] : null };
 }
 
-module.exports = { autoTagTrack };
+module.exports = { autoTagTrack, fetchMatchDetails, parseMatchDetails, prettyGenre, genresFrom };

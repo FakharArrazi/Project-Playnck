@@ -7,7 +7,11 @@ import {
   deriveFolderRootPath,
 } from "./init.js";
 import { removeTrackData } from "./playlists.js";
-import { normalizeReaderResult, METADATA_FIELD_KEYS } from "./metadata-normalize.js";
+import {
+  normalizeReaderResult,
+  METADATA_FIELD_KEYS,
+  METADATA_SCHEMA,
+} from "./metadata-normalize.js";
 
 function sanitizeFilename(name) {
   return (
@@ -29,6 +33,7 @@ function toStoreRecord(track) {
     artBlob: track.artBlob,
     filePath: track.filePath,
     metadataBackfilled: !!track.metadataBackfilled,
+    metadataSchema: track.metadataSchema || 0,
   };
   for (const key of METADATA_FIELD_KEYS) record[key] = track[key];
   return record;
@@ -51,9 +56,21 @@ function applyMetadataFields(track, normalized, overwrite, keys = METADATA_FIELD
   return changed;
 }
 
+// Assigns values exactly as given, including clearing (null / [] / false).
+function setMetadataFields(track, values, keys = METADATA_FIELD_KEYS) {
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(values, key)) continue;
+    const v = values[key];
+    track[key] = Array.isArray(v) ? [...v] : v == null || v === false ? null : v;
+  }
+}
+
 async function backfillMetadata() {
   const targets = state.tracks.filter(
-    (t) => !t.metadataBackfilled && !t.external && (t.filePath || t.fileBlob),
+    (t) =>
+      (!t.metadataBackfilled || (t.metadataSchema || 0) < METADATA_SCHEMA) &&
+      !t.external &&
+      (t.filePath || t.fileBlob),
   );
   if (!targets.length) return;
 
@@ -86,6 +103,7 @@ async function backfillMetadata() {
         anyChanged = true;
       }
       t.metadataBackfilled = true;
+      t.metadataSchema = METADATA_SCHEMA;
       await idbPut("tracks", toStoreRecord(t)).catch(() => {});
     }
   }
@@ -185,6 +203,7 @@ async function ingestDiscoveredPaths(paths, folderId) {
         artBlob,
         filePath,
         metadataBackfilled: true,
+        metadataSchema: METADATA_SCHEMA,
       };
       hydrateTrack(track);
       state.tracks.push(track);
@@ -469,6 +488,7 @@ export {
   sanitizeFilename,
   toStoreRecord,
   applyMetadataFields,
+  setMetadataFields,
   backfillMetadata,
   pruneFolder,
   verifyLibraryOnDisk,

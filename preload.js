@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   autoTagTrack: (filePath, hint, mode) =>
     ipcRenderer.invoke("auto-tag-track", filePath, hint, mode),
 
+  autoTagDetails: (ref) => ipcRenderer.invoke("auto-tag-details", ref),
+
   checkPathsExist: (paths) => ipcRenderer.invoke("check-paths-exist", paths),
 
   scanFolder: (folderPath) => ipcRenderer.invoke("scan-folder", folderPath),

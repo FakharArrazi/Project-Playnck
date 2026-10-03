@@ -23,7 +23,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "release": "node build-scripts/release.js"
+    "release": "node build-scripts/release.js",
+    "test": "node --test"
   },
   "build": {
     "appId": "com.Arrazi.playnck",

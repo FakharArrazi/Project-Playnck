@@ -2,6 +2,14 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { spawn, execFile } = require("child_process");
+const {
+  FIELD_LABELS,
+  pairText,
+  canonicalFromParsed,
+  verifyPlan,
+  unsupportedLabels,
+  restrictPlan,
+} = require("./tag-fields");
 
 const FORMAT_INFO = {
   mp3: { ext: "mp3", label: "MP3", lossless: false, supportsCoverArt: true },
@@ -457,18 +465,20 @@ function cancelConvertJob(jobId) {
   return true;
 }
 
+// Formats still written through FFmpeg (stream copy). FLAC, M4A and MP3 are
+// written natively -- see metadata-bridge.js -- because FFmpeg drops tags it
+// has no mapping for (BPM, label, ISRC, MusicBrainz IDs...) in those containers.
 const TAG_WRITABLE_EXTS = {
-  ".flac": { supportsCoverArt: true },
-  ".m4a": { supportsCoverArt: true },
-  ".ogg": { supportsCoverArt: false },
-  ".opus": { supportsCoverArt: false },
-  ".wav": { supportsCoverArt: false },
+  ".ogg": { kind: "vorbis" },
+  ".opus": { kind: "vorbis" },
+  ".wav": {
+    kind: "wav",
+    supported: new Set([
+      "title", "artist", "album", "genre", "comment", "copyright", "year",
+      "date", "trackNum", "trackTotal",
+    ]),
+  },
 };
-
-function numberWithTotal(num, total) {
-  if (num == null) return null;
-  return total != null ? `${num}/${total}` : `${num}`;
-}
 
 async function retryOnWindowsLock(
   fn,
@@ -487,7 +497,75 @@ async function retryOnWindowsLock(
   }
 }
 
-async function writeTagsViaFFmpeg(filePath, tags) {
+const joinList = (v) => (v && v.length ? v.join("; ") : "");
+
+// Returns [[key, value], ...]; an empty value tells FFmpeg to delete the tag.
+function ffmpegMetadataPairs(plan, kind) {
+  const s = plan.set;
+  const has = (k) => Object.prototype.hasOwnProperty.call(s, k);
+  const text = (v) => (v == null ? "" : String(v));
+  const pairs = [];
+  const add = (key, value) => pairs.push([key, value]);
+
+  if (has("title")) add("title", text(s.title));
+  if (has("artist")) add("artist", text(s.artist));
+  if (has("album")) add("album", text(s.album));
+  if (has("genre")) add("genre", joinList(s.genre));
+  if (has("comment")) add("comment", text(s.comment));
+  if (has("copyright")) add("copyright", text(s.copyright));
+
+  if (kind === "vorbis") {
+    if (has("albumArtist")) add("album_artist", text(s.albumArtist));
+    if (has("artists")) add("artists", joinList(s.artists));
+    if (has("composer")) add("composer", joinList(s.composer));
+    if (has("lyricist")) add("lyricist", joinList(s.lyricist));
+    if (has("conductor")) add("conductor", text(s.conductor));
+    if (has("grouping")) add("grouping", text(s.grouping));
+    if (has("subtitle")) add("subtitle", text(s.subtitle));
+    if (has("isrc")) add("isrc", text(s.isrc));
+    if (has("lyrics")) add("lyrics", text(s.lyrics));
+    if (has("bpm")) add("bpm", text(s.bpm));
+    if (has("compilation")) add("compilation", s.compilation ? "1" : "");
+    if (has("label")) {
+      add("label", text(s.label));
+      add("publisher", "");
+      add("organization", "");
+    }
+    if (has("originalDate")) {
+      add("originaldate", text(s.originalDate));
+      add("originalyear", "");
+    }
+    if (has("recordingId")) add("musicbrainz_trackid", text(s.recordingId));
+    if (has("releaseId")) add("musicbrainz_albumid", text(s.releaseId));
+    if (has("releaseGroupId"))
+      add("musicbrainz_releasegroupid", text(s.releaseGroupId));
+    if (has("artistIds")) add("musicbrainz_artistid", joinList(s.artistIds));
+    if (has("albumArtistIds"))
+      add("musicbrainz_albumartistid", joinList(s.albumArtistIds));
+    if (plan.track) {
+      add("track", text(plan.track.no));
+      add("tracktotal", text(plan.track.no == null ? null : plan.track.of));
+      add("totaltracks", "");
+    }
+    if (plan.disc) {
+      add("disc", text(plan.disc.no));
+      add("disctotal", text(plan.disc.no == null ? null : plan.disc.of));
+      add("totaldiscs", "");
+    }
+  } else if (plan.track) {
+    add("track", plan.track.no == null ? "" : pairText(plan.track.no, plan.track.of));
+  }
+
+  if (plan.release)
+    add(
+      "date",
+      plan.release.date ||
+        (plan.release.year != null ? String(plan.release.year) : ""),
+    );
+  return pairs;
+}
+
+async function writeTagsViaFFmpeg(filePath, plan) {
   const ext = path.extname(filePath).toLowerCase();
   const capability = TAG_WRITABLE_EXTS[ext];
   if (!capability) {
@@ -507,56 +585,26 @@ async function writeTagsViaFFmpeg(filePath, tags) {
     };
   }
 
-  const wantsNewImage = !tags.removeImage && tags.imageData;
-  const imageIgnored = !!(wantsNewImage && !capability.supportsCoverArt);
+  // None of these containers can hold cover art through this path.
+  const imageIgnored = !!(plan.image && plan.image.op === "set");
+  const skipped = capability.supported
+    ? unsupportedLabels(plan, capability.supported)
+    : unsupportedLabels(plan, new Set(Object.keys(FIELD_LABELS)));
+  const effective = capability.supported
+    ? restrictPlan(plan, capability.supported)
+    : plan;
 
   const dir = path.dirname(filePath);
   const tempOutput = path.join(dir, `.playnck-tagwrite-${Date.now()}${ext}`);
-  let tempCoverPath = null;
 
   try {
-    const args = ["-y", "-i", filePath];
-
-    if (wantsNewImage && capability.supportsCoverArt) {
-      tempCoverPath = path.join(
-        os.tmpdir(),
-        `playnck-cover-${Date.now()}${imageExtFromMime(tags.imageMime)}`,
-      );
-      await fs.promises.writeFile(tempCoverPath, Buffer.from(tags.imageData));
-      args.push("-i", tempCoverPath);
-    }
-
-    args.push("-map_metadata", "0", "-map", "0:a", "-c:a", "copy");
-
-    if (!tags.removeImage) {
-      if (wantsNewImage && capability.supportsCoverArt) {
-        args.push(
-          "-map",
-          "1:v",
-          "-disposition:v:0",
-          "attached_pic",
-          "-c:v",
-          "copy",
-        );
-      } else if (capability.supportsCoverArt) {
-        args.push("-map", "0:v?", "-c:v", "copy");
-      }
-    }
-
-    if (tags.title != null) args.push("-metadata", `title=${tags.title}`);
-    if (tags.artist != null) args.push("-metadata", `artist=${tags.artist}`);
-    if (tags.album != null) args.push("-metadata", `album=${tags.album}`);
-    if (tags.albumArtist != null)
-      args.push("-metadata", `album_artist=${tags.albumArtist}`);
-    if (tags.year != null) args.push("-metadata", `date=${tags.year}`);
-    if (Array.isArray(tags.genre) && tags.genre.length)
-      args.push("-metadata", `genre=${tags.genre.join("/")}`);
-    if (Array.isArray(tags.composer) && tags.composer.length)
-      args.push("-metadata", `composer=${tags.composer.join("/")}`);
-    const trackValue = numberWithTotal(tags.trackNum, tags.trackTotal);
-    if (trackValue != null) args.push("-metadata", `track=${trackValue}`);
-    const discValue = numberWithTotal(tags.discNumber, tags.discTotal);
-    if (discValue != null) args.push("-metadata", `disc=${discValue}`);
+    await fs.promises.access(filePath, fs.constants.W_OK);
+    // Ogg/Opus keep their comments on the audio *stream*; RIFF/WAV keeps them
+    // on the container. Writing to the wrong level silently does nothing.
+    const flag = capability.kind === "vorbis" ? "-metadata:s:a:0" : "-metadata";
+    const args = ["-y", "-i", filePath, "-map_metadata", "0", "-map", "0:a", "-c:a", "copy"];
+    for (const [key, value] of ffmpegMetadataPairs(effective, capability.kind))
+      args.push(flag, `${key}=${value}`);
     args.push(tempOutput);
 
     const run = await new Promise((resolve) => {
@@ -584,12 +632,8 @@ async function writeTagsViaFFmpeg(filePath, tags) {
           resolve({
             ok: false,
             reason:
-              stderrTail
-                .trim()
-                .split("\n")
-                .filter(Boolean)
-                .slice(-3)
-                .join(" ") || `FFmpeg exited with code ${code}`,
+              stderrTail.trim().split("\n").filter(Boolean).slice(-3).join(" ") ||
+              `FFmpeg exited with code ${code}`,
           });
       });
     });
@@ -605,39 +649,11 @@ async function writeTagsViaFFmpeg(filePath, tags) {
         duration: false,
         skipCovers: false,
       });
-      const common = verify.common || {};
-      const mismatches = [];
-      if (tags.title != null && (common.title || "") !== tags.title)
-        mismatches.push("title");
-      if (tags.artist != null && (common.artist || "") !== tags.artist)
-        mismatches.push("artist");
-      if (tags.album != null && (common.album || "") !== tags.album)
-        mismatches.push("album");
-      if (
-        tags.albumArtist != null &&
-        (common.albumartist || "") !== tags.albumArtist
-      )
-        mismatches.push("album artist");
-      if (tags.year != null && common.year !== tags.year)
-        mismatches.push("year");
-      if (
-        trackValue != null &&
-        (!common.track || common.track.no !== tags.trackNum)
-      )
-        mismatches.push("track number");
-      if (
-        discValue != null &&
-        (!common.disk || common.disk.no !== tags.discNumber)
-      )
-        mismatches.push("disc number");
-      if (
-        wantsNewImage &&
-        capability.supportsCoverArt &&
-        !(common.picture && common.picture.length)
-      )
-        mismatches.push("cover art");
-      if (tags.removeImage && common.picture && common.picture.length)
-        mismatches.push("cover art removal");
+      const mismatches = verifyPlan(effective, canonicalFromParsed(verify));
+      if (plan.image && plan.image.op === "remove") {
+        const pics = (verify.common && verify.common.picture) || [];
+        if (pics.length) mismatches.push("cover art removal");
+      }
       if (mismatches.length) {
         await fs.promises.unlink(tempOutput).catch(() => {});
         return {
@@ -653,22 +669,21 @@ async function writeTagsViaFFmpeg(filePath, tags) {
       };
     }
 
+    const { mode } = await fs.promises.stat(filePath);
+    await fs.promises.chmod(tempOutput, mode & 0o7777).catch(() => {});
     await retryOnWindowsLock(() => fs.promises.rename(tempOutput, filePath));
-    return imageIgnored
-      ? { written: true, imageIgnored: true }
-      : { written: true };
+    return { written: true, skipped, ...(imageIgnored ? { imageIgnored: true } : {}) };
   } catch (err) {
     await fs.promises.unlink(tempOutput).catch(() => {});
-    return { written: false, reason: String((err && err.message) || err) };
-  } finally {
-    if (tempCoverPath) await fs.promises.unlink(tempCoverPath).catch(() => {});
+    const code = err && err.code;
+    return {
+      written: false,
+      reason:
+        code === "EACCES" || code === "EPERM"
+          ? `The file is read-only or locked by another program (${code}).`
+          : String((err && err.message) || err),
+    };
   }
-}
-
-function imageExtFromMime(mime) {
-  if (mime === "image/png") return ".png";
-  if (mime === "image/webp") return ".webp";
-  return ".jpg";
 }
 
 module.exports = {
@@ -678,4 +693,5 @@ module.exports = {
   convertFile,
   cancelConvertJob,
   writeTagsViaFFmpeg,
+  retryOnWindowsLock,
 };

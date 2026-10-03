@@ -313,9 +313,6 @@
   flex-direction: column;
   gap: 6px;
 }
-.edit-autotag-select {
-  cursor: pointer;
-}
 .edit-field {
   display: flex;
   flex-direction: column;
@@ -404,6 +401,301 @@
 .edit-lib-only-btn:hover {
   color: var(--text);
   border-color: var(--text-dim);
+}
+
+/* ---- Edit Track: comprehensive metadata editor ---- */
+.modal-box.modal-box-edit {
+  width: min(780px, 100%);
+  max-height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-box-edit .modal-header {
+  position: static;
+  flex-shrink: 0;
+}
+.modal-box-edit .modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+}
+.edit-form.edit-form-wide {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+}
+.edit-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.edit-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--elevated);
+}
+.edit-footer-msg {
+  flex: 1;
+  min-width: 0;
+}
+.edit-footer .edit-status {
+  text-align: left;
+}
+.edit-footer .edit-status-actions {
+  justify-content: flex-start;
+}
+.edit-footer .edit-actions {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.edit-top {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.edit-top-cover {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.edit-top-cover .edit-cover-btn {
+  white-space: nowrap;
+}
+.edit-top-identify {
+  min-width: 0;
+}
+
+.edit-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.edit-section > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  user-select: none;
+}
+.edit-section > summary::-webkit-details-marker {
+  display: none;
+}
+.edit-section > summary:hover {
+  color: var(--accent1);
+}
+.edit-section-chevron {
+  color: var(--text-faint);
+  transition: transform 0.15s ease;
+}
+.edit-section[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+.edit-section[open] .edit-section-chevron {
+  transform: rotate(90deg);
+}
+.edit-section-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px 14px;
+  padding: 14px;
+}
+.edit-field-wide {
+  grid-column: 1 / -1;
+}
+.edit-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.edit-pair-sep {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.edit-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-faint);
+}
+.edit-field-error {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--heart);
+}
+.edit-input.is-invalid {
+  border-color: var(--heart);
+}
+textarea.edit-input {
+  resize: vertical;
+  min-height: 84px;
+  line-height: 1.45;
+}
+textarea.edit-input.edit-lyrics {
+  min-height: 150px;
+}
+.edit-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  align-self: end;
+  padding: 8px 0;
+}
+.edit-check input {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  background: var(--panel);
+  border: 1px solid var(--text-faint);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.edit-check input::after {
+  content: "";
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: translateY(-1px) rotate(-45deg);
+  opacity: 0;
+}
+.edit-check input:checked {
+  background: var(--accent-grad);
+  border-color: transparent;
+}
+.edit-check input:checked::after {
+  opacity: 1;
+}
+.edit-check input:focus-visible {
+  outline: 2px solid var(--accent1);
+  outline-offset: 2px;
+}
+
+.edit-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 290px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.edit-match-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.edit-match-card:hover {
+  border-color: var(--text-dim);
+}
+.edit-match-card.selected {
+  border-color: var(--accent1);
+  box-shadow: 0 0 0 1px var(--accent1) inset;
+}
+.edit-match-art {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background-color: var(--elevated-hover);
+  background-size: cover;
+  background-position: center;
+}
+.edit-match-info {
+  flex: 1;
+  min-width: 0;
+}
+.edit-match-info > span {
+  display: block;
+}
+.edit-match-title,
+.edit-match-sub,
+.edit-match-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.edit-match-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+.edit-match-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.edit-match-meta {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.edit-match-badge {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent-grad);
+  border-radius: 999px;
+}
+
+@media (max-width: 600px), (max-height: 620px) {
+  .modal-box.modal-box-edit {
+    max-height: 94vh;
+  }
+  .edit-scroll {
+    padding: 14px;
+  }
+  .edit-footer {
+    flex-wrap: wrap;
+    padding: 10px 14px;
+  }
+  .edit-footer-msg {
+    flex: 1 1 100%;
+    order: -1;
+  }
+  .edit-footer .edit-actions {
+    margin-left: auto;
+  }
+}
+@media (max-width: 600px) {
+  .edit-top {
+    grid-template-columns: 1fr;
+  }
+  .edit-section-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .whats-new-body {

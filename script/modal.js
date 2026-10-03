@@ -2,9 +2,13 @@ import { $ } from "./state.js";
 import { showWithMotion, hideWithMotion, escapeHTML } from "./utils.js";
 import { tr } from "./i18n.js";
 
-function openModal(title, bodyHTML) {
+function openModal(title, bodyHTML, options = {}) {
   $("modalTitle").textContent = title;
   $("modalBody").innerHTML = bodyHTML;
+  // Reset on every open so a wide dialog never leaks its size into the next one.
+  $("modalOverlay")
+    .querySelector(".modal-box")
+    .classList.toggle("modal-box-edit", !!options.wide);
   showWithMotion($("modalOverlay"));
 }
 

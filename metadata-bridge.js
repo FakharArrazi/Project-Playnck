@@ -1,6 +1,14 @@
 const path = require("path");
-
-const ID3_WRITABLE_EXTS = new Set([".mp3"]);
+const fs = require("fs");
+const { graftUnknownFrames } = require("./id3-preserve");
+const {
+  buildPlan,
+  fillPairs,
+  pairText,
+  canonicalFromParsed,
+  verifyPlan,
+  unsupportedLabels,
+} = require("./tag-fields");
 
 const EXT_MIME_TYPES = {
   ".mp3": "audio/mpeg",
@@ -10,10 +18,11 @@ const EXT_MIME_TYPES = {
   ".m4a": "audio/mp4",
 };
 
+const MP3_SUPPORTED = null; // ID3 can hold every field Playnck edits.
+const M4A_EXTS = new Set([".m4a", ".mp4", ".m4b"]);
+
 async function getAudioMetadata(filePath) {
   if (!filePath) return null;
-
-  const fs = require("fs");
 
   const mm = await import("music-metadata");
   const meta = await mm.parseFile(filePath, {
@@ -40,35 +49,7 @@ async function getAudioMetadata(filePath) {
     duration: fmt.duration || null,
     fileSize,
     mimeType: EXT_MIME_TYPES[path.extname(filePath).toLowerCase()] || null,
-    title: common.title || null,
-    artist: common.artist || null,
-    artists: Array.isArray(common.artists) ? common.artists : [],
-    albumArtist: common.albumartist || null,
-    albumArtists: Array.isArray(common.albumartists)
-      ? common.albumartists
-      : [],
-    album: common.album || null,
-    trackNum: common.track && common.track.no != null ? common.track.no : null,
-    trackTotal:
-      common.track && common.track.of != null ? common.track.of : null,
-    discNumber: common.disk && common.disk.no != null ? common.disk.no : null,
-    discTotal: common.disk && common.disk.of != null ? common.disk.of : null,
-    year: common.year != null ? common.year : null,
-    date: common.date || null,
-    genre: Array.isArray(common.genre) ? common.genre : [],
-    composer: Array.isArray(common.composer) ? common.composer : [],
-    releaseType: Array.isArray(common.releasetype)
-      ? common.releasetype[0] || null
-      : null,
-    recordingId: common.musicbrainz_recordingid || null,
-    releaseId: common.musicbrainz_albumid || null,
-    releaseGroupId: common.musicbrainz_releasegroupid || null,
-    artistIds: Array.isArray(common.musicbrainz_artistid)
-      ? common.musicbrainz_artistid
-      : [],
-    albumArtistIds: Array.isArray(common.musicbrainz_albumartistid)
-      ? common.musicbrainz_albumartistid
-      : [],
+    ...canonicalFromParsed(meta),
     picture:
       common.picture && common.picture.length
         ? {
@@ -79,9 +60,176 @@ async function getAudioMetadata(filePath) {
   };
 }
 
-function numberWithTotal(num, total) {
-  if (num == null) return null;
-  return total != null ? `${num}/${total}` : `${num}`;
+// ---------------------------------------------------------------- MP3 (ID3)
+
+const MB_TXXX = {
+  releaseId: "MusicBrainz Album Id",
+  releaseGroupId: "MusicBrainz Release Group Id",
+  artistIds: "MusicBrainz Artist Id",
+  albumArtistIds: "MusicBrainz Album Artist Id",
+};
+const MB_UFID_OWNER = "http://musicbrainz.org";
+
+function setTxxx(raw, description, value) {
+  const wanted = description.toLowerCase();
+  const list = (Array.isArray(raw.TXXX) ? raw.TXXX : []).filter(
+    (f) => f && String(f.description || "").toLowerCase() !== wanted,
+  );
+  if (value != null) list.push({ description, value });
+  if (list.length) raw.TXXX = list;
+  else delete raw.TXXX;
+}
+
+function applyPlanToId3(raw, plan) {
+  const s = plan.set;
+  const has = (k) => Object.prototype.hasOwnProperty.call(s, k);
+  const put = (id, value) => {
+    if (value == null || value === "") delete raw[id];
+    else raw[id] = value;
+  };
+  const join = (v) => (v && v.length ? v.join("/") : null);
+  const keepLang = (frame, text) =>
+    text == null
+      ? null
+      : {
+          language: (frame && frame.language) || "eng",
+          shortText: (frame && frame.shortText) || "",
+          text,
+        };
+
+  if (has("title")) put("TIT2", s.title);
+  if (has("artist")) put("TPE1", s.artist);
+  if (has("album")) put("TALB", s.album);
+  if (has("albumArtist")) put("TPE2", s.albumArtist);
+  if (has("genre")) put("TCON", join(s.genre));
+  if (has("composer")) put("TCOM", join(s.composer));
+  if (has("lyricist")) put("TEXT", join(s.lyricist));
+  if (has("conductor")) put("TPE3", s.conductor);
+  if (has("grouping")) put("TIT1", s.grouping);
+  if (has("subtitle")) put("TIT3", s.subtitle);
+  if (has("label")) put("TPUB", s.label);
+  if (has("copyright")) put("TCOP", s.copyright);
+  if (has("isrc")) put("TSRC", s.isrc);
+  if (has("bpm")) put("TBPM", s.bpm == null ? null : String(s.bpm));
+  if (has("compilation")) put("TCMP", s.compilation ? "1" : null);
+  if (has("comment")) put("COMM", keepLang(raw.COMM, s.comment));
+  if (has("lyrics")) put("USLT", keepLang(raw.USLT, s.lyrics));
+  if (has("artists")) setTxxx(raw, "ARTISTS", join(s.artists));
+  for (const [key, description] of Object.entries(MB_TXXX)) {
+    if (!has(key)) continue;
+    setTxxx(raw, description, Array.isArray(s[key]) ? join(s[key]) : s[key]);
+  }
+  if (has("recordingId")) {
+    const others = (Array.isArray(raw.UFID) ? raw.UFID : []).filter(
+      (f) => f && f.ownerIdentifier !== MB_UFID_OWNER,
+    );
+    if (s.recordingId)
+      others.push({ ownerIdentifier: MB_UFID_OWNER, identifier: s.recordingId });
+    if (others.length) raw.UFID = others;
+    else delete raw.UFID;
+  }
+
+  if (plan.track) put("TRCK", pairText(plan.track.no, plan.track.of));
+  if (plan.disc) put("TPOS", pairText(plan.disc.no, plan.disc.of));
+
+  if (plan.release) {
+    const { date, year } = plan.release;
+    // ID3v2.3 stores the year in TYER (+ DDMM in TDAT); the v2.4 frame TDRC
+    // carries the full ISO date. Writing both keeps old and new readers happy.
+    put("TYER", year == null ? null : String(year));
+    put("TDRC", date || (year != null ? String(year) : null));
+    put("TDAT", date && date.length === 10 ? date.slice(8, 10) + date.slice(5, 7) : null);
+    delete raw.TIME;
+  }
+  if (has("originalDate")) {
+    put("TDOR", s.originalDate);
+    put("TORY", s.originalDate ? s.originalDate.slice(0, 4) : null);
+  }
+
+  if (plan.image) {
+    if (plan.image.op === "remove") delete raw.APIC;
+    else
+      raw.APIC = {
+        mime: plan.image.mime,
+        type: { id: 3, name: "front cover" },
+        description: "cover",
+        imageBuffer: plan.image.data,
+      };
+  }
+  return raw;
+}
+
+async function produceMp3(inputPath, outputPath, plan) {
+  const NodeID3 = require("node-id3");
+  const input = await fs.promises.readFile(inputPath);
+  const raw = NodeID3.read(input, { onlyRaw: true }) || {};
+  const understood = new Set(Object.keys(raw));
+  applyPlanToId3(raw, plan);
+  const written = NodeID3.write(raw, input);
+  if (!Buffer.isBuffer(written)) {
+    throw new Error(
+      (written && written.message) || "node-id3 couldn't build the new tag block.",
+    );
+  }
+  // node-id3 drops frames it doesn't know; carry those over untouched.
+  await fs.promises.writeFile(
+    outputPath,
+    graftUnknownFrames(input, written, understood),
+  );
+}
+
+// -------------------------------------------------- atomic write + verification
+
+async function commitRewrite(filePath, plan, { produce, supported, verifySkip }) {
+  const { retryOnWindowsLock } = require("./ffmpeg-bridge");
+  const ext = path.extname(filePath);
+  const tmp = path.join(
+    path.dirname(filePath),
+    `.playnck-tagwrite-${process.pid}-${Date.now()}${ext}`,
+  );
+  const skipped = supported ? unsupportedLabels(plan, supported) : [];
+  try {
+    // Swapping a file in by rename would sail past a read-only flag that an
+    // in-place write respects, so honour it explicitly.
+    await fs.promises.access(filePath, fs.constants.W_OK);
+    const { mode } = await fs.promises.stat(filePath);
+    await produce(filePath, tmp, plan);
+    await fs.promises.chmod(tmp, mode & 0o7777).catch(() => {});
+
+    const mm = await import("music-metadata");
+    const parsed = await mm.parseFile(tmp, { duration: false, skipCovers: false });
+    const mismatches = verifyPlan(plan, canonicalFromParsed(parsed), verifySkip);
+    const pictures = (parsed.common && parsed.common.picture) || [];
+    if (plan.image && plan.image.op === "set" && !pictures.length)
+      mismatches.push("cover art");
+    if (plan.image && plan.image.op === "remove" && pictures.length)
+      mismatches.push("cover art removal");
+    if (mismatches.length) {
+      await fs.promises.unlink(tmp).catch(() => {});
+      return {
+        written: false,
+        reason: `The new tags were written to a temporary copy, but reading it back shows the ${mismatches.join(", ")} didn't stick. The original file wasn't touched.`,
+      };
+    }
+
+    await retryOnWindowsLock(() => fs.promises.rename(tmp, filePath));
+    return { written: true, skipped };
+  } catch (err) {
+    await fs.promises.unlink(tmp).catch(() => {});
+    const code = err && err.code;
+    const reason =
+      code === "EACCES" || code === "EPERM" || code === "EBUSY"
+        ? `The file is read-only or locked by another program (${code}).`
+        : String((err && err.message) || err);
+    return { written: false, reason: `Couldn't write to the file: ${reason}` };
+  }
+}
+
+async function readExistingFields(filePath) {
+  const mm = await import("music-metadata");
+  return canonicalFromParsed(
+    await mm.parseFile(filePath, { duration: false, skipCovers: true }),
+  );
 }
 
 async function writeAudioTags(filePath, tags) {
@@ -94,96 +242,39 @@ async function writeAudioTags(filePath, tags) {
 
   const ext = path.extname(filePath).toLowerCase();
 
-  if (!ID3_WRITABLE_EXTS.has(ext)) {
-    const label = ext ? ext.slice(1).toUpperCase() : "this file type";
-    return {
-      written: false,
-      reason: `Writing tags directly to ${label} files isn't supported yet — only .mp3. Your library copy is still updated.`,
-    };
-  }
-
-  const NodeID3 = require("node-id3");
-
-  const id3Tags = {};
-  if (tags.title != null) id3Tags.title = tags.title;
-  if (tags.artist != null) id3Tags.artist = tags.artist;
-  if (tags.album != null) id3Tags.album = tags.album;
-  if (tags.albumArtist != null) id3Tags.performerInfo = tags.albumArtist;
-  if (tags.year != null) id3Tags.year = String(tags.year);
-  if (Array.isArray(tags.genre) && tags.genre.length)
-    id3Tags.genre = tags.genre.join("/");
-  if (Array.isArray(tags.composer) && tags.composer.length)
-    id3Tags.composer = tags.composer.join("/");
-  const trackNumberValue = numberWithTotal(tags.trackNum, tags.trackTotal);
-  if (trackNumberValue != null) id3Tags.trackNumber = trackNumberValue;
-  const partOfSetValue = numberWithTotal(tags.discNumber, tags.discTotal);
-  if (partOfSetValue != null) id3Tags.partOfSet = partOfSetValue;
-
-  if (tags.removeImage) {
-    id3Tags.image = "";
-  } else if (tags.imageData) {
-    id3Tags.image = {
-      mime: tags.imageMime || "image/jpeg",
-      type: { id: 3, name: "front cover" },
-      description: "cover",
-      imageBuffer: Buffer.from(tags.imageData),
-    };
-  }
-
-  let ok = null;
-  const lockCodes = new Set(["EPERM", "EBUSY", "EACCES"]);
-  for (let attempt = 0; attempt < 5; attempt++) {
-    ok = NodeID3.update(id3Tags, filePath);
-    if (ok === true) break;
-    const code = ok instanceof Error ? ok.code : null;
-    if (attempt === 4 || !lockCodes.has(code)) break;
-    await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
-  }
-
-  if (ok !== true) {
-    const detail = ok instanceof Error ? ok.message || String(ok) : null;
-    return {
-      written: false,
-      reason: detail
-        ? `Couldn't write to the file: ${detail}`
-        : "node-id3 wasn't able to write to this file (it may be read-only or locked by another program).",
-    };
-  }
-
+  let plan;
   try {
-    const verify = NodeID3.read(filePath);
-    const mismatches = [];
-    if (tags.title != null && (verify.title || "") !== tags.title)
-      mismatches.push("title");
-    if (tags.artist != null && (verify.artist || "") !== tags.artist)
-      mismatches.push("artist");
-    if (tags.album != null && (verify.album || "") !== tags.album)
-      mismatches.push("album");
-    if (
-      tags.albumArtist != null &&
-      (verify.performerInfo || "") !== tags.albumArtist
-    )
-      mismatches.push("album artist");
-    if (trackNumberValue != null && verify.trackNumber !== trackNumberValue)
-      mismatches.push("track number");
-    if (partOfSetValue != null && verify.partOfSet !== partOfSetValue)
-      mismatches.push("disc number");
-    if (tags.imageData && !verify.image) mismatches.push("cover art");
-    if (tags.removeImage && verify.image) mismatches.push("cover art removal");
-    if (mismatches.length) {
-      return {
-        written: false,
-        reason: `Wrote to the file, but reading it back shows the ${mismatches.join(", ")} didn't actually stick.`,
-      };
-    }
+    plan = buildPlan(tags);
+    const partial =
+      (plan.track && (plan.track.no === undefined || plan.track.of === undefined)) ||
+      (plan.disc && (plan.disc.no === undefined || plan.disc.of === undefined)) ||
+      (plan.release && (plan.release.date === undefined || plan.release.year === undefined));
+    fillPairs(plan, partial ? await readExistingFields(filePath) : null);
   } catch (err) {
-    return {
-      written: false,
-      reason: `Wrote to the file, but couldn't verify it afterward: ${String((err && err.message) || err)}`,
-    };
+    return { written: false, reason: String((err && err.message) || err) };
   }
 
-  return { written: true };
+  if (ext === ".mp3") {
+    return commitRewrite(filePath, plan, {
+      produce: produceMp3,
+      supported: MP3_SUPPORTED,
+    });
+  }
+  if (ext === ".flac") {
+    const { rewriteFlac, FLAC_SUPPORTED } = require("./flac-tag-writer");
+    return commitRewrite(filePath, plan, {
+      produce: rewriteFlac,
+      supported: FLAC_SUPPORTED,
+    });
+  }
+  if (M4A_EXTS.has(ext)) {
+    const { rewriteM4a, M4A_SUPPORTED } = require("./m4a-tag-writer");
+    return commitRewrite(filePath, plan, {
+      produce: rewriteM4a,
+      supported: M4A_SUPPORTED,
+    });
+  }
+  return require("./ffmpeg-bridge").writeTagsViaFFmpeg(filePath, plan);
 }
 
 module.exports = { getAudioMetadata, writeAudioTags };

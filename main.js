@@ -13,7 +13,7 @@ const { Readable } = require("stream");
 const http = require("http");
 
 const { getAudioMetadata, writeAudioTags } = require("./metadata-bridge");
-const { autoTagTrack } = require("./autotag-bridge");
+const { autoTagTrack, fetchMatchDetails } = require("./autotag-bridge");
 const ffmpegBridge = require("./ffmpeg-bridge");
 
 const { autoUpdater } = require("electron-updater");
@@ -255,9 +255,7 @@ ipcMain.handle("get-audio-metadata", async (event, filePath) => {
 
 ipcMain.handle("write-audio-tags", async (event, filePath, tags) => {
   try {
-    const ext = path.extname(filePath || "").toLowerCase();
-    if (ext === ".mp3") return await writeAudioTags(filePath, tags);
-    return await ffmpegBridge.writeTagsViaFFmpeg(filePath, tags);
+    return await writeAudioTags(filePath, tags);
   } catch (err) {
     console.error("write-audio-tags failed:", err);
     return { written: false, reason: String((err && err.message) || err) };
@@ -270,6 +268,15 @@ ipcMain.handle("auto-tag-track", async (event, filePath, hint, mode) => {
   } catch (err) {
     console.error("auto-tag-track failed:", err);
     return { found: false, reason: String((err && err.message) || err) };
+  }
+});
+
+ipcMain.handle("auto-tag-details", async (event, ref) => {
+  try {
+    return { ok: true, details: await fetchMatchDetails(ref) };
+  } catch (err) {
+    console.error("auto-tag-details failed:", err);
+    return { ok: false, reason: String((err && err.message) || err) };
   }
 });
 
@@ -383,6 +390,8 @@ async function walkAudioFiles(dir, out) {
       await walkAudioFiles(full, out);
     } else if (
       entry.isFile() &&
+      // In-flight temp copies from a tag write must never be imported.
+      !entry.name.startsWith(".playnck-tagwrite-") &&
       SCAN_AUDIO_EXTS.includes(path.extname(entry.name).toLowerCase())
     ) {
       out.push(full);

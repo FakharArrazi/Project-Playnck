@@ -51,6 +51,9 @@ function openInfoModal(track) {
     [tr("info.rowTitle"), t.title],
     [tr("info.rowArtist"), t.artist],
     [tr("info.rowAlbum"), t.album],
+    ...(t.albumArtist ? [[tr("edit.fAlbumArtist"), t.albumArtist]] : []),
+    ...(t.genre && t.genre.length ? [[tr("edit.fGenre"), t.genre.join(", ")]] : []),
+    ...(t.year ? [[tr("edit.fYear"), t.year]] : []),
     [
       tr("info.rowTrackNo"),
       t.trackNum != null ? t.trackNum : tr("common.unknown"),

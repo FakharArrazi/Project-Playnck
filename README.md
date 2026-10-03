@@ -112,14 +112,14 @@ Metadata write-back depends on the file's format:
 
 | Format | Reads for browsing | Tags written back | Cover art embedding |
 |---|---|---|---|
-| MP3 | Yes | Yes (ID3, via `node-id3`) | Yes |
-| FLAC | Yes | Yes (via FFmpeg) | Yes |
-| M4A / AAC | Yes | Yes (via FFmpeg) | Yes |
-| OGG | Yes | Yes (via FFmpeg) | No |
-| Opus | Yes | Yes (via FFmpeg) | No |
-| WAV | Yes | Yes (via FFmpeg) | No |
+| MP3 | Yes | Yes, every field (ID3, via `node-id3`) | Yes |
+| FLAC | Yes | Yes, every field (built in, no FFmpeg needed) | Yes |
+| M4A | Yes | Yes, every field (built in, no FFmpeg needed) | Yes |
+| OGG | Yes | Yes, every field (via FFmpeg) | No |
+| Opus | Yes | Yes, every field (via FFmpeg) | No |
+| WAV | Yes | Basic fields only: title, artist, album, genre, year/date, track number, comment, copyright (via FFmpeg) | No |
 
-Writing tags to anything other than MP3 requires a working FFmpeg install, the same one the Convert tab uses. See [Metadata and Automatic Tagging](#metadata-and-automatic-tagging) below for how the write itself works.
+Writing tags to OGG, Opus, and WAV files requires a working FFmpeg install, the same one the Convert tab uses; MP3, FLAC, and M4A are written without it. Anything a format has no place to store (BPM in a WAV, say) is kept in Playnck's library instead, and the Edit panel tells you which fields that applied to. See [Metadata and Automatic Tagging](#metadata-and-automatic-tagging) below for how the write itself works.
 
 The Convert tab targets a smaller, deliberately chosen set of output formats:
 
@@ -136,11 +136,13 @@ The Convert tab targets a smaller, deliberately chosen set of output formats:
 
 This is the part of Playnck that gets the most attention, and it is built to actually change your files rather than just Playnck's opinion of them.
 
-**Editing by hand.** Opening a track's Edit panel lets you correct its title, artist, and album, and add, replace, or remove its cover art. There is no separate "genre" or "track number" field to fill in; Playnck keeps things to the fields it can reliably identify and write back correctly.
+**Editing by hand.** Opening a track's Edit panel gives you a full metadata editor in a scrolling dialog with a pinned Save/Cancel footer. The essentials sit at the top under **Basic Information**: title, artist, album, genre, and release year (genre suggestions come from the genres already in your library, so spellings stay consistent). **Album Information** holds album artist, track and disc numbers with their totals, release date, original release date, and a compilation flag. **Credits** covers contributing artists, composer, lyricist, and conductor, and **Advanced Metadata** covers record label / publisher, copyright, ISRC, BPM, grouping, subtitle, comment, and lyrics. Sections you rarely need start collapsed unless the track already has data in them. You can still add, replace, or remove cover art.
 
-**Identifying a track automatically.** For a folder full of untagged or mislabeled files, the same panel offers two lookup modes. "Identify from Audio" generates an audio fingerprint of the file using a bundled Chromaprint (`fpcalc`) binary and checks it against AcoustID. "Search by Title and Artist" runs a text search against MusicBrainz instead, and is also used automatically as a fallback whenever fingerprinting comes back empty. Either way, the lookup cleans up obvious junk in the existing filename or title (bracketed noise like "(Official Video)" or "(Lyrics)", for example) and skips over medley or bonus-track bundles that would otherwise produce a nonsense match. If more than one plausible match comes back, or more than one candidate cover art image is available from the Cover Art Archive, Playnck shows you the options so you can pick the right one instead of guessing on your behalf.
+Release year and release date are kept consistent: the year always follows the date, and typing just a year turns the date into that year. Numbers (track, disc, BPM, year), dates, and ISRCs are validated before anything is written, and only the fields you actually changed are sent to the file, so everything else in its tags is left exactly as it was. Clearing a field removes it from the file. Changes to genre, album, album artist, and the rest flow straight into the Songs, Albums, Artists, and Genres views, including a detail view you happen to have open.
 
-**Writing it back for real.** Once you save, Playnck writes the new title, artist, album, and cover art directly into the file: ID3 tags through `node-id3` for MP3, or a metadata-preserving remux through a locally available FFmpeg for FLAC, M4A, OGG, Opus, and WAV (cover art embedding is only supported for FLAC and M4A among that group). After writing, Playnck reads the file back to confirm the change actually landed before reporting success. Windows can lock a file that is mid-playback, so if the track you are editing is the one currently loaded, Playnck detaches it from the audio element first, performs the write, then reloads it and resumes at the exact same position. If a write fails because something else briefly has the file locked, Playnck retries with a short backoff instead of giving up immediately; if it genuinely cannot write to the file (a read-only location, or an unsupported format without FFmpeg available), it says so plainly and offers to at least update Playnck's own library entry so the app's view of the track stays correct. On a successful save, the file itself is renamed to an "Artist - Title" pattern to keep your folders tidy.
+**Identifying a track automatically.** For a folder full of untagged or mislabeled files, the same panel offers two lookup modes. "Identify from Audio" generates an audio fingerprint of the file using a bundled Chromaprint (`fpcalc`) binary and checks it against AcoustID. "Search by Title and Artist" runs a text search against MusicBrainz instead, and is also used automatically as a fallback whenever fingerprinting comes back empty. Either way, the lookup cleans up obvious junk in the existing filename or title (bracketed noise like "(Official Video)" or "(Lyrics)", for example) and skips over medley or bonus-track bundles that would otherwise produce a nonsense match. If more than one plausible match comes back, Playnck lists them with their artwork, artist, album, album artist, year, and genre so you can pick the right one instead of guessing on your behalf. Nothing is applied until you choose. Choosing a match fills in every field it knows (including track and disc numbers, release date, and genre) and then looks up the extras in the background: composer and lyricist from MusicBrainz work credits, record label, original release date, and ISRC. Anything the match doesn't know is left as it was rather than blanked, you can edit any of it before saving, and switching to a different match puts back whatever the new one doesn't provide. If more than one candidate cover art image is available from the Cover Art Archive, you can pick that too.
+
+**Writing it back for real.** Once you save, Playnck writes the changed fields directly into the file. MP3 gets ID3 tags through `node-id3`; FLAC and M4A are rewritten by small built-in writers that touch only the tag blocks and copy the audio through untouched; OGG, Opus, and WAV use a metadata-preserving remux through a locally available FFmpeg. In every case the new file is built next to the original, read back to confirm every change actually landed, and only then swapped in, so a failed or interrupted save can never leave a half-written file. Windows can lock a file that is mid-playback, so if the track you are editing is the one currently loaded, Playnck detaches it from the audio element first, performs the write, then reloads it and resumes at the exact same position. If a write fails because something else briefly has the file locked, Playnck retries with a short backoff instead of giving up immediately; if it genuinely cannot write to the file (a read-only location, or OGG/Opus/WAV without FFmpeg available), it says so plainly and offers to at least update Playnck's own library entry so the app's view of the track stays correct. On a successful save, the file itself is renamed to an "Artist - Title" pattern to keep your folders tidy.
 
 ## Project Technology
 
@@ -150,7 +152,7 @@ This is the part of Playnck that gets the most attention, and it is built to act
 | Interface | Vanilla HTML, CSS, and JavaScript (ES modules), no front-end framework |
 | Local library index | IndexedDB (tracks, playlists, playlist folders, watched folders, lyrics cache, and settings) |
 | Metadata reading | `music-metadata`, with a bundled `jsmediatags` fallback for files added without a resolvable file path |
-| Metadata writing | `node-id3` for MP3, FFmpeg remuxing for FLAC, M4A, OGG, Opus, and WAV |
+| Metadata writing | `node-id3` for MP3, built-in writers for FLAC and M4A, FFmpeg remuxing for OGG, Opus, and WAV |
 | Audio fingerprinting and lookup | Chromaprint (`fpcalc`) into AcoustID, with a MusicBrainz text-search fallback and cover art from the Cover Art Archive |
 | Lyrics | lrclib.net |
 | Audio engine | The Web Audio API (a `BiquadFilterNode` chain for the equalizer, an `AnalyserNode` for the visualizer) |

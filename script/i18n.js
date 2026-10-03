@@ -196,7 +196,6 @@ const I18N = {
     "edit.autoTagNotFound": "Couldn't identify this song. {reason}",
     "edit.autoTagUnavailable":
       "Auto-tag needs the desktop app and a real file on disk.",
-    "edit.autoTagPickMatch": "Not the right song? Choose another match:",
     "edit.saveChanges": "Save Changes",
     "edit.saving": "Saving…",
     "edit.savedRenamedAndUpdated":
@@ -215,6 +214,61 @@ const I18N = {
     "edit.saveLibraryOnly": "Save inside Playnck only",
     "edit.savedLibraryOnlyConfirmed":
       "Saved inside Playnck only — the file on disk still has the old metadata.",
+
+    "edit.secBasic": "Basic Information",
+    "edit.secAlbum": "Album Information",
+    "edit.secCredits": "Credits",
+    "edit.secAdvanced": "Advanced Metadata",
+    "edit.fGenre": "Genre",
+    "edit.fYear": "Release Year",
+    "edit.fAlbumArtist": "Album Artist",
+    "edit.fTrackNo": "Track Number",
+    "edit.fDiscNo": "Disc Number",
+    "edit.of": "of",
+    "edit.fReleaseDate": "Release Date",
+    "edit.fOriginalDate": "Original Release Date",
+    "edit.fCompilation": "Part of a compilation",
+    "edit.fArtists": "Contributing Artists",
+    "edit.fComposer": "Composer",
+    "edit.fLyricist": "Lyricist",
+    "edit.fConductor": "Conductor",
+    "edit.fLabel": "Record Label / Publisher",
+    "edit.fCopyright": "Copyright",
+    "edit.fIsrc": "ISRC",
+    "edit.fBpm": "BPM",
+    "edit.fGrouping": "Grouping",
+    "edit.fSubtitle": "Subtitle",
+    "edit.fComment": "Comment / Description",
+    "edit.fLyrics": "Lyrics",
+    "edit.hintMulti": "Separate multiple values with ;",
+    "edit.hintDate":
+      "YYYY, YYYY-MM or YYYY-MM-DD. The Release Year follows this date.",
+    "edit.hintArtists": "Follows Artist until you edit it here.",
+    "edit.hintIsrc": "12 characters, e.g. USRC17607839",
+    "edit.errYear": "Enter a 4-digit year (1000–9999).",
+    "edit.errDate": "Use YYYY, YYYY-MM or YYYY-MM-DD (a real date).",
+    "edit.errDateYear": "The release date and release year must be the same year.",
+    "edit.errPositive": "Enter a whole number of 1 or more.",
+    "edit.errTrackRange": "Track number can't be higher than total tracks.",
+    "edit.errDiscRange": "Disc number can't be higher than total discs.",
+    "edit.errBpm": "BPM must be a whole number from 1 to 999.",
+    "edit.errIsrc": "An ISRC is 2 letters, 3 letters or digits, then 7 digits.",
+    "edit.errFixFirst": "Fix the highlighted fields before saving.",
+    "edit.autoTagFoundMany":
+      "Found {count} possible matches — pick the right one to fill in the fields.",
+    "edit.autoTagApplied": "Applied — review the fields below, then save.",
+    "edit.autoTagMoreDetails": "Fetching more details (genre, composer, label)…",
+    "edit.autoTagMoreDone":
+      "Applied with extra details — review the fields below, then save.",
+    "edit.autoTagMoreFailed":
+      "Applied the basics, but couldn't fetch the extra details. {reason}",
+    "edit.matchApplied": "Applied",
+    "edit.matchTrackDisc": "Track {track} · Disc {disc}",
+    "edit.matchTrack": "Track {track}",
+    "edit.savedFieldsSkipped":
+      "Saved. {format} files can't store: {fields}. Those were kept in Playnck only.",
+    "edit.savedSkippedAndCover":
+      "Saved. {format} files can't store: {fields}, or embedded cover art. Those were kept in Playnck only.",
 
     "sync.hint":
       "Nudge the timing until the highlighted line matches what's being sung. Positive delays the lyrics, negative shows them earlier.",
@@ -595,8 +649,6 @@ const I18N = {
     "edit.autoTagNotFound": "Impossible d'identifier ce morceau. {reason}",
     "edit.autoTagUnavailable":
       "L'identification automatique nécessite l'application de bureau et un fichier réel sur le disque.",
-    "edit.autoTagPickMatch":
-      "Ce n'est pas le bon morceau ? Choisissez un autre résultat :",
     "edit.saveChanges": "Enregistrer les modifications",
     "edit.saving": "Enregistrement…",
     "edit.savedRenamedAndUpdated":
@@ -616,6 +668,68 @@ const I18N = {
     "edit.saveLibraryOnly": "Enregistrer uniquement dans Playnck",
     "edit.savedLibraryOnlyConfirmed":
       "Enregistré uniquement dans Playnck — le fichier sur le disque a toujours l'ancienne métadonnée.",
+
+    "edit.secBasic": "Informations de base",
+    "edit.secAlbum": "Informations sur l'album",
+    "edit.secCredits": "Crédits",
+    "edit.secAdvanced": "Métadonnées avancées",
+    "edit.fGenre": "Genre",
+    "edit.fYear": "Année de sortie",
+    "edit.fAlbumArtist": "Artiste de l'album",
+    "edit.fTrackNo": "Numéro de piste",
+    "edit.fDiscNo": "Numéro de disque",
+    "edit.of": "sur",
+    "edit.fReleaseDate": "Date de sortie",
+    "edit.fOriginalDate": "Date de sortie originale",
+    "edit.fCompilation": "Fait partie d'une compilation",
+    "edit.fArtists": "Artistes participants",
+    "edit.fComposer": "Compositeur",
+    "edit.fLyricist": "Parolier",
+    "edit.fConductor": "Chef d'orchestre",
+    "edit.fLabel": "Label / Éditeur",
+    "edit.fCopyright": "Copyright",
+    "edit.fIsrc": "ISRC",
+    "edit.fBpm": "BPM",
+    "edit.fGrouping": "Regroupement",
+    "edit.fSubtitle": "Sous-titre",
+    "edit.fComment": "Commentaire / Description",
+    "edit.fLyrics": "Paroles",
+    "edit.hintMulti": "Séparez plusieurs valeurs par ;",
+    "edit.hintDate":
+      "AAAA, AAAA-MM ou AAAA-MM-JJ. L'année de sortie suit cette date.",
+    "edit.hintArtists": "Suit « Artiste » tant que vous ne le modifiez pas ici.",
+    "edit.hintIsrc": "12 caractères, p. ex. USRC17607839",
+    "edit.errYear": "Saisissez une année à 4 chiffres (1000–9999).",
+    "edit.errDate": "Utilisez AAAA, AAAA-MM ou AAAA-MM-JJ (une vraie date).",
+    "edit.errDateYear":
+      "La date de sortie et l'année de sortie doivent correspondre à la même année.",
+    "edit.errPositive": "Saisissez un nombre entier supérieur ou égal à 1.",
+    "edit.errTrackRange":
+      "Le numéro de piste ne peut pas dépasser le nombre total de pistes.",
+    "edit.errDiscRange":
+      "Le numéro de disque ne peut pas dépasser le nombre total de disques.",
+    "edit.errBpm": "Le BPM doit être un nombre entier de 1 à 999.",
+    "edit.errIsrc":
+      "Un ISRC comporte 2 lettres, 3 lettres ou chiffres, puis 7 chiffres.",
+    "edit.errFixFirst":
+      "Corrigez les champs en surbrillance avant d'enregistrer.",
+    "edit.autoTagFoundMany":
+      "{count} correspondances possibles — choisissez la bonne pour remplir les champs.",
+    "edit.autoTagApplied":
+      "Appliqué — vérifiez les champs ci-dessous, puis enregistrez.",
+    "edit.autoTagMoreDetails":
+      "Récupération de détails supplémentaires (genre, compositeur, label)…",
+    "edit.autoTagMoreDone":
+      "Appliqué avec des détails supplémentaires — vérifiez les champs ci-dessous, puis enregistrez.",
+    "edit.autoTagMoreFailed":
+      "L'essentiel a été appliqué, mais les détails supplémentaires n'ont pas pu être récupérés. {reason}",
+    "edit.matchApplied": "Appliqué",
+    "edit.matchTrackDisc": "Piste {track} · Disque {disc}",
+    "edit.matchTrack": "Piste {track}",
+    "edit.savedFieldsSkipped":
+      "Enregistré. Les fichiers {format} ne peuvent pas stocker : {fields}. Ces champs sont conservés uniquement dans Playnck.",
+    "edit.savedSkippedAndCover":
+      "Enregistré. Les fichiers {format} ne peuvent pas stocker : {fields}, ni de pochette intégrée. Ces éléments sont conservés uniquement dans Playnck.",
 
     "sync.hint":
       "Ajustez le décalage jusqu'à ce que la ligne surlignée corresponde à ce qui est chanté. Une valeur positive retarde les paroles, une valeur négative les avance.",

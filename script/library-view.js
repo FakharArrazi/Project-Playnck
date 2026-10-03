@@ -66,7 +66,7 @@ function computeArtists() {
     const idKey = Array.isArray(t.artistIds) ? t.artistIds[0] : null;
     let group = (idKey && byId.get(idKey)) || byName.get(nameKey);
     if (!group) {
-      group = { artist: name, art: getTrackArtURL(t), tracks: [] };
+      group = { key: nameKey, artist: name, art: getTrackArtURL(t), tracks: [] };
       groups.push(group);
     }
     if (idKey) byId.set(idKey, group);
@@ -316,7 +316,45 @@ function takeScrollTarget(q) {
   return saved && saved.sort === next.sort ? saved.top : 0;
 }
 
+// Album / artist / genre detail views hold a snapshot of their tracks taken
+// when the card was clicked. After the library changes (a metadata edit moves a
+// track to another album or genre, say) that snapshot is stale, so rebuild it
+// from the current library -- following the group if its key moved, and
+// dropping back to the grid if nothing is left.
+function refreshFilterGroup() {
+  const f = state.filter;
+  if (!f || (f.type !== "album" && f.type !== "artist" && f.type !== "genre"))
+    return;
+  const groups =
+    f.type === "album"
+      ? computeAlbums()
+      : f.type === "artist"
+        ? computeArtists()
+        : computeGenres();
+  let group = f.key != null ? groups.find((g) => g.key === f.key) : null;
+  if (!group) {
+    const ids = new Set(f.tracks.map((t) => t.id));
+    let best = 0;
+    for (const g of groups) {
+      const overlap = g.tracks.reduce((n, t) => n + (ids.has(t.id) ? 1 : 0), 0);
+      if (overlap > best) {
+        best = overlap;
+        group = g;
+      }
+    }
+  }
+  if (!group) {
+    state.filter = null;
+    return;
+  }
+  f.key = group.key;
+  f.tracks = group.tracks;
+  f.title =
+    f.type === "album" ? group.album : f.type === "genre" ? group.genre : group.artist;
+}
+
 function renderTab() {
+  refreshFilterGroup();
   const viewKey = currentViewKey();
   const viewChanged = viewKey !== lastViewKey;
   lastViewKey = viewKey;
@@ -439,7 +477,9 @@ function matchQuery(t, q) {
   return (
     t.title.toLowerCase().includes(q) ||
     t.artist.toLowerCase().includes(q) ||
-    t.album.toLowerCase().includes(q)
+    t.album.toLowerCase().includes(q) ||
+    (t.albumArtist || "").toLowerCase().includes(q) ||
+    [].concat(t.genre || []).some((g) => g.toLowerCase().includes(q))
   );
 }
 
@@ -1078,7 +1118,12 @@ function renderAlbumGrid(albums, scrollTarget = null) {
     card.addEventListener("click", () => {
       if (state.selectMode) toggleItemSelected(a.key);
       else {
-        state.filter = { type: "album", title: a.album, tracks: a.tracks };
+        state.filter = {
+          type: "album",
+          key: a.key,
+          title: a.album,
+          tracks: a.tracks,
+        };
         renderTab();
       }
     });
@@ -1116,7 +1161,12 @@ function renderArtistList(artists, scrollTarget = null) {
     line.addEventListener("click", () => {
       if (state.selectMode) toggleItemSelected(a.artist);
       else {
-        state.filter = { type: "artist", title: a.artist, tracks: a.tracks };
+        state.filter = {
+          type: "artist",
+          key: a.key,
+          title: a.artist,
+          tracks: a.tracks,
+        };
         renderTab();
       }
     });

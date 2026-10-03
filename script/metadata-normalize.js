@@ -77,6 +77,18 @@ function normalizeReaderResult(raw) {
     date: raw.date != null ? raw.date : null,
     genre: Array.isArray(raw.genre) ? uniqueStrings(raw.genre) : [],
     composer: Array.isArray(raw.composer) ? uniqueStrings(raw.composer) : [],
+    lyricist: Array.isArray(raw.lyricist) ? uniqueStrings(raw.lyricist) : [],
+    originalDate: raw.originalDate != null ? raw.originalDate : null,
+    label: raw.label != null ? raw.label : null,
+    copyright: raw.copyright != null ? raw.copyright : null,
+    isrc: raw.isrc != null ? raw.isrc : null,
+    bpm: raw.bpm != null ? raw.bpm : null,
+    compilation: raw.compilation ? true : null,
+    grouping: raw.grouping != null ? raw.grouping : null,
+    subtitle: raw.subtitle != null ? raw.subtitle : null,
+    conductor: raw.conductor != null ? raw.conductor : null,
+    comment: raw.comment != null ? raw.comment : null,
+    lyrics: raw.lyrics != null ? raw.lyrics : null,
     releaseType: raw.releaseType != null ? raw.releaseType : null,
     recordingId: raw.recordingId != null ? raw.recordingId : null,
     releaseId: raw.releaseId != null ? raw.releaseId : null,
@@ -106,6 +118,10 @@ function artistCredit(track) {
   return `${main} ft. ${featured.join(", ")}`;
 }
 
+// Bump whenever METADATA_FIELD_KEYS grows: tracks saved under an older schema
+// are re-read from their files once so the new fields get filled in.
+const METADATA_SCHEMA = 2;
+
 const METADATA_FIELD_KEYS = [
   "title",
   "artist",
@@ -121,6 +137,18 @@ const METADATA_FIELD_KEYS = [
   "date",
   "genre",
   "composer",
+  "lyricist",
+  "originalDate",
+  "label",
+  "copyright",
+  "isrc",
+  "bpm",
+  "compilation",
+  "grouping",
+  "subtitle",
+  "conductor",
+  "comment",
+  "lyrics",
   "releaseType",
   "recordingId",
   "releaseId",
@@ -132,7 +160,9 @@ const METADATA_FIELD_KEYS = [
 export {
   albumGroupKey,
   normalizeReaderResult,
+  splitArtistCredit,
   METADATA_FIELD_KEYS,
+  METADATA_SCHEMA,
   primaryArtistName,
   artistCredit,
   normalizeForCompare,
