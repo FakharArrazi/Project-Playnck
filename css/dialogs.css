@@ -35,6 +35,11 @@
   z-index: 300;
   padding: 20px;
 }
+/* The custom title bar is drawn above the overlay, so centre dialogs in the
+   space below it; otherwise they sit half a title bar too high. */
+html.native-titlebar-enabled .modal-overlay {
+  top: 32px;
+}
 .modal-box {
   background: var(--elevated);
   border: 1px solid var(--border);
@@ -406,7 +411,9 @@
 /* ---- Edit Track: comprehensive metadata editor ---- */
 .modal-box.modal-box-edit {
   width: min(780px, 100%);
-  max-height: min(90vh, 900px);
+  /* 100% = the overlay's usable height (below the title bar, inside its
+     padding), so the dialog stays evenly spaced top and bottom. */
+  max-height: min(900px, calc(100% - 24px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -672,7 +679,7 @@ textarea.edit-input.edit-lyrics {
 
 @media (max-width: 600px), (max-height: 620px) {
   .modal-box.modal-box-edit {
-    max-height: 94vh;
+    max-height: 100%;
   }
   .edit-scroll {
     padding: 14px;
