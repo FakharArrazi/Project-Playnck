@@ -378,7 +378,7 @@ Alongside it, a gapless playback toggle smooths the transition between tracks wi
 
 Playnck's appearance is built from six background shades, from a near-black Pitch Black through a light cream theme to a Deep Midnight Blue and a Forest Green, crossed with twelve accent colors, for seventy-two combinations in total. Every combination previews instantly as you click through the swatches and is remembered the next time you open the app; on Windows, the title bar itself recolors to match whatever you choose.
 
-Separately, under Settings > Player, you can set your own image as the Now Playing background and control how much blur sits over it with a slider from 0 to 20 pixels, and adjust how strongly the audio visualizer reacts to the music.
+Separately, under Settings > Player, you can set your own image as the Now Playing background and control how much blur sits over it with a slider from 0 to 20 pixels, adjust how strongly the audio visualizer reacts to the music, and show or hide the audio information line (sample rate, bitrate, and format) beneath the artist and album.
 
 <p align="center">
   <img src="docs/screenshots/Themes.png" alt="Theme settings with background and accent color swatches" width="820">
@@ -440,6 +440,8 @@ These work anywhere in the app except while you are typing into a text field.
 |---|---|
 | Space | Play or pause |
 | M | Mute or unmute |
+| R | Add one extra replay of the current song |
+| Shift + R | Clear the extra replays |
 | Up / Down arrow | Volume up / down |
 | Left / Right arrow | Seek back / forward 5 seconds |
 | Ctrl + Left / Right arrow | Previous / next track |

@@ -24,6 +24,7 @@ import {
   refreshNextPreview,
   updateNowPlayingUI,
   updateLoveButton,
+  updateRepeatExtraBadge,
 } from "./now-playing-ui.js";
 
 async function createPlaylistPrompt(trackIdToAdd) {
@@ -450,6 +451,8 @@ function removeTrackData(track) {
     audioEl.pause();
     audioEl.src = "";
     state.currentTrack = null;
+    state.repeatExtra = 0;
+    updateRepeatExtraBadge();
     updateNowPlayingUI();
   }
 

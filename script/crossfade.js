@@ -5,7 +5,11 @@ import {
   connectMediaElementToEq,
 } from "./equalizer.js";
 import { resolveNextIndex } from "./queue.js";
-import { resetPlayProgress, setNavSwipeDir } from "./player.js";
+import {
+  resetPlayProgress,
+  setNavSwipeDir,
+  resetRepeatExtra,
+} from "./player.js";
 import { updateNowPlayingUI } from "./now-playing-ui.js";
 import { closeLyrics } from "./lyrics.js";
 import { refreshPlayingHighlight } from "./library-view.js";
@@ -32,6 +36,7 @@ function maybeStartCrossfade() {
   if (!state.gapless.enabled) return;
   if (crossfadeState) return;
   if (state.repeat === "one") return;
+  if (state.repeatExtra > 0) return;
   const dur = audioEl.duration;
   if (!dur || !isFinite(dur) || dur < GAPLESS_CROSSFADE_SECONDS * 2) return;
   if (dur - audioEl.currentTime > GAPLESS_CROSSFADE_SECONDS) return;
@@ -100,6 +105,7 @@ function completeCrossfadeHandoff() {
   fe.src = "";
 
   crossfadeState = null;
+  resetRepeatExtra();
   setNavSwipeDir("next");
   updateNowPlayingUI();
   closeLyrics();

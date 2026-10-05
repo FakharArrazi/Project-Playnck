@@ -13,7 +13,11 @@ import {
   maybeStartCrossfade,
 } from "./crossfade.js";
 import { updateVisualizerState } from "./visualizer.js";
-import { updatePlayIcons, updateNowPlayingUI } from "./now-playing-ui.js";
+import {
+  updatePlayIcons,
+  updateNowPlayingUI,
+  updateRepeatExtraBadge,
+} from "./now-playing-ui.js";
 import { closeLyrics, syncLyrics } from "./lyrics.js";
 import { resetHistoryProgress } from "./history.js";
 
@@ -25,7 +29,23 @@ function playTrack(track, queueTracks) {
   loadAndPlay(track);
 }
 
+function setRepeatExtra(count, pop) {
+  state.repeatExtra = Math.max(0, count);
+  updateRepeatExtraBadge(pop);
+}
+
+function addRepeatExtra() {
+  if (!state.currentTrack) return;
+  cancelCrossfade();
+  setRepeatExtra(state.repeatExtra + 1, true);
+}
+
+function resetRepeatExtra() {
+  if (state.repeatExtra) setRepeatExtra(0);
+}
+
 function loadAndPlay(track) {
+  resetRepeatExtra();
   ensureAudioGraph();
   state.currentTrack = track;
   audioEl.src = track.fileURL;
@@ -92,6 +112,12 @@ function setNavSwipeDir(value) {
 
 function nextTrack(auto) {
   cancelCrossfade();
+  if (auto && state.repeatExtra > 0 && state.currentTrack) {
+    setRepeatExtra(state.repeatExtra - 1);
+    audioEl.currentTime = 0;
+    audioEl.play().catch(() => {});
+    return;
+  }
   if (!state.queue.length) return;
   if (state.repeat === "one" && auto) {
     audioEl.currentTime = 0;
@@ -261,4 +287,6 @@ export {
   nextTrack,
   prevTrack,
   seekBy,
+  addRepeatExtra,
+  resetRepeatExtra,
 };

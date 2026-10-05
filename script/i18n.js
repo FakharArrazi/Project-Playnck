@@ -40,6 +40,9 @@ const I18N = {
     "player.visualizerNote":
       "A subtle audio-reactive glow along the bottom edge of the panel, tinted with your theme's accent color.",
     "player.visualizerOpacity": "Opacity",
+    "player.audioInfo": "Show Audio Information",
+    "player.audioInfoNote":
+      "Display the sample rate, bitrate and format of the current song beneath the artist and album.",
     "player.shuffle": "Shuffle",
     "player.previous": "Previous",
     "player.next": "Next",
@@ -488,6 +491,9 @@ const I18N = {
     "player.visualizerNote":
       "Une lueur discrète réagissant à l'audio le long du bord inférieur du panneau, teintée avec la couleur d'accent de votre thème.",
     "player.visualizerOpacity": "Opacité",
+    "player.audioInfo": "Afficher les informations audio",
+    "player.audioInfoNote":
+      "Affiche la fréquence d'échantillonnage, le débit et le format du morceau en cours sous l'artiste et l'album.",
     "player.shuffle": "Lecture aléatoire",
     "player.previous": "Précédent",
     "player.next": "Suivant",

@@ -37,6 +37,18 @@ function applyPlayerBg() {
   );
 }
 
+function applyAudioInfo() {
+  const el = $("trackTech");
+  if (el) el.classList.toggle("hidden", !state.showAudioInfo);
+}
+
+function saveAudioInfoSetting() {
+  idbPut("settings", {
+    key: "showAudioInfo",
+    value: { enabled: state.showAudioInfo },
+  }).catch(() => {});
+}
+
 function setPlayerBgImage(file) {
   if (!file || !file.type.startsWith("image/")) return;
   const reader = new FileReader();
@@ -345,6 +357,17 @@ function openSettingsModal() {
           <span class="player-bg-blur-value" id="visualizerOpacityValue">${Math.round(state.visualizer.intensity * 100)}%</span>
         </div>
       </div>
+
+      <div class="settings-toggle-row settings-toggle-row-divider">
+        <div class="settings-toggle-label">
+          <div class="theme-group-label">${escapeHTML(tr("player.audioInfo"))}</div>
+          <p class="theme-note">${escapeHTML(tr("player.audioInfoNote"))}</p>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="audioInfoToggle"${state.showAudioInfo ? " checked" : ""}>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>`;
   const languageBodyHTML = buildLanguageBodyHTML();
 
@@ -472,10 +495,16 @@ function openSettingsModal() {
     saveVisualizerSettings();
   });
 
+  $("audioInfoToggle").addEventListener("change", (e) => {
+    state.showAudioInfo = e.target.checked;
+    applyAudioInfo();
+    saveAudioInfoSetting();
+  });
+
   if (window.electronAPI && window.electronAPI.saveTextFile) {
     $("backupExportBtn").addEventListener("click", onBackupExportClick);
     $("backupImportBtn").addEventListener("click", onBackupImportClick);
   }
 }
 
-export { applyPlayerBg, refreshUpdateUI, openSettingsModal };
+export { applyPlayerBg, applyAudioInfo, refreshUpdateUI, openSettingsModal };

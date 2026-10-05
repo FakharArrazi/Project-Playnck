@@ -16,7 +16,7 @@ import {
   THEME_ACCENT,
 } from "./theme.js";
 import { renderTab, restoreSortPrefs } from "./library-view.js";
-import { applyPlayerBg, refreshUpdateUI } from "./settings.js";
+import { applyPlayerBg, applyAudioInfo, refreshUpdateUI } from "./settings.js";
 import { updateAvailableModal } from "./modal.js";
 import { applyVolume } from "./volume.js";
 import { verifyLibraryOnDisk, backfillMetadata } from "./metadata.js";
@@ -119,6 +119,14 @@ async function init() {
     }
   }
   updateVisualizerState();
+
+  const savedAudioInfo = await idbGet("settings", "showAudioInfo");
+  state.showAudioInfo = !(
+    savedAudioInfo &&
+    savedAudioInfo.value &&
+    savedAudioInfo.value.enabled === false
+  );
+  applyAudioInfo();
 
   const savedSortPrefs = await idbGet("settings", "sortPrefs");
   restoreSortPrefs(savedSortPrefs && savedSortPrefs.value);

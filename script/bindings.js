@@ -30,6 +30,8 @@ import {
   prevTrack,
   playTrack,
   seekBy,
+  addRepeatExtra,
+  resetRepeatExtra,
 } from "./player.js";
 import { closeModal } from "./modal.js";
 import {
@@ -82,6 +84,19 @@ function bindEvents() {
     if (e.code === "KeyM" && !e.repeat) {
       e.preventDefault();
       toggleMute();
+      return;
+    }
+
+    if (
+      e.code === "KeyR" &&
+      !e.repeat &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey
+    ) {
+      e.preventDefault();
+      if (e.shiftKey) resetRepeatExtra();
+      else addRepeatExtra();
       return;
     }
 

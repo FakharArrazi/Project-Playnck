@@ -345,6 +345,20 @@ function updateRepeatBadge() {
   if (badge.classList.contains("show")) replayMotion(badge, "badge-pop", 380);
 }
 
+function updateRepeatExtraBadge(pop) {
+  const badge = $("repeatExtraBadge");
+  if (!badge) return;
+  const n = state.repeatExtra;
+  if (n > 0) {
+    badge.textContent = String(n);
+    badge.classList.add("show");
+    if (pop) replayMotion(badge, "badge-pop", 380);
+  } else {
+    badge.textContent = "";
+    badge.classList.remove("show");
+  }
+}
+
 export {
   cycleRepeatMode,
   refreshNextPreview,
@@ -352,4 +366,5 @@ export {
   updateLoveButton,
   updatePlayIcons,
   updateRepeatBadge,
+  updateRepeatExtraBadge,
 };
