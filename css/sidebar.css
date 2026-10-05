@@ -426,47 +426,54 @@
 }
 
 .home-view {
-  padding: 6px 8px 18px;
+  container: home / inline-size;
 }
 .home-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
-.home-stat-box {
-  background: var(--elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+/* Stat tiles reuse .card (press + focus behavior) with the album-panel surface */
+.card.home-stat-card {
+  min-width: 0;
   padding: 14px 8px;
   text-align: center;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+.card.home-stat-card:hover {
+  background: var(--elevated-hover);
 }
 .home-stat-value {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
-  color: var(--text);
   line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .home-stat-label {
-  font-size: 11.5px;
-  color: var(--text-dim);
   margin-top: 2px;
-  text-transform: uppercase;
+  font-size: 11.5px;
   letter-spacing: 0.04em;
-}
-.home-section {
-  margin-bottom: 20px;
-}
-.home-section-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--text);
-  margin: 0 2px 8px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .home-section .song-row .dur {
   white-space: nowrap;
+}
+.home-section > .empty-state {
+  padding: 24px 16px;
+}
+@container home (max-width: 250px) {
+  .home-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .album-hero {

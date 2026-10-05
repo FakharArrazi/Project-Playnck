@@ -528,7 +528,13 @@ function formatTrackNumber(trackNum) {
   return trackNum == null ? "\u2013" : String(trackNum).padStart(2, "0");
 }
 
-function buildSongRow(t, playlistIdContext, queueTracks, inAlbum = false) {
+function buildSongRow(
+  t,
+  playlistIdContext,
+  queueTracks,
+  inAlbum = false,
+  extra = null,
+) {
   const selected = state.selectMode && state.selectedIds.has(t.id);
   const row = el(
     "div",
@@ -556,10 +562,20 @@ function buildSongRow(t, playlistIdContext, queueTracks, inAlbum = false) {
     openTrackMenu(e, t, playlistIdContext);
   });
   row.appendChild(img);
-  if (inAlbum)
-    row.appendChild(el("span", "track-no", formatTrackNumber(t.trackNum)));
+  const lead = extra && extra.lead != null ? extra.lead : null;
+  if (inAlbum || lead != null)
+    row.appendChild(
+      el(
+        "span",
+        "track-no",
+        lead != null ? lead : formatTrackNumber(t.trackNum),
+      ),
+    );
   row.appendChild(info);
-  if (!inAlbum) row.appendChild(el("span", "dur", fmtTime(t.duration)));
+  if (!inAlbum) {
+    const stat = extra && extra.stat != null ? extra.stat : fmtTime(t.duration);
+    row.appendChild(el("span", "dur", stat));
+  }
   row.appendChild(menuBtn);
   row.addEventListener("click", () => {
     if (state.selectMode) toggleItemSelected(t.id);
@@ -1016,9 +1032,27 @@ function renderHomeTab() {
   const wrap = el("div", "home-view");
 
   const stats = el("div", "home-stats");
-  stats.appendChild(homeStatBox(libraryTracks().length, tr("nav.songs")));
-  stats.appendChild(homeStatBox(computeAlbums().length, tr("nav.albums")));
-  stats.appendChild(homeStatBox(computeArtists().length, tr("nav.artists")));
+  stats.appendChild(
+    homeStatCard(libraryTracks().length, tr("nav.songs"), "songs"),
+  );
+  stats.appendChild(
+    homeStatCard(computeAlbums().length, tr("nav.albums"), "albums"),
+  );
+  stats.appendChild(
+    homeStatCard(computeArtists().length, tr("nav.artists"), "artists"),
+  );
+  // One delegated listener that reuses the sidebar rail's own click handler,
+  // so tab switching stays in a single place.
+  const goToTab = (e) => {
+    const card = e.target.closest(".home-stat-card");
+    if (!card) return;
+    const railBtn = document.querySelector(
+      `.rail-item[data-tab="${card.dataset.tab}"]`,
+    );
+    if (railBtn) railBtn.click();
+  };
+  stats.addEventListener("click", goToTab);
+  stats.addEventListener("keydown", activateOnKey(goToTab));
   wrap.appendChild(stats);
 
   const recent = libraryTracks()
@@ -1036,18 +1070,42 @@ function renderHomeTab() {
   listContainer.appendChild(wrap);
 }
 
-function homeStatBox(value, label) {
-  const box = el("div", "home-stat-box");
-  box.appendChild(el("div", "home-stat-value", String(value)));
-  box.appendChild(el("div", "home-stat-label", escapeHTML(label)));
-  return box;
+// Lets a delegated click handler also serve Enter on focused cards. Space is
+// deliberately left alone: it is the app-wide play/pause shortcut.
+function activateOnKey(handler) {
+  return (e) => {
+    if (e.key !== "Enter") return;
+    if (!e.target.closest("[role='button']")) return;
+    e.preventDefault();
+    handler(e);
+  };
 }
 
+function homeStatCard(value, label, tab) {
+  const card = el("div", "card home-stat-card");
+  card.dataset.tab = tab;
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-label", `${value} ${label}`);
+  card.appendChild(el("div", "home-stat-value", String(value)));
+  card.appendChild(el("div", "home-stat-label", escapeHTML(label)));
+  return card;
+}
+
+// Same panel as the album sections on Artist pages: title + count, purple
+// play button, divider, then the shared song rows.
 function homeSection(title, tracks, kind) {
-  const section = el("div", "home-section");
-  section.appendChild(el("div", "home-section-title", escapeHTML(title)));
+  const card = el("div", "album-card home-section");
+  const head = el("div", "album-card-head");
+  const text = el("div", "album-card-text");
+  const titleEl = el("div", "album-card-title", escapeHTML(title));
+  titleEl.title = title;
+  text.appendChild(titleEl);
+  head.appendChild(text);
+  card.appendChild(head);
+
   if (!tracks.length) {
-    section.appendChild(
+    card.appendChild(
       el(
         "div",
         "empty-state",
@@ -1056,37 +1114,22 @@ function homeSection(title, tracks, kind) {
           : tr("empty.nothingPlayedYet"),
       ),
     );
-    return section;
+    return card;
   }
-  tracks.forEach((t) => {
-    const row = el(
-      "div",
-      "song-row" +
-        (state.currentTrack && state.currentTrack.id === t.id
-          ? " playing"
-          : ""),
-    );
-    row.dataset.trackId = t.id;
-    const img = document.createElement("img");
-    img.className = "thumb";
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.src = getTrackArtURL(t) || fallbackArt();
-    const info = el("div", "info");
-    info.appendChild(el("div", "title", escapeHTML(t.title)));
-    info.appendChild(el("div", "sub", escapeHTML(artistCredit(t))));
-    const stat = el(
-      "span",
-      "dur",
-      kind === "plays" ? plural(t.playCount, "play") : fmtTime(t.duration),
-    );
-    row.appendChild(img);
-    row.appendChild(info);
-    row.appendChild(stat);
-    row.addEventListener("click", () => playTrack(t, tracks));
-    section.appendChild(row);
+
+  text.appendChild(el("div", "album-card-meta", plural(tracks.length, "song")));
+  head.appendChild(buildAlbumPlayButton(tracks, true));
+
+  const songs = el("div", "album-card-songs");
+  tracks.forEach((t, i) => {
+    const extra =
+      kind === "plays"
+        ? { lead: formatTrackNumber(i + 1), stat: plural(t.playCount, "play") }
+        : null;
+    songs.appendChild(buildSongRow(t, null, tracks, false, extra));
   });
-  return section;
+  card.appendChild(songs);
+  return card;
 }
 
 function renderAlbumGrid(albums, scrollTarget = null) {
