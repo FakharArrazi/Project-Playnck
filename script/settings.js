@@ -292,7 +292,7 @@ function openSettingsModal() {
   const bgSwatches = Object.entries(THEME_BG)
     .map(
       ([key, cfg]) =>
-        `<button class="swatch-btn bg-swatch${key === "light" ? " on-light" : ""}${state.theme.bg === key ? " active" : ""}" data-bg="${key}" style="background:${cfg.swatch}" title="${escapeHTML(themeBgLabel(key))}"></button>`,
+        `<button class="swatch-btn bg-swatch${key === "light" || cfg.onLight ? " on-light" : ""}${state.theme.bg === key ? " active" : ""}" data-bg="${key}" style="background:${cfg.swatch}" title="${escapeHTML(themeBgLabel(key))}"></button>`,
     )
     .join("");
   const accentSwatches = Object.entries(THEME_ACCENT)

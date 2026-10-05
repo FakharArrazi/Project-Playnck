@@ -4,7 +4,7 @@
 
 **A local-first desktop music player for Windows and Linux that plays the files you already own, writes real tags back into them, and never asks you to sign in.**
 
-Built with Electron. Writes real metadata back into your files. Fingerprints and auto-tags unsorted tracks. Ten-band equalizer. Synced lyrics. Seventy-two theme combinations. No cloud, no account, no subscription.
+Built with Electron. Writes real metadata back into your files. Fingerprints and auto-tags unsorted tracks. Ten-band equalizer. Synced lyrics. Two hundred sixteen theme combinations. No cloud, no account, no subscription.
 
 [![Latest Release](https://img.shields.io/github/v/release/FakharArrazi/Project-Playnck?label=latest%20release&color=6C5CE7)](https://github.com/FakharArrazi/Project-Playnck/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/FakharArrazi/Project-Playnck/total?color=00b894)](https://github.com/FakharArrazi/Project-Playnck/releases)
@@ -85,7 +85,7 @@ Your files stay as files. Corrections you make (a fixed title, a properly spelle
 
 **Conversion and personalization**
 - Batch conversion to MP3, AAC, Opus, FLAC, ALAC, or WAV, with per-format bitrate, compression, or bit-depth controls
-- Six background themes crossed with twelve accent colors for seventy-two total combinations, plus a custom Now Playing background image
+- Twelve background themes crossed with eighteen accent colors for two hundred sixteen total combinations, plus a custom Now Playing background image
 - A full English and French interface, with a JSON-based backup and restore for your whole library
 
 ## How It Works
@@ -377,7 +377,7 @@ Alongside it, a gapless playback toggle smooths the transition between tracks wi
 
 ### Personalization and Themes
 
-Playnck's appearance is built from six background shades, from a near-black Pitch Black through a light cream theme to a Deep Midnight Blue and a Forest Green, crossed with twelve accent colors, for seventy-two combinations in total. Every combination previews instantly as you click through the swatches and is remembered the next time you open the app; on Windows, the title bar itself recolors to match whatever you choose.
+Playnck's appearance is built from twelve background shades, from a near-black Pitch Black through a light cream theme and a cool light theme to a Deep Midnight Blue, a Forest Green, Burgundy Wine, Plum Violet, Espresso Brown, Deep Ocean Teal and Twilight Indigo, crossed with eighteen accent colors, for two hundred sixteen combinations in total. Every combination previews instantly as you click through the swatches and is remembered the next time you open the app; on Windows, the title bar itself recolors to match whatever you choose.
 
 Separately, under Settings > Player, you can set your own image as the Now Playing background and control how much blur sits over it with a slider from 0 to 20 pixels, adjust how strongly the audio visualizer reacts to the music, and show or hide the audio information line (sample rate, bitrate, and format) beneath the artist and album.
 
