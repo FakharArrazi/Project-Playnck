@@ -289,6 +289,7 @@ Project-Playnck/
 │   ├── convert.js                   The Convert tab
 │   ├── settings.js / theme.js / backup.js  Settings panel, theming, and backup/restore
 │   ├── sleep-timer.js               Sleep timer
+│   ├── shortcuts.js                 Keyboard shortcut definitions (key handling and the Settings reference)
 │   └── i18n.js                      English/French translation strings
 ├── css/                           One stylesheet per UI area, imported from styles.css
 ├── vendor/                        Bundled jsmediatags fallback reader and app fonts
@@ -414,9 +415,9 @@ History keeps a running log of what you have actually listened to, grouped by da
 
 ### Settings, All in One Place
 
-Every setting lives in a single panel, organized into six collapsible sections: Theme, Updates, Audio, Player, Backup and Restore, and Language.
+Every setting lives in a single panel, organized into seven collapsible sections: Theme, Updates, Audio, Player, Keyboard Shortcuts, Backup and Restore, and Language.
 
-Under Updates, Playnck checks its own GitHub Releases automatically while it runs on Windows (roughly every 45 minutes) and can download and install a new version for you in-app; on Linux, updates are installed by reinstalling the `.rpm` or `.deb` package yourself, and the button here explains why and links to the Releases page. Under Backup and Restore, you can export your entire library (tracks, playlists, playlist folders, watched folders, lyrics, and settings) to a single JSON file, and import it again later on the same or a different machine; this backs up your library's structure and metadata rather than the audio files themselves, so the original files still need to exist at the paths recorded in the backup. Under Language, you can switch the interface between English and French, both built in from the start.
+Under Updates, Playnck checks its own GitHub Releases automatically while it runs on Windows (roughly every 45 minutes) and can download and install a new version for you in-app; on Linux, updates are installed by reinstalling the `.rpm` or `.deb` package yourself, and the button here explains why and links to the Releases page. Under Backup and Restore, you can export your entire library (tracks, playlists, playlist folders, watched folders, lyrics, and settings) to a single JSON file, and import it again later on the same or a different machine; this backs up your library's structure and metadata rather than the audio files themselves, so the original files still need to exist at the paths recorded in the backup. Under Language, you can switch the interface between English and French, both built in from the start. Under Keyboard Shortcuts, a read-only reference lists every shortcut the player responds to, grouped into Playback, Navigation, Volume, and Media keys; it is generated from the same list the app uses to handle the keys, so it always matches what actually works.
 
 A Sleep Timer, opened from the same per-track menu as History, lets you choose 15, 30, 45, 60, or 90 minutes, after which playback simply pauses on its own, a small convenience for falling asleep to music without it running all night.
 
@@ -445,6 +446,8 @@ These work anywhere in the app except while you are typing into a text field.
 | Up / Down arrow | Volume up / down |
 | Left / Right arrow | Seek back / forward 5 seconds |
 | Ctrl + Left / Right arrow | Previous / next track |
+
+Your keyboard's media keys (play/pause, previous, next) work as well. The same list is available inside the app under Settings > Keyboard Shortcuts.
 
 ## Support the Project
 

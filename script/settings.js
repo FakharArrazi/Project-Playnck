@@ -20,6 +20,7 @@ import {
 } from "./backup.js";
 import { openModal } from "./modal.js";
 import { showWhatsNewManually } from "./whats-new.js";
+import { shortcutsByGroup, shortcutTokens } from "./shortcuts.js";
 
 function applyPlayerBg() {
   const layer = $("playerBg");
@@ -87,9 +88,9 @@ function refreshPlayerBgUI() {
 }
 const ACCORDION_CHEVRON_SVG = `<svg class="accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
 
-function accordionItem(id, label, bodyHTML) {
+function accordionItem(id, label, bodyHTML, extraClass = "") {
   return `
-    <div class="accordion-item" id="acc-${id}">
+    <div class="accordion-item${extraClass ? " " + extraClass : ""}" id="acc-${id}">
       <button class="accordion-header" data-acc="${id}">
         <span>${escapeHTML(label)}</span>
         ${ACCORDION_CHEVRON_SVG}
@@ -250,6 +251,43 @@ function backupBodyHTML() {
     </div>`;
 }
 
+const IS_MAC_PLATFORM = /mac/i.test(
+  (navigator.userAgentData && navigator.userAgentData.platform) ||
+    navigator.platform ||
+    "",
+);
+
+function shortcutsBodyHTML() {
+  const keyCapHTML = (token) =>
+    `<kbd class="key-cap${token.glyph ? " key-cap-glyph" : ""}">${escapeHTML(token.i18n ? tr(token.i18n) : token.text)}</kbd>`;
+  const groupsHTML = shortcutsByGroup()
+    .map(({ group, items }) => {
+      const rowsHTML = items
+        .map((shortcut) => {
+          const keys = shortcutTokens(shortcut, { isMac: IS_MAC_PLATFORM })
+            .map(keyCapHTML)
+            .join('<span class="key-plus">+</span>');
+          return `
+            <div class="shortcut-row">
+              <span class="shortcut-keys">${keys}</span>
+              <span class="shortcut-desc">${escapeHTML(tr(shortcut.descKey, shortcut.descVars))}</span>
+            </div>`;
+        })
+        .join("");
+      return `
+        <div class="shortcut-group">
+          <div class="theme-group-label">${escapeHTML(tr(group.labelKey))}</div>
+          <div class="shortcut-list">${rowsHTML}</div>
+        </div>`;
+    })
+    .join("");
+  return `
+    <div class="shortcuts-panel">
+      ${groupsHTML}
+      <p class="theme-note">${escapeHTML(tr("shortcuts.note"))}</p>
+    </div>`;
+}
+
 function openSettingsModal() {
   const bgSwatches = Object.entries(THEME_BG)
     .map(
@@ -377,6 +415,7 @@ function openSettingsModal() {
       ${accordionItem("updates", tr("settings.updates"), updatesBodyHTML())}
       ${accordionItem("audio", tr("settings.audio"), audioBodyHTML)}
       ${accordionItem("player", tr("settings.player"), playerBodyHTML)}
+      ${accordionItem("shortcuts", tr("settings.shortcuts"), shortcutsBodyHTML(), "accordion-item-tall")}
       ${accordionItem("backup", tr("settings.backup"), backupBodyHTML())}
       ${accordionItem("language", tr("settings.language"), languageBodyHTML)}
     </div>`;

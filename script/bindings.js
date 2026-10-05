@@ -60,10 +60,30 @@ import { openAboutModal } from "./backup.js";
 import { openSleepTimerModal } from "./sleep-timer.js";
 import { openHistoryModal } from "./history.js";
 import { openEditModal } from "./metadata-edit.js";
+import {
+  SEEK_STEP_SECONDS,
+  VOLUME_STEP,
+  findShortcutForEvent,
+} from "./shortcuts.js";
 
 function toggleRail() {
   $("appRoot").classList.toggle("rail-expanded");
 }
+
+// What each keyboard shortcut does. Which keys trigger them (and how they are
+// listed in Settings → Keyboard Shortcuts) is defined in shortcuts.js.
+const SHORTCUT_ACTIONS = {
+  playPause: togglePlay,
+  mute: toggleMute,
+  repeatExtra: addRepeatExtra,
+  repeatExtraReset: resetRepeatExtra,
+  volumeUp: () => adjustVolume(VOLUME_STEP),
+  volumeDown: () => adjustVolume(-VOLUME_STEP),
+  seekForward: () => seekBy(SEEK_STEP_SECONDS),
+  seekBack: () => seekBy(-SEEK_STEP_SECONDS),
+  nextTrack: () => nextTrack(false),
+  prevTrack: () => prevTrack(),
+};
 
 function bindEvents() {
   document.addEventListener("keydown", (e) => {
@@ -75,54 +95,11 @@ function bindEvents() {
         t.isContentEditable);
     if (isTyping) return;
 
-    if ((e.code === "Space" || e.key === " ") && !e.repeat) {
-      e.preventDefault();
-      togglePlay();
-      return;
-    }
-
-    if (e.code === "KeyM" && !e.repeat) {
-      e.preventDefault();
-      toggleMute();
-      return;
-    }
-
-    if (
-      e.code === "KeyR" &&
-      !e.repeat &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.altKey
-    ) {
-      e.preventDefault();
-      if (e.shiftKey) resetRepeatExtra();
-      else addRepeatExtra();
-      return;
-    }
-
-    if (e.code === "ArrowUp") {
-      e.preventDefault();
-      adjustVolume(0.05);
-      return;
-    }
-    if (e.code === "ArrowDown") {
-      e.preventDefault();
-      adjustVolume(-0.05);
-      return;
-    }
-
-    if (e.code === "ArrowRight") {
-      e.preventDefault();
-      if (e.ctrlKey || e.metaKey) nextTrack(false);
-      else seekBy(5);
-      return;
-    }
-    if (e.code === "ArrowLeft") {
-      e.preventDefault();
-      if (e.ctrlKey || e.metaKey) prevTrack();
-      else seekBy(-5);
-      return;
-    }
+    const shortcut = findShortcutForEvent(e);
+    const action = shortcut && SHORTCUT_ACTIONS[shortcut.id];
+    if (!action) return;
+    e.preventDefault();
+    action();
   });
 
   document.querySelectorAll(".rail-item[data-tab]").forEach((btn) => {
