@@ -348,8 +348,10 @@
   overflow: hidden;
   transition: max-height 0.25s ease;
 }
+/* Generous cap so no section (Player is the tallest default one) is clipped.
+   The modal itself scrolls when the window is short. */
 .accordion-item.open .accordion-body {
-  max-height: 640px;
+  max-height: 2400px;
 }
 .accordion-body-inner {
   padding: 2px 14px 16px;
@@ -357,11 +359,6 @@
 }
 .accordion-body-inner .theme-picker {
   padding-top: 14px;
-}
-/* The shortcut list is taller than the default cap; the modal itself scrolls
-   if the window is short, so this only needs to be comfortably large. */
-.accordion-item.accordion-item-tall.open .accordion-body {
-  max-height: 1400px;
 }
 
 .shortcuts-panel {
