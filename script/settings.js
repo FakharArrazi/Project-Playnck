@@ -21,17 +21,33 @@ import {
 import { openModal } from "./modal.js";
 import { showWhatsNewManually } from "./whats-new.js";
 import { shortcutsByGroup, shortcutTokens } from "./shortcuts.js";
+import {
+  PLAYER_BG_STYLE_KEYS,
+  setProceduralBackground,
+} from "./player-bg-procedural.js";
+
+function activePlayerBgStyle() {
+  return PLAYER_BG_STYLE_KEYS.includes(state.playerBg.style)
+    ? state.playerBg.style
+    : null;
+}
 
 function applyPlayerBg() {
   const layer = $("playerBg");
   if (!layer) return;
-  if (state.playerBg.image) {
+  const style = activePlayerBgStyle();
+  layer.classList.toggle("procedural", !!style);
+  if (style) {
+    layer.style.backgroundImage = "none";
+    layer.classList.remove("hidden");
+  } else if (state.playerBg.image) {
     layer.style.backgroundImage = `url("${state.playerBg.image}")`;
     layer.classList.remove("hidden");
   } else {
     layer.style.backgroundImage = "none";
     layer.classList.add("hidden");
   }
+  setProceduralBackground(style);
   document.documentElement.style.setProperty(
     "--player-bg-blur",
     state.playerBg.blur + "px",
@@ -55,6 +71,7 @@ function setPlayerBgImage(file) {
   const reader = new FileReader();
   reader.onload = () => {
     state.playerBg.image = reader.result;
+    state.playerBg.style = null;
     applyPlayerBg();
     savePlayerBg();
     refreshPlayerBgUI();
@@ -67,6 +84,20 @@ function clearPlayerBgImage() {
   applyPlayerBg();
   savePlayerBg();
   refreshPlayerBgUI();
+}
+
+function setPlayerBgStyle(key) {
+  state.playerBg.style = PLAYER_BG_STYLE_KEYS.includes(key) ? key : null;
+  applyPlayerBg();
+  savePlayerBg();
+  refreshPlayerBgUI();
+}
+
+function paintRangeFill(input) {
+  const min = Number(input.min) || 0;
+  const max = Number(input.max) || 100;
+  const ratio = max > min ? (Number(input.value) - min) / (max - min) : 0;
+  input.style.setProperty("--fill", Math.max(0, Math.min(1, ratio)));
 }
 
 function setPlayerBgBlur(px) {
@@ -85,6 +116,12 @@ function refreshPlayerBgUI() {
   preview.innerHTML = playerBgPreviewHTML();
   const removeBtn = $("playerBgRemoveBtn");
   if (removeBtn) removeBtn.disabled = !state.playerBg.image;
+  const current = activePlayerBgStyle() || "image";
+  document
+    .querySelectorAll("#playerBgStyleRow [data-bgstyle]")
+    .forEach((b) => b.classList.toggle("active", b.dataset.bgstyle === current));
+  const blurRow = $("playerBgBlurRow");
+  if (blurRow) blurRow.classList.toggle("is-inactive", current !== "image");
 }
 const ACCORDION_CHEVRON_SVG = `<svg class="accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
 
@@ -360,6 +397,16 @@ function openSettingsModal() {
     </div>`;
   const playerBodyHTML = `
     <div class="player-bg-settings">
+      <div class="theme-group-label">${escapeHTML(tr("settings.playerBgStyle"))}</div>
+      <div class="player-bg-style-row" id="playerBgStyleRow">
+        ${["image", ...PLAYER_BG_STYLE_KEYS]
+          .map(
+            (key) =>
+              `<button type="button" class="lang-chip${(activePlayerBgStyle() || "image") === key ? " active" : ""}" data-bgstyle="${key}">${escapeHTML(tr("bgStyle." + key))}</button>`,
+          )
+          .join("")}
+      </div>
+      <p class="theme-note">${escapeHTML(tr("settings.playerBgStyleNote"))}</p>
       <div class="theme-group-label">${escapeHTML(tr("settings.nowPlayingBgImage"))}</div>
       <div class="player-bg-row">
         <div class="player-bg-preview" id="playerBgPreview">${playerBgPreviewHTML()}</div>
@@ -369,7 +416,7 @@ function openSettingsModal() {
           <input type="file" id="playerBgFileInput" accept="image/*" class="hidden">
         </div>
       </div>
-      <div class="player-bg-blur-row">
+      <div class="player-bg-blur-row${activePlayerBgStyle() ? " is-inactive" : ""}" id="playerBgBlurRow">
         <div class="theme-group-label">${escapeHTML(tr("settings.blur"))}</div>
         <div class="player-bg-blur-control">
           <input type="range" id="playerBgBlurSlider" min="0" max="20" step="1" value="${state.playerBg.blur}">
@@ -450,6 +497,17 @@ function openSettingsModal() {
     playerBgFileInput.value = "";
   });
   $("playerBgRemoveBtn").addEventListener("click", clearPlayerBgImage);
+  $("playerBgStyleRow")
+    .querySelectorAll("[data-bgstyle]")
+    .forEach((btn) =>
+      btn.addEventListener("click", () => setPlayerBgStyle(btn.dataset.bgstyle)),
+    );
+  document
+    .querySelectorAll(".player-bg-blur-control input[type=\"range\"]")
+    .forEach((input) => {
+      paintRangeFill(input);
+      input.addEventListener("input", () => paintRangeFill(input));
+    });
   const blurSlider = $("playerBgBlurSlider");
   blurSlider.addEventListener("input", () => {
     $("playerBgBlurValue").textContent = blurSlider.value + "px";

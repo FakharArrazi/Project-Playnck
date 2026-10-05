@@ -102,7 +102,7 @@ const state = {
   lyricOffsets: {},
   lastLyricIdx: -2,
   theme: { bg: "pitchblack", accent: "blue" },
-  playerBg: { image: null, blur: 0 },
+  playerBg: { image: null, blur: 0, style: null },
   visualizer: { enabled: false, intensity: 1 },
   showAudioInfo: true,
   updateInfo: { state: "idle" },

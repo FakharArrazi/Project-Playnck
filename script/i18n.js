@@ -326,6 +326,14 @@ const I18N = {
     "audio.gapless": "Gapless Playback",
     "audio.gaplessNote":
       "Smooths the transition between songs with a short automatic crossfade instead of a hard cut. Doesn't affect repeat-one.",
+    "settings.playerBgStyle": "Now-playing background style",
+    "settings.playerBgStyleNote":
+      "Procedural styles replace the image behind the cover art, on the now-playing panel only. Your chosen image is kept.",
+    "bgStyle.image": "Image",
+    "bgStyle.organic": "Organic",
+    "bgStyle.flow": "Flow",
+    "bgStyle.nested": "Nested",
+    "bgStyle.waves": "Waves",
     "settings.nowPlayingBgImage": "Now-playing background image",
     "settings.chooseImage": "Choose Image",
     "settings.remove": "Remove",
@@ -830,6 +838,14 @@ const I18N = {
     "audio.gapless": "Lecture sans interruption",
     "audio.gaplessNote":
       "Adoucit la transition entre les morceaux avec un court fondu enchaîné automatique au lieu d'une coupure nette. N'affecte pas la répétition d'un seul morceau.",
+    "settings.playerBgStyle": "Style d'arrière-plan de lecture en cours",
+    "settings.playerBgStyleNote":
+      "Les styles procéduraux remplacent l'image derrière la pochette, uniquement dans le panneau de lecture. Votre image est conservée.",
+    "bgStyle.image": "Image",
+    "bgStyle.organic": "Organique",
+    "bgStyle.flow": "Flux",
+    "bgStyle.nested": "Imbriqué",
+    "bgStyle.waves": "Vagues",
     "settings.nowPlayingBgImage": "Image d'arrière-plan de lecture en cours",
     "settings.chooseImage": "Choisir une image",
     "settings.remove": "Supprimer",

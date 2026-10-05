@@ -70,6 +70,7 @@ async function init() {
       typeof savedPlayerBg.value.blur === "number"
         ? savedPlayerBg.value.blur
         : 0;
+    state.playerBg.style = savedPlayerBg.value.style || null;
   }
   applyPlayerBg();
 

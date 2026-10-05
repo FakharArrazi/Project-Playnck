@@ -260,6 +260,15 @@
   flex-direction: column;
   gap: 8px;
 }
+.player-bg-blur-row.is-inactive {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.player-bg-style-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .player-bg-blur-control {
   display: flex;
   align-items: center;
@@ -269,6 +278,15 @@
   flex: 1;
   accent-color: var(--accent1);
   height: 4px;
+  --stop: calc(6.5px + (100% - 13px) * var(--fill, 0));
+  background: linear-gradient(
+    to right,
+    var(--accent1) var(--stop),
+    rgba(var(--accent1-rgb), 0.28) var(--stop)
+  );
+}
+.player-bg-blur-control input[type="range"]::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(var(--accent1-rgb), 0.35);
 }
 .player-bg-blur-value {
   font-size: 12.5px;
